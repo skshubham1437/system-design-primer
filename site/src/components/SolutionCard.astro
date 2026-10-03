@@ -1,0 +1,16 @@
+---
+import { href, type Page } from '../lib/site';
+interface Props { page: Page }
+const { page } = Astro.props;
+---
+<a class="card solution-card group-practice" href={href(page)}>
+  {page.thumb && <div class="thumb"><img src={page.thumb} alt="" loading="lazy" /></div>}
+  <div class="body">
+    <h3>{page.title}</h3>
+    <p>{page.blurb}</p>
+    <span class="foot">
+      {page.difficulty && <span class="chip diff">{page.difficulty}</span>}
+      <span>{page.minutes} min read</span>
+    </span>
+  </div>
+</a>

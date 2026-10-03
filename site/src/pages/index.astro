@@ -1,0 +1,77 @@
+---
+import Base from '../layouts/Base.astro';
+import HeroArt from '../components/HeroArt.astro';
+import TopicGroups from '../components/TopicGroups.astro';
+import SolutionCard from '../components/SolutionCard.astro';
+import { solutions, stats, withBase } from '../lib/site';
+
+const paths = [
+  { id: 'short', when: 'Days away', title: 'Short timeline', body: 'Aim for breadth. Know what each building block does and when you would reach for it.', steps: ['Skim the topics', 'Solve a few questions', 'Learn the 4-step approach'] },
+  { id: 'medium', when: 'A few weeks', title: 'Medium timeline', body: 'Breadth plus some depth. Practise on many questions and read about real systems.', steps: ['All of the above', 'Work through many solutions', 'Read real-world architectures'] },
+  { id: 'long', when: 'A month or more', title: 'Long timeline', body: 'Go deep in the areas that matter for the roles and companies you are targeting.', steps: ['All of the above', 'Solve most questions', 'Study company engineering blogs'] },
+];
+---
+<Base title="System Design Primer" layout="wide" current="">
+  <section class="hero">
+    <div class="page-wrap hero-grid">
+      <div>
+        <p class="eyebrow">An open-source guide</p>
+        <h1>Learn how to design <em>large-scale</em> systems.</h1>
+        <p class="lede">Concepts, trade-offs and worked interview solutions, in a form you can actually read. Everything is a trade-off; this is where to learn them.</p>
+        <div class="cta-row">
+          <a class="btn primary" href={withBase('learn/start-here/')}>Start learning <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+          <a class="btn" href={withBase('practice/')}>Practise a question</a>
+        </div>
+        <div class="hero-search">
+          <button class="search-btn" type="button" data-search-open aria-label="Search the primer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <span>Search “sharding”, “CAP”, “write-through”…</span><kbd>/</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="hero-art"><HeroArt /></div>
+    </div>
+  </section>
+
+  <div class="page-wrap">
+    <div class="stats" style="margin-top:40px">
+      <div class="stat"><b>{stats.topics}</b><span>Concept pages</span></div>
+      <div class="stat"><b>{stats.solutions}</b><span>System design solutions</span></div>
+      <div class="stat"><b>{stats.ood}</b><span>Object-oriented exercises</span></div>
+      <div class="stat"><b>3</b><span>Anki flashcard decks</span></div>
+    </div>
+
+    <section class="section">
+      <div class="section-head">
+        <div><p class="eyebrow">Interview prep</p><h2>Pick your path</h2><p>You do not need to know everything. Match the depth to the time you have.</p></div>
+        <a class="link-more" href={withBase('interview/study-guide/')}>Full study guide →</a>
+      </div>
+      <div class="paths">
+        {paths.map((p) => (
+          <a class="path-card" href={withBase(`interview/study-guide/#${p.id}`)}>
+            <span class="when">{p.when}</span>
+            <h3>{p.title}</h3>
+            <p>{p.body}</p>
+            <ul>{p.steps.map((s) => <li>{s}</li>)}</ul>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><p class="eyebrow">Learn</p><h2>The map of system design</h2><p>Ordered the way you meet these problems as a system grows.</p></div>
+        <a class="link-more" href={withBase('learn/')}>All topics →</a>
+      </div>
+      <TopicGroups only={['start', 'fundamentals', 'network', 'application', 'data']} />
+    </section>
+
+    <section class="section group-practice">
+      <div class="section-head">
+        <div><p class="eyebrow">Practice</p><h2>Worked solutions</h2><p>Diagrams, back-of-the-envelope maths and the reasoning behind each choice.</p></div>
+        <a class="link-more" href={withBase('practice/')}>All exercises →</a>
+      </div>
+      <div class="card-grid">{solutions.map((p) => <SolutionCard page={p} />)}</div>
+    </section>
+  </div>
+</Base>

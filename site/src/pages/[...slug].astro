@@ -1,0 +1,69 @@
+---
+import Base from '../layouts/Base.astro';
+import Toc from '../components/Toc.astro';
+import cards from '../generated/flashcards.json';
+import { pages, href, neighbours, groupLabel, sourceUrl, withBase, pageByPath, type Page } from '../lib/site';
+
+export function getStaticPaths() {
+  return pages.map((page) => ({ params: { slug: page.path.replace(/\/$/, '') }, props: { page } }));
+}
+
+const { page } = Astro.props as { page: Page };
+// JSON inside a <script>: escape "<" so card HTML can never close the tag.
+const cardsJson = JSON.stringify(cards).replace(/</g, '\\u003c');
+const { prev, next } = neighbours(page);
+const isSolution = page.kind === 'solution';
+const crumb =
+  page.kind === 'solution' ? { label: 'Practice · System design', href: 'practice/#system-design' }
+  : page.kind === 'ood' ? { label: 'Practice · Object-oriented design', href: 'practice/#object-oriented' }
+  : page.kind === 'about' ? null
+  : page.section === 'learn' ? { label: groupLabel(page.group), href: 'learn/' }
+  : { label: groupLabel(page.group), href: `${page.section}/` };
+const steps = isSolution ? page.toc.filter((t) => /^Step \d/.test(t.text)) : [];
+const concepts = (page.concepts ?? []).map((p) => pageByPath(p)).filter(Boolean) as Page[];
+const hueGroup = page.kind === 'solution' || page.kind === 'ood' ? 'practice' : page.group;
+const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
+---
+<Base title={page.title} description={page.blurb} current={page.path} hasToc={page.toc.length > 1}>
+  <article class={`article group-${hueGroup ?? 'start'}`} data-pagefind-body>
+    {crumb && (
+      <div class="crumb"><a href={withBase(crumb.href)}>{crumb.label}</a></div>
+    )}
+    <h1 class="title" data-pagefind-meta="title">{page.title}</h1>
+    <p class="dek">{page.blurb}</p>
+    <div class="meta-row">
+      {page.difficulty && <span class="chip diff">{page.difficulty}</span>}
+      <span>{page.minutes} min read</span>
+      <a href={sourceUrl(page)} target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+        Improve this page on GitHub
+      </a>
+    </div>
+
+    {concepts.length > 0 && (
+      <div class="concepts">
+        <span class="concepts-label">Concepts used</span>
+        {concepts.slice(0, 8).map((c) => <a class="chip" href={href(c)}>{c.title}</a>)}
+      </div>
+    )}
+    {steps.length > 0 && (
+      <nav class="steps" aria-label="Steps">
+        {steps.map((s) => <a href={`#${s.id}`}>{s.text.replace(/^Step \d+:\s*/, '')}</a>)}
+      </nav>
+    )}
+
+    {page.path === 'practice/flashcards/' && cards.length > 0 && (
+      <div data-widget="flashcards" data-pagefind-ignore>
+        <script type="application/json" set:html={cardsJson} />
+      </div>
+    )}
+    <Toc items={page.toc} inline />
+    <div class="prose" set:html={page.html} />
+
+    <nav class="pager" aria-label="Previous and next">
+      {prev && <a class="prev" href={href(prev)}><small>Previous</small><strong>{rel(prev)}</strong></a>}
+      {next && <a class="next" href={href(next)}><small>Next</small><strong>{rel(next)}</strong></a>}
+    </nav>
+  </article>
+  <Toc slot="toc" items={page.toc} />
+</Base>

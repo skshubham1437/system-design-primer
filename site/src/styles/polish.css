@@ -1,0 +1,103 @@
+/* Mobile polish and dark-mode diagrams. Loaded after the other stylesheets. */
+
+/* ------------------------------------------------------------------ diagrams in dark mode */
+/* Diagrams are dark-on-white PNGs. In dark mode they are inverted (hue restored) so they
+   do not glare; the "Original colours" button on each figure switches back. */
+:root[data-theme='dark']:not([data-diagrams='original']) :is(.figure img, .fc-back img, .lightbox img) {
+  filter: invert(0.9) hue-rotate(180deg) brightness(1.02) contrast(0.95);
+  border-color: #dcdcdc; /* inverts to a dark hairline */
+  box-shadow: none;
+}
+.site-header { background: color-mix(in srgb, var(--bg) 92%, transparent); }
+.figure { position: relative; }
+.fig-toggle {
+  display: none; position: absolute; top: 10px; right: 10px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(6px);
+  color: var(--ink-2); font-size: 11.5px; font-weight: 600; opacity: 0; transition: opacity 0.15s;
+}
+:root[data-theme='dark'] .fig-toggle { display: block; }
+.figure:hover .fig-toggle, .fig-toggle:focus-visible { opacity: 1; }
+@media (hover: none) { .fig-toggle { opacity: 0.9; } }
+
+/* ------------------------------------------------------------------ drawer + touch targets */
+.drawer-head { display: none; }
+@media (max-width: 960px) {
+  .sidebar {
+    height: 100vh; height: 100dvh; visibility: hidden; overscroll-behavior: contain;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
+    padding-top: 0;
+  }
+  body.nav-open .sidebar { visibility: visible; transition-delay: 0s; }
+  body.nav-open { overflow: hidden; }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 2; margin: 0 -16px 8px; padding: 10px 16px 10px 26px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .drawer-head strong { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .nav-link { padding: 10px 12px; font-size: 15.5px; }
+  .nav-sub > summary { padding: 10px 12px; font-size: 15.5px; }
+  .icon-btn { width: 42px; height: 42px; }
+  .main { padding-bottom: 56px; }
+}
+
+/* ------------------------------------------------------------------ small screens */
+@media (max-width: 560px) {
+  .site-header .inner { padding: 0 8px 0 4px; gap: 4px; }
+  .brand { font-size: 15px; margin-left: 2px; }
+  .article h1.title { font-size: 2rem; }
+  .article .dek { font-size: 1.06rem; }
+  .meta-row { gap: 6px 14px; margin-bottom: 22px; }
+  .concepts { margin-top: -4px; }
+  .steps { gap: 8px; }
+  .steps a { padding: 10px 12px; font-size: 13px; }
+
+  .prose { line-height: 1.7; }
+  .prose th, .prose td { padding: 9px 12px; }
+  .prose table { font-size: 0.88rem; }
+  .code-block { margin-inline: -4px; border-radius: 10px; }
+  .code-block pre { font-size: 12.5px; padding: 12px 12px; }
+  .figure img { padding: 8px; border-radius: 10px; }
+  .callout { padding: 12px 14px 2px; }
+  .sources summary { padding: 11px 12px; flex-wrap: wrap; gap: 4px 8px; }
+  .sources-body { padding: 12px 14px 4px; }
+  .pager { margin-top: 44px; }
+
+  .page-wrap { padding: 0 16px; }
+  .hero-grid { padding-block: 36px 32px; }
+  .hero h1 { font-size: 2.45rem; }
+  .hero .lede { font-size: 1.05rem; margin-bottom: 22px; }
+  .cta-row .btn { flex: 1 1 100%; justify-content: center; }
+  .stat { padding: 14px 16px; }
+  .stat b { font-size: 1.6rem; }
+  .section { padding-top: 40px; }
+  .section-head { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 18px; }
+  .card-grid { grid-template-columns: 1fr; gap: 12px; }
+  .topic-group + .topic-group { margin-top: 28px; }
+  .page-hero { padding-top: 0 !important; }
+  .page-hero h1 { font-size: 2.1rem; }
+  .page-hero p { font-size: 1.05rem; }
+  .path-card { padding: 18px; }
+
+  .search-dialog { margin-top: 4vh; width: calc(100vw - 16px); }
+  .search-input { font-size: 16px; } /* avoids iOS zoom-on-focus */
+  .search-results { max-height: 62vh; }
+  .search-foot { display: none; }
+  .lightbox-inner { padding: 12px; }
+  .lightbox img { padding: 8px; }
+
+  .widget { border-radius: 14px; margin-inline: -4px; }
+  .widget-head h3 { font-size: 1.3rem; }
+  .field input { width: 96px; }
+  .fc-actions .btn { flex: 1 1 100%; justify-content: center; }
+  .fc-actions .btn kbd { display: none; }
+  .fc-tools { width: 100%; }
+  .widget input[type='number'] { font-size: 16px; }
+
+  .site-footer { margin-top: 64px; }
+  .site-footer .inner { padding: 28px 16px calc(28px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .steps { grid-template-columns: 1fr; }
+  .seg button { padding: 7px 8px; }
+  .seg button small { display: none; }
+}
+
+.widget .mini th { background: none; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 400; padding-left: 0; }
+.widget .mini th, .widget .mini td { padding-inline: 0; }

@@ -1,0 +1,12 @@
+---
+import Base from '../../layouts/Base.astro';
+import TopicGroups from '../../components/TopicGroups.astro';
+---
+<Base title="Learn: system design topics" description="Every core system design concept, grouped by how you meet them when scaling a system." current="learn/">
+  <div class="page-hero group-start" style="padding-top:0">
+    <p class="eyebrow">Learn</p>
+    <h1>System design topics</h1>
+    <p>Summaries of the building blocks of large systems, including their pros and cons. Everything is a trade-off, and each page links to deeper resources.</p>
+  </div>
+  <div style="margin-top:40px"><TopicGroups only={['start', 'fundamentals', 'network', 'application', 'data']} /></div>
+</Base>

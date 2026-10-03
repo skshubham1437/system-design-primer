@@ -1,0 +1,20 @@
+/* ------------------------------------------------------------------ flashcards */
+.fc-tools { display: flex; gap: 8px; }
+.fc-stage { padding: 22px 24px 26px; display: grid; gap: 16px; }
+.fc-count { font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.fc-card { border: 1px solid var(--line-strong); border-radius: 16px; background: var(--bg); padding: 28px 28px 24px; min-height: 180px; box-shadow: var(--shadow); }
+.widget .fc-front { margin: 0; text-transform: none; color: var(--ink); font-family: var(--font-serif); font-size: clamp(1.5rem, 3.4vw, 2.1rem); font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; text-wrap: balance; }
+.fc-hint { margin: 14px 0 0; color: var(--ink-3); font-size: 14px; }
+.fc-back { margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--line-strong); max-height: min(58vh, 520px); overflow-y: auto; font-size: 0.98rem; line-height: 1.65; padding-right: 6px; }
+.fc-back h1, .fc-back h2, .fc-back h3, .fc-back h4, .fc-back h5, .fc-back h6 { font-family: var(--font-ui); font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin: 1.4em 0 0.4em; border: 0; padding: 0; }
+.fc-back img { display: block; max-width: 100%; height: auto; margin: 0 auto 8px; padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+.fc-back pre { overflow-x: auto; padding: 12px 14px; background: var(--surface-2); border-radius: 10px; font-size: 13px; }
+.fc-back pre code { background: none; border: 0; padding: 0; }
+.fc-back table { font-size: 0.9rem; }
+.fc-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.fc-actions .btn kbd { margin-left: 4px; }
+.fc-actions .btn.primary kbd { background: rgb(255 255 255 / 0.18); border-color: rgb(255 255 255 / 0.3); color: inherit; }
+.fc-done { padding: 48px 24px; text-align: center; }
+.widget .fc-done h4 { margin: 0 0 6px; font-family: var(--font-serif); font-size: 1.6rem; text-transform: none; letter-spacing: -0.01em; color: var(--ink); }
+.fc-done p { margin: 0 0 18px; color: var(--ink-2); }
+@media (max-width: 700px) { .fc-stage { padding: 16px; } .fc-card { padding: 20px 18px; } }

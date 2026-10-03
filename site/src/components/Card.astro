@@ -1,0 +1,11 @@
+---
+import { href, groupLabel, type Page } from '../lib/site';
+interface Props { page: Page; kicker?: string }
+const { page, kicker } = Astro.props;
+---
+<a class={`card group-${page.group}`} href={href(page)}>
+  <span class="kicker">{kicker ?? groupLabel(page.group)}</span>
+  <h3>{page.title}</h3>
+  <p>{page.blurb}</p>
+  <span class="foot">{page.minutes} min read</span>
+</a>

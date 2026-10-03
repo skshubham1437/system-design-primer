@@ -1,0 +1,15 @@
+---
+import Base from '../../layouts/Base.astro';
+import Card from '../../components/Card.astro';
+import { pagesInGroup } from '../../lib/site';
+---
+<Base title="Reference" description="Numbers, architectures and reading lists for system design." current="reference/">
+  <div class="page-hero group-reference" style="padding-top:0">
+    <p class="eyebrow">Reference</p>
+    <h1>Numbers and further reading</h1>
+    <p>You will sometimes be asked for back-of-the-envelope estimates. These tables and reading lists are handy to keep close.</p>
+  </div>
+  <div class="card-grid" style="margin-top:40px">
+    {pagesInGroup('reference').map((p, i) => <Card page={p} kicker={String(i + 1).padStart(2, '0')} />)}
+  </div>
+</Base>

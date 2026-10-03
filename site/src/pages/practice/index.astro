@@ -1,0 +1,28 @@
+---
+import Base from '../../layouts/Base.astro';
+import Card from '../../components/Card.astro';
+import SolutionCard from '../../components/SolutionCard.astro';
+import { solutions, oodPages, pagesInGroup } from '../../lib/site';
+---
+<Base title="Practice" description="Worked system design and object-oriented design interview solutions." current="practice/">
+  <div class="page-hero group-practice" style="padding-top:0">
+    <p class="eyebrow">Practice</p>
+    <h1>Work through real interview questions</h1>
+    <p>Each solution walks the four-step approach (use cases, high-level design, core components, scaling) and links back to the concepts it relies on.</p>
+  </div>
+
+  <section class="section group-practice" id="system-design">
+    <div class="section-head"><div><h2>System design</h2><p>Open-ended architecture questions with diagrams, estimates and trade-offs.</p></div></div>
+    <div class="card-grid">{solutions.map((p) => <SolutionCard page={p} />)}</div>
+  </section>
+
+  <section class="section group-practice" id="object-oriented">
+    <div class="section-head"><div><h2>Object-oriented design</h2><p>Model the objects, then write the code. Python solutions with the reasoning alongside.</p></div></div>
+    <div class="card-grid">{oodPages.map((p, i) => <Card page={p} kicker={String(i + 1).padStart(2, '0')} />)}</div>
+  </section>
+
+  <section class="section group-practice" id="more">
+    <div class="section-head"><div><h2>More ways to practise</h2></div></div>
+    <div class="card-grid">{pagesInGroup('practice').map((p) => <Card page={p} kicker="Resource" />)}</div>
+  </section>
+</Base>

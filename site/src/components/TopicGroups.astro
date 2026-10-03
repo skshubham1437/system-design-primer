@@ -1,0 +1,19 @@
+---
+import Card from './Card.astro';
+import { groups, pagesInGroup } from '../lib/site';
+interface Props { only?: string[] }
+const { only } = Astro.props;
+const list = groups.filter((g) => (only ? only.includes(g.id) : true));
+let n = 0;
+---
+{list.map((g) => {
+  const items = pagesInGroup(g.id);
+  return items.length > 0 && (
+    <section class={`topic-group group-${g.id}`}>
+      <h3>{g.label}</h3>
+      <div class="card-grid">
+        {items.map((p) => <Card page={p} kicker={String(++n).padStart(2, '0')} />)}
+      </div>
+    </section>
+  );
+})}

@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import Card from '../../components/Card.astro';
+import { pageByPath, withBase } from '../../lib/site';
+const cards = ['interview/study-guide/', 'interview/approach/'].map((p) => pageByPath(p)!);
+---
+<Base title="Interview prep" description="How to prepare for the system design interview." current="interview/">
+  <div class="page-hero group-start" style="padding-top:0">
+    <p class="eyebrow">Interview</p>
+    <h1>Prepare for the system design interview</h1>
+    <p>Decide what to study from your timeline, learn a repeatable way to structure the conversation, then practise on worked solutions.</p>
+  </div>
+  <div class="card-grid" style="margin-top:40px">
+    {cards.map((p) => <Card page={p} />)}
+    <a class="card group-practice" href={withBase('practice/')}>
+      <span class="kicker">Practice</span>
+      <h3>Worked solutions</h3>
+      <p>Eight system design questions and six object-oriented exercises, with diagrams and code.</p>
+      <span class="foot">14 exercises</span>
+    </a>
+  </div>
+</Base>

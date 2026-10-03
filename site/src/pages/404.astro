@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+import { withBase } from '../lib/site';
+---
+<Base title="Page not found" layout="wide" current="">
+  <div class="page-wrap"><div class="page-hero" style="padding:96px 0 40px">
+    <p class="eyebrow">404</p>
+    <h1>That page is not in the primer.</h1>
+    <p>Try the search (press <kbd>/</kbd>) or head back to <a href={withBase('')}>the start</a>.</p>
+  </div></div>
+</Base>

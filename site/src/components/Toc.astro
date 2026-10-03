@@ -1,0 +1,17 @@
+---
+import type { TocItem } from '../lib/site';
+interface Props { items: TocItem[]; inline?: boolean }
+const { items, inline = false } = Astro.props;
+const min = Math.min(...items.map((i) => i.depth));
+---
+{items.length > 1 && (inline ? (
+  <details class="toc-inline" data-pagefind-ignore>
+    <summary>On this page</summary>
+    <ol>{items.map((i) => <li class={i.depth > min ? 'd3' : 'd2'}><a href={`#${i.id}`}>{i.text}</a></li>)}</ol>
+  </details>
+) : (
+  <aside class="toc" aria-label="On this page">
+    <h2>On this page</h2>
+    <ol>{items.map((i) => <li class={i.depth > min ? 'd3' : 'd2'}><a href={`#${i.id}`} data-toc={i.id}>{i.text}</a></li>)}</ol>
+  </aside>
+))}
