@@ -24,3 +24,5 @@ node scripts/check-links.mjs   # verify every internal link and anchor in dist/
 Remote diagrams (imgur) are downloaded once into `public/img/remote/` so the site does not depend on third-party hosting. Commit that folder.
 
 For a GitHub Pages project site, build with `SITE_BASE=/<repo>/` (the workflow in `.github/workflows/deploy-site.yml` does this).
+
+Live site: https://skshubham1437.github.io/system-design-primer/
