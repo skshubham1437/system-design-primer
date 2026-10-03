@@ -101,3 +101,12 @@
 
 .widget .mini th { background: none; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 400; padding-left: 0; }
 .widget .mini th, .widget .mini td { padding-inline: 0; }
+
+/* "Try it" strip linking topic pages to labs */
+.try-it { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 0 0 28px; padding: 12px; border: 1px dashed color-mix(in srgb, var(--hue-labs) 55%, var(--line)); border-radius: 14px; background: color-mix(in srgb, var(--hue-labs) 6%, transparent); }
+.try-label { align-self: center; padding: 3px 10px; border-radius: 999px; background: var(--hue-labs); color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+:root[data-theme='dark'] .try-label { color: #1b0f17; }
+.try-it a { flex: 1 1 220px; display: grid; gap: 2px; padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; }
+.try-it a:hover { border-color: var(--hue-labs); }
+.try-it b { font-size: 14.5px; }
+.try-it small { font-size: 12.5px; color: var(--ink-3); line-height: 1.4; }

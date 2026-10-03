@@ -3,7 +3,8 @@ import Base from '../layouts/Base.astro';
 import HeroArt from '../components/HeroArt.astro';
 import TopicGroups from '../components/TopicGroups.astro';
 import SolutionCard from '../components/SolutionCard.astro';
-import { solutions, stats, withBase } from '../lib/site';
+import Card from '../components/Card.astro';
+import { solutions, stats, withBase, pagesInGroup } from '../lib/site';
 
 const paths = [
   { id: 'short', when: 'Days away', title: 'Short timeline', body: 'Aim for breadth. Know what each building block does and when you would reach for it.', steps: ['Skim the topics', 'Solve a few questions', 'Learn the 4-step approach'] },
@@ -64,6 +65,14 @@ const paths = [
         <a class="link-more" href={withBase('learn/')}>All topics →</a>
       </div>
       <TopicGroups only={['start', 'fundamentals', 'network', 'application', 'data']} />
+    </section>
+
+    <section class="section group-labs">
+      <div class="section-head">
+        <div><p class="eyebrow">Labs</p><h2>Learn by poking at it</h2><p>Simulations and calculators: size a system, break a cache, partition a database.</p></div>
+        <a class="link-more" href={withBase('labs/')}>All labs →</a>
+      </div>
+      <div class="card-grid">{pagesInGroup('labs').map((p, i) => <Card page={p} kicker={`Lab ${String(i + 1).padStart(2, '0')}`} />)}</div>
     </section>
 
     <section class="section group-practice">

@@ -16,7 +16,7 @@ import { toString as hastToString } from 'hast-util-to-string';
 import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
-import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS } from './site-map.mjs';
+import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.resolve(here, '..');
@@ -27,7 +27,10 @@ const IMG_LOCAL = path.join(SITE, 'public', 'img', 'local');
 const IMG_REMOTE = path.join(SITE, 'public', 'img', 'remote');
 
 const warnings = [];
-const warn = (msg) => warnings.push(msg);
+// Structural problems (a README section vanished, a link no longer resolves) are "fatal":
+// they fail the build when STRICT=1 or CI is set. Network hiccups only warn.
+const fatal = [];
+const warn = (msg, isFatal = false) => { warnings.push(msg); if (isFatal) fatal.push(msg); };
 
 // ---------------------------------------------------------------- helpers
 
@@ -132,7 +135,7 @@ function anchorTo(id, ctx) {
   id = decodeURIComponent(id).split('>')[0]; // some upstream links carry stray ">1" suffixes
   if (ctx.localIds?.has(id)) return { href: `#${id}` };
   const target = anchorMap.get(id);
-  if (!target) { warn(`unresolved anchor #${id} (in ${ctx.name})`); return { href: `${REPO}#${id}`, external: true }; }
+  if (!target) { warn(`unresolved anchor #${id} (in ${ctx.name})`, true); return { href: `${REPO}#${id}`, external: true }; }
   return { href: internal(target) };
 }
 
@@ -247,7 +250,7 @@ function primer(ctx) {
         const wanted = widget.wrap === 'table' ? 'table-wrap' : 'code-block';
         const i = root.children.findIndex((n) => n.properties?.className?.includes(wanted));
         if (i >= 0) root.children[i] = el('div', { 'data-widget': widget.type, className: ['widget-host'] }, [root.children[i]]);
-        else warn(`widget ${widget.type}: no ${widget.wrap} found on ${ctx.name}`);
+        else warn(`widget ${widget.type}: no ${widget.wrap} found on ${ctx.name}`, true);
       } else root.children.push(el('div', { 'data-widget': widget.type, className: ['widget-host'] }));
     }
 
@@ -353,11 +356,11 @@ async function main() {
     let titleHeading, nodes;
     if (spec.h2) {
       const s = byTitle.get(spec.h2);
-      if (!s) { warn(`README section not found: ${spec.h2}`); continue; }
+      if (!s) { warn(`README section not found: ${spec.h2}`, true); continue; }
       titleHeading = s.heading; nodes = s.nodes;
     } else {
       const i = appendix.nodes.findIndex((n) => isHeading(n, 3) && mdToString(n) === spec.h3);
-      if (i < 0) { warn(`Appendix section not found: ${spec.h3}`); continue; }
+      if (i < 0) { warn(`Appendix section not found: ${spec.h3}`, true); continue; }
       let j = appendix.nodes.findIndex((n, k) => k > i && isHeading(n, 3));
       if (j < 0) j = appendix.nodes.length;
       titleHeading = appendix.nodes[i]; nodes = appendix.nodes.slice(i + 1, j);
@@ -371,7 +374,7 @@ async function main() {
   const aboutHeads = [];
   for (const t of ABOUT_H2) {
     const s = byTitle.get(t);
-    if (!s) { warn(`About section not found: ${t}`); continue; }
+    if (!s) { warn(`About section not found: ${t}`, true); continue; }
     aboutNodes.push(s.heading, ...s.nodes);
     aboutHeads.push(s.heading, ...headingsIn(s.nodes));
   }
@@ -472,6 +475,19 @@ async function main() {
     ood.push(slug);
   }
 
+  // Original lab pages (site/content/labs/*.md); each mounts its widget with a raw <div data-widget>.
+  for (const lab of LABS) {
+    const file = path.join(SITE, 'content', 'labs', `${lab.slug}.md`);
+    if (!fs.existsSync(file)) { warn(`lab content missing: ${file}`, true); continue; }
+    const tr = parse(fs.readFileSync(file, 'utf8'));
+    const slugger = new GithubSlugger();
+    for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
+    const ctx = { name: `labs/${lab.slug}/`, dir: '', title: lab.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+    const r = await render(tr.children, ctx);
+    out.push({ kind: 'topic', section: 'labs', slug: lab.slug, group: 'labs', path: `labs/${lab.slug}/`, title: lab.title, blurb: lab.blurb, original: true, ...r });
+  }
+  for (const p of out) if (RELATED_LABS[p.path]) p.labs = RELATED_LABS[p.path];
+
   const cardCtx = { name: 'flashcards', dir: '', localIds: null };
   const cards = deck.map((c) => ({
     front: cardTitle(c.front),
@@ -485,6 +501,10 @@ async function main() {
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
   console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));
+  if (fatal.length && (process.env.STRICT === '1' || process.env.CI)) {
+    console.error(`\nFailing the build: ${fatal.length} structural problem(s) above. The README layout probably changed; update scripts/site-map.mjs.`);
+    process.exit(1);
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

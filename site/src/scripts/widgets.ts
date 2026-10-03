@@ -356,6 +356,13 @@ function flashcards(host: HTMLElement) {
 }
 
 const widgets: Record<string, (host: HTMLElement) => void> = { 'study-planner': studyPlanner, latency, powers, nines, flashcards };
+const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
 $$('[data-widget]').forEach((host) => {
-  try { widgets[host.dataset.widget!]?.(host); } catch (err) { console.error('widget failed', host.dataset.widget, err); }
+  const type = host.dataset.widget!;
+  try {
+    if (LAB_TYPES.includes(type)) {
+      // labs are the heaviest scripts, so they load only on the pages that use them
+      import('./labs.ts').then((m) => m.labWidgets[type](host)).catch((err) => console.error('lab failed', type, err));
+    } else widgets[type]?.(host);
+  } catch (err) { console.error('widget failed', type, err); }
 });

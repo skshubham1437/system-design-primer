@@ -1,0 +1,15 @@
+---
+import Base from '../../layouts/Base.astro';
+import Card from '../../components/Card.astro';
+import { pagesInGroup } from '../../lib/site';
+---
+<Base title="Labs" description="Interactive simulations and calculators for system design concepts." current="labs/">
+  <div class="page-hero group-labs" style="padding-top:0">
+    <p class="eyebrow">Labs</p>
+    <h1>Learn by poking at it</h1>
+    <p>Small simulations that run in your browser. Change a setting, watch what breaks, and carry the intuition into the interview.</p>
+  </div>
+  <div class="card-grid" style="margin-top:40px">
+    {pagesInGroup('labs').map((p, i) => <Card page={p} kicker={`Lab ${String(i + 1).padStart(2, '0')}`} />)}
+  </div>
+</Base>

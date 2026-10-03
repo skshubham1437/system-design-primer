@@ -29,6 +29,7 @@
   --hue-data: #c4690a;
   --hue-practice: #cc3a5d;
   --hue-reference: #5f6b7a;
+  --hue-labs: #a63d8a;
 
   --radius: 12px;
   --header-h: 60px;
@@ -62,6 +63,7 @@
   --hue-data: #f5a553;
   --hue-practice: #ff7f9f;
   --hue-reference: #9fb0c3;
+  --hue-labs: #e58bd0;
   color-scheme: dark;
 }
 
@@ -92,6 +94,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .group-data { --hue: var(--hue-data); }
 .group-practice { --hue: var(--hue-practice); }
 .group-reference { --hue: var(--hue-reference); }
+.group-labs { --hue: var(--hue-labs); }
 
 .skip-link { position: absolute; left: 12px; top: -48px; background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; z-index: 100; transition: top 0.15s; }
 .skip-link:focus { top: 10px; }

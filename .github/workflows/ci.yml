@@ -1,0 +1,38 @@
+name: CI
+
+# Builds the site on every pull request so a README or site change cannot break publishing.
+on:
+  pull_request:
+    paths:
+      - README.md
+      - solutions/**
+      - images/**
+      - resources/**
+      - site/**
+      - .github/workflows/ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      # CI=true makes structural problems (a vanished README section, a dead anchor) fail the build.
+      - run: npm run build
+        working-directory: site
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/
+          SITE_URL: https://${{ github.repository_owner }}.github.io
+      - run: node scripts/check-links.mjs
+        working-directory: site
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/

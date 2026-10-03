@@ -21,6 +21,7 @@ const crumb =
   : { label: groupLabel(page.group), href: `${page.section}/` };
 const steps = isSolution ? page.toc.filter((t) => /^Step \d/.test(t.text)) : [];
 const concepts = (page.concepts ?? []).map((p) => pageByPath(p)).filter(Boolean) as Page[];
+const tryLabs = (page.labs ?? []).map((p) => pageByPath(p)).filter(Boolean) as Page[];
 const hueGroup = page.kind === 'solution' || page.kind === 'ood' ? 'practice' : page.group;
 const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
 ---
@@ -56,6 +57,12 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
       <div data-widget="flashcards" data-pagefind-ignore>
         <script type="application/json" set:html={cardsJson} />
       </div>
+    )}
+    {tryLabs.length > 0 && (
+      <aside class="try-it" aria-label="Interactive labs for this topic" data-pagefind-ignore>
+        <span class="try-label">Try it</span>
+        {tryLabs.map((l) => <a href={href(l)}><b>{l.title}</b><small>{l.blurb}</small></a>)}
+      </aside>
     )}
     <Toc items={page.toc} inline />
     <div class="prose" set:html={page.html} />

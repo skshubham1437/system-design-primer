@@ -16,11 +16,15 @@ export interface Page {
   difficulty?: string;
   thumb?: string;
   concepts?: string[];
+  labs?: string[];
+  original?: boolean; // authored for this site rather than cut from the upstream README
 }
 export interface Group { id: string; label: string }
 
 export const BASE: string = data.base;
 export const REPO: string = data.repo;
+// This site's own repository (original pages live here, not upstream).
+export const ORIGIN_REPO = 'https://github.com/skshubham1437/system-design-primer';
 export const groups = data.groups as Group[];
 export const pages = data.pages as Page[];
 
@@ -48,6 +52,7 @@ export const groupLabel = (id: string) => groups.find((g) => g.id === id)?.label
 
 // Where the page's markdown lives upstream, for "Edit on GitHub".
 export function sourceUrl(page: Page): string {
+  if (page.original) return `${ORIGIN_REPO}/blob/master/site/content/labs/${page.slug}.md`;
   if (page.kind === 'solution') return `${REPO}/blob/master/solutions/system_design/${page.slug.replace(/-/g, '_')}/README.md`;
   if (page.kind === 'ood') return `${REPO}/tree/master/solutions/object_oriented_design/${page.slug.replace(/-/g, '_')}`;
   return `${REPO}/blob/master/README.md`;

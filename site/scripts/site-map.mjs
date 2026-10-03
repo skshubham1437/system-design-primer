@@ -10,6 +10,7 @@ export const GROUPS = [
   { id: 'network', label: 'Network & edge' },
   { id: 'application', label: 'Application' },
   { id: 'data', label: 'Data' },
+  { id: 'labs', label: 'Labs' },
   { id: 'practice', label: 'Practice' },
   { id: 'reference', label: 'Reference' },
 ];
@@ -100,4 +101,29 @@ export const WIDGETS = {
   'reference/latency-numbers/': { type: 'latency', wrap: 'code' },
   'reference/powers-of-two/': { type: 'powers', wrap: 'code' },
   'learn/availability-patterns/': { type: 'nines', append: true },
+};
+
+// Original, interactive pages that live in site/content/labs/<slug>.md. Each markdown file
+// mounts its widget with a raw <div data-widget="..."></div>.
+export const LABS = [
+  { slug: 'estimator', title: 'Capacity estimator', blurb: 'Turn users and request sizes into QPS, storage, bandwidth and server counts.' },
+  { slug: 'consistent-hashing', title: 'Consistent hashing', blurb: 'Add and remove nodes on a hash ring and see how few keys have to move.' },
+  { slug: 'cache-eviction', title: 'Cache eviction', blurb: 'Replay the same traffic through LRU, LFU, FIFO and random eviction.' },
+  { slug: 'load-balancing', title: 'Load balancing', blurb: 'Compare round robin, least connections, hashing and weighted routing under load.' },
+  { slug: 'cap-theorem', title: 'CAP in practice', blurb: 'Partition a three-node store and watch it choose between consistency and availability.' },
+];
+
+// Topic page -> labs worth trying from it.
+export const RELATED_LABS = {
+  'learn/cache/': ['labs/cache-eviction/'],
+  'learn/load-balancer/': ['labs/load-balancing/'],
+  'learn/availability-vs-consistency/': ['labs/cap-theorem/'],
+  'learn/consistency-patterns/': ['labs/cap-theorem/'],
+  'learn/availability-patterns/': ['labs/cap-theorem/'],
+  'learn/database/': ['labs/consistent-hashing/', 'labs/estimator/'],
+  'learn/performance-vs-scalability/': ['labs/estimator/'],
+  'learn/latency-vs-throughput/': ['labs/estimator/'],
+  'interview/approach/': ['labs/estimator/'],
+  'reference/powers-of-two/': ['labs/estimator/'],
+  'reference/latency-numbers/': ['labs/estimator/'],
 };

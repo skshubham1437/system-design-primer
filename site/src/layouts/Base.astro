@@ -6,6 +6,7 @@ import '@fontsource-variable/jetbrains-mono';
 import '../styles/global.css';
 import '../styles/widgets.css';
 import '../styles/flashcards.css';
+import '../styles/labs.css';
 import '../styles/polish.css';
 import Sidebar from '../components/Sidebar.astro';
 import SearchDialog from '../components/SearchDialog.astro';
@@ -22,10 +23,14 @@ const { title, description = 'A readable, searchable guide to designing large-sc
 const section = current.split('/')[0];
 const nav = [
   { label: 'Learn', href: 'learn/', key: 'learn' },
+  { label: 'Labs', href: 'labs/', key: 'labs' },
   { label: 'Interview', href: 'interview/', key: 'interview' },
   { label: 'Practice', href: 'practice/', key: 'practice' },
   { label: 'Reference', href: 'reference/', key: 'reference' },
 ];
+// Absolute URLs only exist when the public address is known (SITE_URL, set in CI).
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const ogImage = Astro.site ? new URL(withBase('og.png'), Astro.site).href : undefined;
 const fullTitle = current === '' && layout === 'wide' ? title : `${title} · System Design Primer`;
 ---
 <!doctype html>
@@ -35,6 +40,14 @@ const fullTitle = current === '' && layout === 'wide' ? title : `${title} · Sys
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="System Design Primer" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
     <meta name="theme-color" content="#fbfbf8" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0e1110" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href={withBase('favicon.svg')} />
