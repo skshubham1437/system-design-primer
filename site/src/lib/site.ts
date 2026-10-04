@@ -25,6 +25,7 @@ export const BASE: string = data.base;
 export const REPO: string = data.repo;
 // This site's own repository (original pages live here, not upstream).
 export const ORIGIN_REPO = 'https://github.com/skshubham1437/system-design-primer';
+export const features = data.features as Record<string, boolean>;
 export const groups = data.groups as Group[];
 export const pages = data.pages as Page[];
 

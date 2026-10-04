@@ -15,6 +15,8 @@ import { toString as mdToString } from 'mdast-util-to-string';
 import { toString as hastToString } from 'hast-util-to-string';
 import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
+import { runValidators, readFeatures } from './validate/index.mjs';
+import { createLinkResolver, deckFileName } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
 
@@ -129,18 +131,7 @@ const idOf = (h) => h.data.hProperties.id;
 
 const anchorMap = new Map(); // heading id -> path ("learn/cache/#sharding")
 
-function internal(p) { return BASE + p; }
-
-function anchorTo(id, ctx) {
-  id = decodeURIComponent(id).split('>')[0]; // some upstream links carry stray ">1" suffixes
-  if (ctx.localIds?.has(id)) return { href: `#${id}` };
-  const target = anchorMap.get(id);
-  if (!target) { warn(`unresolved anchor #${id} (in ${ctx.name})`, true); return { href: `${REPO}#${id}`, external: true }; }
-  return { href: internal(target) };
-}
-
-// "System Design Exercises.apkg" -> "system-design-exercises.apkg"
-const deckFileName = (name) => name.replace(/\.apkg$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.apkg';
+const { resolveHref } = createLinkResolver({ base: BASE, repo: REPO, anchorMap, warn });
 
 function copyDecks() {
   const src = path.join(ROOT, 'resources', 'flash_cards');
@@ -148,23 +139,6 @@ function copyDecks() {
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });
   for (const f of fs.readdirSync(src).filter((n) => n.endsWith('.apkg'))) fs.copyFileSync(path.join(src, f), path.join(dest, deckFileName(f)));
-}
-
-function resolveHref(href, ctx) {
-  if (!href) return { href };
-  let m;
-  if (href.startsWith('#')) return anchorTo(href.slice(1), ctx);
-  if ((m = href.match(/^https?:\/\/github\.com\/donnemartin\/system-design-primer\/?#(.+)$/))) return anchorTo(m[1], ctx);
-  if ((m = href.match(/^https?:\/\/github\.com\/donnemartin\/system-design-primer\/(?:tree|blob)\/master\/resources\/flash_cards\/([^/]+\.apkg)$/))) {
-    return { href: internal('downloads/' + deckFileName(decodeURIComponent(m[1]))), download: true };
-  }
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return { href, external: true };
-  const abs = path.posix.normalize(path.posix.join(ctx.dir, href));
-  const [file, hash] = abs.split('#');
-  if ((m = file.match(/^solutions\/system_design\/([^/]+)\/README\.md$/))) return { href: internal(`practice/system-design/${m[1].replace(/_/g, '-')}/`) + (hash ? `#${hash}` : '') };
-  if ((m = file.match(/^solutions\/object_oriented_design\/([^/]+)\//))) return { href: internal(`practice/object-oriented/${m[1].replace(/_/g, '-')}/`) };
-  if (file === 'README.md') return hash ? anchorTo(hash, ctx) : { href: internal('') };
-  return { href: `${REPO}/blob/master/${file}`, external: true };
 }
 
 // ---------------------------------------------------------------- hast transform
@@ -217,7 +191,7 @@ function primer(ctx) {
     // 4. tables scroll on small screens
     visit(root, 'element', (node, index, parent) => {
       if (node.tagName !== 'table' || !parent || parent.properties?.className?.includes('table-wrap')) return;
-      parent.children[index] = el('div', { className: ['table-wrap'] }, [node]);
+      parent.children[index] = el('div', { className: ['table-wrap'], tabIndex: 0, role: 'region', 'aria-label': 'Table (scrolls sideways on small screens)' }, [node]);
       return 'skip';
     });
 
@@ -494,10 +468,13 @@ async function main() {
     back: cleanCard(c.back, { resolveHref: (h) => resolveHref(h, cardCtx), resolveImg: (src) => imgMap.get(src) }),
   })).filter((c) => c.front && c.back);
 
+  runValidators({ siteDir: SITE, anchorMap, pages: out }, warn);
+  const features = readFeatures(SITE);
+
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'flashcards.json'), JSON.stringify(cards));
-  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, groups: GROUPS, solutions, ood, pages: out }));
+  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, groups: GROUPS, solutions, ood, pages: out }));
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
   console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));

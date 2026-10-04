@@ -36,3 +36,12 @@ jobs:
         working-directory: site
         env:
           SITE_BASE: /${{ github.event.repository.name }}/
+      - run: npm test
+        working-directory: site
+      - run: npx playwright install --with-deps chromium
+        working-directory: site
+      # Every page, desktop and phone: no console errors, no sideways scroll, axe clean; plus key flows.
+      - run: npm run test:e2e
+        working-directory: site
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/

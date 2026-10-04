@@ -71,7 +71,7 @@ function studyPlanner(host: HTMLElement) {
         }).join('')}
       </ol>
       <div class="plan-foot">
-        <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${count}"><i style="width:${(count / total) * 100}%"></i></div>
+        <div class="meter" role="progressbar" aria-label="Plan progress" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${count}"><i style="width:${(count / total) * 100}%"></i></div>
         <span>${count} of ${total} done</span>
         ${count ? '<button type="button" class="link-btn" data-reset>Reset</button>' : ''}
       </div>`;
@@ -313,7 +313,7 @@ function flashcards(host: HTMLElement) {
         <div><p class="eyebrow">Flashcards</p><h3>Study the concepts</h3><p>${total} cards from the Anki deck. Reveal the answer, then mark whether you knew it.</p></div>
         <div class="fc-tools"><button type="button" class="chip-btn" data-act="shuffle">Shuffle</button><button type="button" class="chip-btn" data-act="reset">Reset progress</button></div>
       </div>`;
-    const foot = `<div class="plan-foot"><div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${known.size}"><i style="width:${(known.size / total) * 100}%"></i></div><span>${known.size} of ${total} known</span></div>`;
+    const foot = `<div class="plan-foot"><div class="meter" role="progressbar" aria-label="Cards known" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${known.size}"><i style="width:${(known.size / total) * 100}%"></i></div><span>${known.size} of ${total} known</span></div>`;
     if (!queue.length) {
       root.innerHTML = `${head}<div class="fc-done"><h4>All ${total} cards known</h4><p>Nicely done. Reset your progress to go round again.</p><button type="button" class="btn primary" data-act="reset">Start over</button></div>${foot}`;
       return;

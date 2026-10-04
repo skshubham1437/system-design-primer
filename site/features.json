@@ -1,0 +1,13 @@
+{
+  "_comment": "Build-time switches. A feature set to false is not emitted, so unfinished work can be merged and deployed dormant.",
+  "spacedFlashcards": true,
+  "dataPanel": true,
+  "quizzes": false,
+  "progressDashboard": false,
+  "practiceMode": false,
+  "choosers": false,
+  "guidedPath": false,
+  "glossary": false,
+  "mockInterview": false,
+  "offline": false
+}
