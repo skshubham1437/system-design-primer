@@ -13,6 +13,8 @@ Effort is in focused working days for one person who knows this codebase. Conten
 | Flashcards from the Anki deck (known / review again), direct deck downloads | Done |
 | Labs: capacity estimator, consistent hashing, cache eviction, load balancing, CAP | Done |
 | Hygiene: strict build, sitemap, share image, CI on pull requests, Dependabot, weekly external-link report | Done |
+| Tests: 67 unit tests, end-to-end and accessibility checks on every page at desktop and phone width, run in CI | Done |
+| Progress store, spaced flashcards, "your data" export/import, due badge (items 0 and 1 below) | Done |
 
 ### Known gaps
 
@@ -90,7 +92,7 @@ Items 1 to 4, 6 and 11 all remember things. Today the planner, flashcards, theme
   }
   ```
 - API: `get()`, `update(fn)`, `subscribe(cb)`, `exportJson()`, `importJson(text)`, `reset(section?)`. Writes are debounced; the `storage` event keeps two tabs in sync.
-- `src/lib/srs.ts`: a Leitner scheduler with boxes 1 to 5 and intervals of 0, 1, 3, 7 and 21 days. Pure functions (`grade(item, result, now)`, `isDue(item, now)`, `nextDue`) so it is trivial to test. Day boundaries use local midnight.
+- `src/lib/srs.ts`: a Leitner scheduler with box 0 (new or relearning) and boxes 1 to 5, reviewed after 1, 3, 7, 21 and 60 days. Pure functions (`grade(item, result, now)`, `isDue(item, now)`, `nextDue`) so it is trivial to test. Day boundaries use local midnight.
 - One-time migration from the existing keys, with a version field for later migrations.
 - Everything in try/catch: private mode and blocked storage degrade to in-memory state, never an error page.
 

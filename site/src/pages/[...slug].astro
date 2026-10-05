@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Toc from '../components/Toc.astro';
 import cards from '../generated/flashcards.json';
-import { pages, href, neighbours, groupLabel, sourceUrl, withBase, pageByPath, type Page } from '../lib/site';
+import { features, pages, href, neighbours, groupLabel, sourceUrl, withBase, pageByPath, type Page } from '../lib/site';
 
 export function getStaticPaths() {
   return pages.map((page) => ({ params: { slug: page.path.replace(/\/$/, '') }, props: { page } }));
@@ -53,11 +53,12 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
       </nav>
     )}
 
-    {page.path === 'practice/flashcards/' && cards.length > 0 && (
+    {page.path === 'practice/flashcards/' && features.spacedFlashcards && cards.length > 0 && (
       <div data-widget="flashcards" data-pagefind-ignore>
         <script type="application/json" set:html={cardsJson} />
       </div>
     )}
+    {page.path === 'about/' && features.dataPanel && <div data-widget="data-panel" data-pagefind-ignore></div>}
     {tryLabs.length > 0 && (
       <aside class="try-it" aria-label="Interactive labs for this topic" data-pagefind-ignore>
         <span class="try-label">Try it</span>

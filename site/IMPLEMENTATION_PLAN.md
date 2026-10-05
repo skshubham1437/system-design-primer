@@ -4,6 +4,23 @@ How to build what is in [ROADMAP.md](ROADMAP.md): the order, the tasks, the file
 
 Assumptions: one developer working full time, a second person available for content review, and the current codebase (Astro, the `scripts/build-content.mjs` pipeline, `src/scripts/*.ts`, GitHub Pages deploy).
 
+## Status
+
+| Phase | State | Notes |
+|---|---|---|
+| A. Groundwork (A1 to A6) | **Done** | Unit tests (67), end-to-end tests (29 runs over every page at desktop and phone width, with axe), feature flags, content guide, CI runs all of it |
+| 1. Foundation and spaced flashcards (F1 to F7) | **Done** (M1) | Progress store, scheduler, migration, flashcards UI, data panel, due badge |
+| 2. Quizzes and dashboard | Next | Q1 is the first task |
+| 3 to 5 | Not started | |
+
+### Decisions made while building
+
+- **Boxes and intervals.** The scheduler uses box 0 (new or relearning) plus boxes 1 to 5 with intervals of 1, 3, 7, 21 and 60 days. Again returns a card to box 0 and shows it again in the same session. This replaces the "0/1/3/7/21" wording in the roadmap.
+- **Theme and diagram preference stay in their own keys.** The page reads them in a blocking script before first paint to avoid a flash of the wrong theme, which needs synchronous access outside the progress store. Only learning state (planner, flashcards, and later quizzes, solutions, sessions) lives in `primer:v1`.
+- **Daily new-card limit** is stored in the document (`daily`) so it survives a reload.
+- **Findings from the new tests, already fixed:** two progress bars had no accessible name; scrollable tables were not reachable by keyboard; the Reset section closed itself when the panel re-rendered.
+- **Colour contrast is not yet checked by axe** (the rule is disabled in `pages.spec.ts`) because it needs a per-theme pass. It is a tracked follow-up before M2.
+
 ## 1. Delivery strategy
 
 Ship in five milestones. Each is a complete, useful release, so work can stop after any of them without leaving half a feature behind.

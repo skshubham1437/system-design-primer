@@ -35,7 +35,7 @@ const inOod = oodPages.some((p) => p.path === current);
           </>
         )}
         {pagesInGroup(g.id).map((p) => (
-          <li><a class="nav-link" href={href(p)} aria-current={cur(p)}>{p.title}</a></li>
+          <li><a class="nav-link" href={href(p)} aria-current={cur(p)}>{p.title}{p.path === 'practice/flashcards/' && <span class="due-badge" data-due-badge hidden></span>}</a></li>
         ))}
       </ul>
     </section>

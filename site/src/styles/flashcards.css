@@ -18,3 +18,26 @@
 .widget .fc-done h4 { margin: 0 0 6px; font-family: var(--font-serif); font-size: 1.6rem; text-transform: none; letter-spacing: -0.01em; color: var(--ink); }
 .fc-done p { margin: 0 0 18px; color: var(--ink-2); }
 @media (max-width: 700px) { .fc-stage { padding: 16px; } .fc-card { padding: 20px 18px; } }
+
+/* spaced flashcards */
+.fc-tools { align-items: center; flex-wrap: wrap; }
+.fc-perday { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.fc-perday select { padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; }
+.fc-stats { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; border-bottom: 1px solid var(--line); }
+.fc-stats > div { padding: 12px 24px; border-right: 1px solid var(--line); }
+.fc-stats > div:last-child { border-right: 0; }
+.fc-stats dt { font-size: 11.5px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.fc-stats dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 1.35rem; font-weight: 600; }
+.fc-actions .btn small { font-size: 11.5px; font-weight: 500; opacity: 0.75; margin-left: 2px; }
+.fc-warn, .dp-warn { color: var(--warn); font-size: 12.5px; font-weight: 600; }
+.dp-warn { margin: 0; padding: 12px 24px; background: var(--warn-soft); border-bottom: 1px solid var(--line); }
+.dp-actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 18px 24px 6px; }
+.dp-file { cursor: pointer; }
+.dp-msg { margin: 0; padding: 4px 24px 14px; min-height: 1.6em; font-size: 13.5px; color: var(--ink-2); }
+.dp-reset { margin: 0 24px 22px; border-top: 1px solid var(--line); padding-top: 12px; }
+.dp-reset summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.dp-reset .dp-actions { padding: 8px 0 0; }
+.dp-reset .ch-note { margin: 8px 0 0; }
+.chip-btn.danger { border-color: color-mix(in srgb, var(--hue-practice) 50%, var(--line)); color: var(--hue-practice); }
+.due-badge { margin-left: 8px; padding: 0 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; line-height: 1.6; }
+@media (max-width: 560px) { .fc-stats { grid-template-columns: repeat(2, 1fr); } .fc-stats > div { padding: 10px 16px; } .fc-stats > div:nth-child(2) { border-right: 0; } .fc-stats > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } .dp-actions, .dp-msg { padding-inline: 16px; } .dp-reset { margin-inline: 16px; } }

@@ -216,3 +216,20 @@ if (/Mac|iPhone|iPad/.test(navigator.platform)) { const k = $('#search-kbd'); if
 
 /* ------------------------------------------------------------ interactive widgets */
 if (document.querySelector('[data-widget]')) import('./widgets.ts');
+
+/* ------------------------------------------------------------ flashcards due badge */
+const badge = $('[data-due-badge]');
+if (badge) {
+  import('../lib/progress').then(async ({ getProgress }) => {
+    const { isDue } = await import('../lib/srs');
+    const progress = getProgress();
+    const update = () => {
+      const due = Object.values(progress.get().cards).filter((c) => c.seen > 0 && isDue(c, Date.now())).length;
+      badge.textContent = String(due);
+      badge.hidden = due === 0;
+      badge.setAttribute('aria-label', `${due} flashcards due`);
+    };
+    update();
+    progress.subscribe(update);
+  });
+}

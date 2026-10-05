@@ -1,16 +1,11 @@
 // Interactive widgets. Each one enhances a server-rendered block in place; the
 // original markup remains as the no-JS fallback.
 
+import { getProgress } from '../lib/progress';
+
 const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s);
 const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => [...r.querySelectorAll<T>(s)];
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-
-const store = {
-  get<T>(key: string, fallback: T): T {
-    try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
-  },
-  set(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } },
-};
 
 function fallbackDetails(host: HTMLElement, label: string) {
   const original = host.firstElementChild as HTMLElement | null;
@@ -34,10 +29,10 @@ function studyPlanner(host: HTMLElement) {
     { id: 'medium', label: 'Medium', hint: 'a few weeks' },
     { id: 'long', label: 'Long', hint: 'a month +' },
   ];
-  const KEY = 'primer:plan:v1';
-  const state = store.get<{ done: Record<string, number[]>; last?: string }>(KEY, { done: {} });
+  const progress = getProgress();
+  const plan = () => progress.get().plan;
   const fromHash = location.hash.slice(1);
-  let current = timelines.some((t) => t.id === fromHash) ? fromHash : state.last && timelines.some((t) => t.id === state.last) ? state.last : 'medium';
+  let current = timelines.some((t) => t.id === fromHash) ? fromHash : plan().last && timelines.some((t) => t.id === plan().last) ? plan().last! : 'medium';
 
   const root = document.createElement('section');
   root.className = 'widget planner';
@@ -47,7 +42,7 @@ function studyPlanner(host: HTMLElement) {
 
   const render = () => {
     const ti = timelines.findIndex((t) => t.id === current);
-    const done = new Set(state.done[current] ?? []);
+    const done = new Set(plan().done[current] ?? []);
     const idx = rows.map((_, i) => i);
     const total = idx.length;
     const count = idx.filter((i) => done.has(i)).length;
@@ -80,15 +75,16 @@ function studyPlanner(host: HTMLElement) {
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const seg = t.closest<HTMLElement>('[data-t]');
-    if (seg) { current = seg.dataset.t!; state.last = current; store.set(KEY, state); history.replaceState(null, '', `#${current}`); render(); return; }
-    if (t.closest('[data-reset]')) { state.done[current] = []; store.set(KEY, state); render(); return; }
+    if (seg) { current = seg.dataset.t!; progress.update((d) => { d.plan.last = current; }); history.replaceState(null, '', `#${current}`); render(); return; }
+    if (t.closest('[data-reset]')) { progress.update((d) => { d.plan.done[current] = []; }); render(); return; }
     const li = t.closest<HTMLElement>('li[data-i]');
     if (!li || t.closest('a')) return;
     const i = Number(li.dataset.i);
-    const set = new Set(state.done[current] ?? []);
-    set.has(i) ? set.delete(i) : set.add(i);
-    state.done[current] = [...set];
-    store.set(KEY, state);
+    progress.update((d) => {
+      const set = new Set(d.plan.done[current] ?? []);
+      set.has(i) ? set.delete(i) : set.add(i);
+      d.plan.done[current] = [...set];
+    });
     render();
     $<HTMLInputElement>(`li[data-i="${i}"] input`, root)?.focus();
   });
@@ -282,85 +278,18 @@ function nines(host: HTMLElement) {
   render();
 }
 
-/* ------------------------------------------------------------ flashcards */
-function flashcards(host: HTMLElement) {
-  const data = $<HTMLScriptElement>('script[type="application/json"]', host);
-  if (!data) return;
-  const cards: { front: string; back: string }[] = JSON.parse(data.textContent || '[]');
-  if (!cards.length) return;
-  const KEY = 'primer:cards:v1';
-  const saved = store.get<{ known: string[] }>(KEY, { known: [] });
-  const known = new Set(saved.known.filter((k) => cards.some((c) => c.front === k)));
-  let queue: number[] = [];
-  let revealed = false;
-
-  const root = document.createElement('section');
-  root.className = 'widget flash';
-  root.setAttribute('aria-label', 'Flashcards');
-  host.replaceChildren(root);
-
-  const build = (shuffle = false) => {
-    queue = cards.map((_, i) => i).filter((i) => !known.has(cards[i].front));
-    if (shuffle) for (let i = queue.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [queue[i], queue[j]] = [queue[j], queue[i]]; }
-    revealed = false;
-  };
-  const persist = () => store.set(KEY, { known: [...known] });
-
-  const render = () => {
-    const total = cards.length;
-    const head = `
-      <div class="widget-head">
-        <div><p class="eyebrow">Flashcards</p><h3>Study the concepts</h3><p>${total} cards from the Anki deck. Reveal the answer, then mark whether you knew it.</p></div>
-        <div class="fc-tools"><button type="button" class="chip-btn" data-act="shuffle">Shuffle</button><button type="button" class="chip-btn" data-act="reset">Reset progress</button></div>
-      </div>`;
-    const foot = `<div class="plan-foot"><div class="meter" role="progressbar" aria-label="Cards known" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${known.size}"><i style="width:${(known.size / total) * 100}%"></i></div><span>${known.size} of ${total} known</span></div>`;
-    if (!queue.length) {
-      root.innerHTML = `${head}<div class="fc-done"><h4>All ${total} cards known</h4><p>Nicely done. Reset your progress to go round again.</p><button type="button" class="btn primary" data-act="reset">Start over</button></div>${foot}`;
-      return;
-    }
-    const c = cards[queue[0]];
-    root.innerHTML = `${head}
-      <div class="fc-stage">
-        <div class="fc-count">${queue.length} left in this round</div>
-        <article class="fc-card${revealed ? ' is-open' : ''}">
-          <h4 class="fc-front">${esc(c.front)}</h4>
-          ${revealed ? `<div class="fc-back prose">${c.back}</div>` : '<p class="fc-hint">Try to recall it first, then reveal.</p>'}
-        </article>
-        <div class="fc-actions">
-          ${revealed
-            ? '<button type="button" class="btn" data-act="again">Review again <kbd>1</kbd></button><button type="button" class="btn primary" data-act="know">I knew it <kbd>2</kbd></button>'
-            : '<button type="button" class="btn primary" data-act="show">Show answer <kbd>Space</kbd></button>'}
-        </div>
-      </div>${foot}`;
-  };
-
-  const act = (a: string) => {
-    if (a === 'show') revealed = true;
-    else if (a === 'again') { queue.push(queue.shift()!); revealed = false; }
-    else if (a === 'know') { known.add(cards[queue.shift()!].front); persist(); revealed = false; }
-    else if (a === 'shuffle') build(true);
-    else if (a === 'reset') { known.clear(); persist(); build(); }
-    render();
-    root.querySelector<HTMLElement>('.fc-actions .btn.primary, .fc-done .btn')?.focus({ preventScroll: true });
-  };
-  root.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]'); if (b) act(b.dataset.act!); });
-  root.addEventListener('keydown', (e) => {
-    const t = e.target as HTMLElement;
-    if (!queue.length || t.closest('a')) return;
-    if (!revealed && e.key === ' ' && !t.closest('button')) { e.preventDefault(); act('show'); }
-    else if (revealed && e.key === '1') act('again');
-    else if (revealed && e.key === '2') act('know');
-  });
-  build();
-  render();
-}
-
-const widgets: Record<string, (host: HTMLElement) => void> = { 'study-planner': studyPlanner, latency, powers, nines, flashcards };
+const widgets: Record<string, (host: HTMLElement) => void> = { 'study-planner': studyPlanner, latency, powers, nines };
+const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement) => void }>> = {
+  flashcards: () => import('./features/flashcards'),
+  'data-panel': () => import('./features/data-panel'),
+};
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
 $$('[data-widget]').forEach((host) => {
   const type = host.dataset.widget!;
   try {
-    if (LAB_TYPES.includes(type)) {
+    if (FEATURE_LOADERS[type]) {
+      FEATURE_LOADERS[type]().then((m) => m.mount(host)).catch((err) => console.error('feature failed', type, err));
+    } else if (LAB_TYPES.includes(type)) {
       // labs are the heaviest scripts, so they load only on the pages that use them
       import('./labs.ts').then((m) => m.labWidgets[type](host)).catch((err) => console.error('lab failed', type, err));
     } else widgets[type]?.(host);
