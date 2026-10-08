@@ -110,3 +110,20 @@
 .try-it a:hover { border-color: var(--hue-labs); }
 .try-it b { font-size: 14.5px; }
 .try-it small { font-size: 12.5px; color: var(--ink-3); line-height: 1.4; }
+
+/* ------------------------------------------------------------------ contrast fixes (checked by axe in both themes) */
+.callout-context, .sources summary .callout-context { color: var(--ink-2); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.btn.primary kbd, .fc-actions .btn.primary kbd, .quiz-actions .btn.primary kbd { background: rgb(0 0 0 / 0.22); border-color: rgb(0 0 0 / 0.3); color: var(--accent-ink); }
+.est-card.strong .est-label, .est-card.warn .est-label { color: var(--ink-2); }
+.ce-row.on .ce-name small { color: var(--ink-2); }
+.ch-node { color: var(--ink); }
+.ch-node::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; background: var(--c); }
+
+.est-card.strong small, .est-card.warn small { color: var(--ink-2); }
+/* hit and miss chips: dark text on a tint, with the border style (solid vs dashed) carrying the meaning too */
+.ce-chip.hit, .ce-chip.miss { color: var(--ink); }
+.ce-chip.hit { border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent); }
+.ce-chip.miss { border: 1.5px dashed color-mix(in srgb, var(--hue-practice) 70%, transparent); }
+.ce-chip.cur { border-style: solid; border-color: var(--ink); }
+.ce-chip.future { opacity: 1; background: transparent; color: var(--ink-2); border: 1.5px dotted var(--line-strong); }
+.fc-actions .btn small { opacity: 1; font-weight: 600; }

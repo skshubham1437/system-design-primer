@@ -8,9 +8,9 @@ Assumptions: one developer working full time, a second person available for cont
 
 | Phase | State | Notes |
 |---|---|---|
-| A. Groundwork (A1 to A6) | **Done** | Unit tests (67), end-to-end tests (29 runs over every page at desktop and phone width, with axe), feature flags, content guide, CI runs all of it |
+| A. Groundwork (A1 to A6) | **Done** | 103 unit tests; end-to-end runs at desktop and phone width; axe on every page in **both themes including colour contrast**; CI runs all of it |
 | 1. Foundation and spaced flashcards (F1 to F7) | **Done** (M1) | Progress store, scheduler, migration, flashcards UI, data panel, due badge |
-| 2. Quizzes and dashboard | Next | Q1 is the first task |
+| 2. Quizzes and dashboard | **Built, waiting on Gate A** (M2) | Q1 to Q6, Q9 and D1 to D4 done. The pilot has 19 questions on Cache, Database and Load balancer, all marked draft. **Q7 (learner pilot) and Q8 (the other ~80 questions) are not done**: they need people. Protocol in [PILOT.md](PILOT.md) |
 | 3 to 5 | Not started | |
 
 ### Decisions made while building
@@ -19,7 +19,11 @@ Assumptions: one developer working full time, a second person available for cont
 - **Theme and diagram preference stay in their own keys.** The page reads them in a blocking script before first paint to avoid a flash of the wrong theme, which needs synchronous access outside the progress store. Only learning state (planner, flashcards, and later quizzes, solutions, sessions) lives in `primer:v1`.
 - **Daily new-card limit** is stored in the document (`daily`) so it survives a reload.
 - **Findings from the new tests, already fixed:** two progress bars had no accessible name; scrollable tables were not reachable by keyboard; the Reset section closed itself when the panel re-rendered.
-- **Colour contrast is not yet checked by axe** (the rule is disabled in `pages.spec.ts`) because it needs a per-theme pass. It is a tracked follow-up before M2.
+- **Colour contrast is now checked** on every page in light and dark, and inside the quiz, flashcard and dashboard states. It found and fixed: accent-coloured text that was too light on light backgrounds (new darker `--ink-*` variants for text, plain hues kept for fills), pale text inside tinted pills, translucent key hints on the primary button, code-block token colours (now the high-contrast Shiki themes), and a global `.bad` text colour leaking into quiz results.
+- **`reviewed` flag.** Each quiz file carries `reviewed: false` until a second person has signed off; while false, learners see a "Draft" notice. The author cannot flip it.
+- **`link` is optional** on a question. Questions about page-level ideas with no heading to point at use the topic page itself.
+- **Read tracking** marks a page read only when the end of the page has been seen **and** at least 40% of its estimated reading time (minimum 8 seconds) has passed with the tab visible; partial reading shows as a half-filled mark.
+- **Upcoming cache-lab chips hide their outcome** until you reach them (they were dimmed with opacity, which failed contrast and gave the answers away).
 
 ## 1. Delivery strategy
 

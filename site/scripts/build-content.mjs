@@ -16,6 +16,7 @@ import { toString as hastToString } from 'hast-util-to-string';
 import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
 import { runValidators, readFeatures } from './validate/index.mjs';
+import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
 import { createLinkResolver, deckFileName } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
@@ -207,7 +208,7 @@ function primer(ctx) {
       const title = meta.match(/title="?([^"\s]+)"?/)?.[1];
       const value = hastToString(code).replace(/\n$/, '');
       const useLang = KNOWN_LANGS.includes(lang) ? lang : 'text';
-      const hl = highlighter.codeToHast(value, { lang: useLang, themes: { light: 'github-light', dark: 'github-dark' }, defaultColor: false });
+      const hl = highlighter.codeToHast(value, { lang: useLang, themes: { light: 'github-light-high-contrast', dark: 'github-dark-high-contrast' }, defaultColor: false });
       const pre = hl.children[0];
       const head = el('div', { className: ['code-head'] }, [
         el('span', { className: ['code-lang'] }, [text(title || (useLang === 'text' ? 'text' : useLang))]),
@@ -292,7 +293,7 @@ async function render(nodes, ctx) {
 // ---------------------------------------------------------------- main
 
 async function main() {
-  highlighter = await createHighlighter({ themes: ['github-light', 'github-dark'], langs: KNOWN_LANGS.filter((l) => l !== 'text') });
+  highlighter = await createHighlighter({ themes: ['github-light-high-contrast', 'github-dark-high-contrast'], langs: KNOWN_LANGS.filter((l) => l !== 'text') });
 
   // Gather sources
   const sysDirs = fs.readdirSync(path.join(ROOT, 'solutions/system_design')).filter((d) => SOLUTIONS[d]);
@@ -468,15 +469,17 @@ async function main() {
     back: cleanCard(c.back, { resolveHref: (h) => resolveHref(h, cardCtx), resolveImg: (src) => imgMap.get(src) }),
   })).filter((c) => c.front && c.back);
 
-  runValidators({ siteDir: SITE, anchorMap, pages: out }, warn);
   const features = readFeatures(SITE);
+  const quizzes = loadQuizzes(SITE);
+  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes }, warn);
+  const quizIndex = features.quizzes ? emitQuizzes(quizzes, SITE, out, BASE) : [];
 
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'flashcards.json'), JSON.stringify(cards));
-  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, groups: GROUPS, solutions, ood, pages: out }));
+  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, groups: GROUPS, solutions, ood, pages: out }));
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
-  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${kb} KB`);
+  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));
   if (fatal.length && (process.env.STRICT === '1' || process.env.CI)) {
     console.error(`\nFailing the build: ${fatal.length} structural problem(s) above. The README layout probably changed; update scripts/site-map.mjs.`);

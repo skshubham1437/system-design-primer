@@ -1,0 +1,76 @@
+# Pilot quiz. Every question is drawn from the Database page. `reviewed` stays false until a second
+# person has checked each answer against the linked section.
+topic: learn/database/
+reviewed: false
+questions:
+  - id: acid-atomicity
+    q: In the ACID properties of a relational database, what does atomicity guarantee?
+    choices:
+      - Concurrent transactions behave as if they ran one at a time
+      - Once a transaction is committed, it stays committed
+      - Each transaction is all or nothing
+      - Every transaction moves the database from one valid state to another
+    answer: 2
+    why: Atomicity means a transaction either completes entirely or has no effect. The other three options describe isolation, durability and consistency.
+    link: "#relational-database-management-system-rdbms"
+    difficulty: 1
+
+  - id: master-slave-master-down
+    q: With master-slave replication, what happens when the master goes offline?
+    choices:
+      - Writes continue on whichever slave answers first
+      - Reads and writes stop until the master returns
+      - The slaves merge themselves into a new master with no extra logic
+      - The system can keep serving reads until a slave is promoted or a new master is provisioned
+    answer: 3
+    why: Slaves only serve reads, so the system keeps working in read-only mode. Promoting a slave to master needs additional logic, which is one of the disadvantages of this setup.
+    link: "#master-slave-replication"
+    difficulty: 1
+
+  - id: replication-lag-more-replicas
+    q: Why does adding more read replicas tend to increase replication lag?
+    choices:
+      - Each replica holds different data, so queries must be merged
+      - The more read slaves there are, the more writes the system has to replicate
+      - Reads must wait for every replica to answer
+      - Replication can only update one replica at a time
+    answer: 1
+    why: Every write has to be replayed on every replica. With a lot of writes, replicas also get bogged down replaying them and can serve fewer reads.
+    link: "#disadvantages-replication"
+    difficulty: 2
+
+  - id: federation-meaning
+    q: What does federation (functional partitioning) do to a database?
+    choices:
+      - It copies the same data onto many servers
+      - It splits databases by function, for example separate databases for users, forums and products
+      - It spreads the rows of one table across servers by a hash of the key
+      - It merges several databases so joins become easier
+    answer: 1
+    why: Federation splits by function, which lowers read and write traffic to each database and therefore replication lag. Copying data is replication, and spreading one table's rows is sharding.
+    link: "#federation"
+    difficulty: 1
+
+  - id: sharding-lopsided
+    q: A sharded users database has one shard that is far busier than the others because it holds many power users. Which problem is this?
+    choices:
+      - Replication lag between a master and its slaves
+      - A deadlock between two transactions
+      - Lopsided data distribution, where rebalancing is complex and consistent hashing can reduce the data moved
+      - Denormalization that has gone too far
+    answer: 2
+    why: Uneven distribution is a known disadvantage of sharding. Rebalancing shards adds complexity, and a sharding function based on consistent hashing reduces how much data has to move.
+    link: "#disadvantages-sharding"
+    difficulty: 3
+
+  - id: denormalization-trade
+    q: Denormalization improves read performance. What does it give up in exchange?
+    choices:
+      - Some write performance, because redundant copies of the data must be written
+      - The ability to use indices on any table
+      - Durability of committed transactions
+      - The ability to add read replicas
+    answer: 0
+    why: Denormalization writes redundant copies of data into multiple tables so reads avoid expensive joins. Every write now has to update those copies, so writes get slower.
+    link: "#denormalization"
+    difficulty: 2

@@ -233,3 +233,6 @@ if (badge) {
     progress.subscribe(update);
   });
 }
+
+/* ------------------------------------------------------------ progress marks and reading */
+if ($('#sidebar')) import('./features/progress-ui').then((m) => m.init());

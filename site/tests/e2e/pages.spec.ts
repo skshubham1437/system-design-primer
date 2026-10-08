@@ -6,18 +6,19 @@ import { expect, test } from '@playwright/test';
 
 interface Entry { p: string }
 
-test.describe('every page', () => {
+for (const theme of ['light', 'dark'] as const) test.describe(`every page (${theme} theme)`, () => {
   let paths: string[] = [];
 
   test.beforeAll(async ({ request, baseURL }) => {
     const res = await request.get(`${baseURL}search-index.json`);
     expect(res.ok()).toBeTruthy();
     const entries = (await res.json()) as Entry[];
-    paths = ['', 'learn/', 'labs/', 'practice/', 'interview/', 'reference/', ...entries.map((e) => e.p)];
+    paths = ['', 'learn/', 'labs/', 'practice/', 'interview/', 'reference/', 'progress/', 'quiz/', ...entries.map((e) => e.p)];
   });
 
-  test('load cleanly, fit the screen, and pass axe', async ({ page }, info) => {
-    test.setTimeout(240_000);
+  test('load cleanly, fit the screen, and pass axe including contrast', async ({ page }, info) => {
+    test.setTimeout(300_000);
+    await page.addInitScript((t) => localStorage.setItem('theme', t), theme);
     const problems: string[] = [];
     page.on('pageerror', (e) => problems.push(`pageerror ${e.message}`));
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console ${m.text()}`); });
@@ -30,9 +31,7 @@ test.describe('every page', () => {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       if (overflow > 1) problems.push(`${p}: sideways overflow of ${overflow}px`);
 
-      const axe = await new AxeBuilder({ page })
-        .disableRules(['color-contrast']) // contrast is checked separately, per theme, in a.11y notes
-        .analyze();
+      const axe = await new AxeBuilder({ page }).analyze();
       for (const v of axe.violations.filter((x) => x.impact === 'serious' || x.impact === 'critical')) {
         problems.push(`${p}: axe ${v.id} (${v.impact}) on ${v.nodes.length} node(s): ${v.nodes[0]?.target.join(' ')}`);
       }

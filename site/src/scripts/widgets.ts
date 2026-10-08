@@ -282,6 +282,10 @@ const widgets: Record<string, (host: HTMLElement) => void> = { 'study-planner': 
 const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement) => void }>> = {
   flashcards: () => import('./features/flashcards'),
   'data-panel': () => import('./features/data-panel'),
+  quiz: () => import('./features/quiz'),
+  'quiz-mixed': () => import('./features/quiz').then((m) => ({ mount: m.mountMixed })),
+  'solution-status': () => import('./features/solution-status'),
+  'progress-page': () => import('./features/progress-page'),
 };
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
 $$('[data-widget]').forEach((host) => {

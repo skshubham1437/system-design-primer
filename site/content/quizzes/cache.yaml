@@ -1,0 +1,76 @@
+# Pilot quiz. Every question is drawn from the Cache page. Set `reviewed: true` only after a second
+# person has checked each answer against the linked section (see CONTENT_GUIDE.md).
+topic: learn/cache/
+reviewed: false
+questions:
+  - id: cache-aside-who-loads
+    q: In cache-aside, which component loads data into the cache after a cache miss?
+    choices:
+      - The cache itself
+      - The application
+      - The database
+      - A background refresh job
+    answer: 1
+    why: The application looks in the cache, loads the entry from the database on a miss, and adds it to the cache. The cache never talks to storage directly.
+    link: "#cache-aside"
+    difficulty: 1
+
+  - id: cache-aside-miss-cost
+    q: Why can a single cache miss under cache-aside cause a noticeable delay?
+    choices:
+      - It needs three trips - check the cache, load from the database, then add the entry to the cache
+      - The cache must lock the whole database while it looks up the entry
+      - Every miss clears the entire cache
+      - The database has to ask the cache for permission before answering
+    answer: 0
+    why: A miss costs a failed cache lookup, a database read and a cache write. That is three trips instead of one, which is why a cold cache feels slow.
+    link: "#disadvantages-cache-aside"
+    difficulty: 1
+
+  - id: write-through-trade-off
+    q: What is the main trade-off of write-through caching?
+    choices:
+      - Data in the cache is often stale after an update
+      - Only data that has been requested ever gets cached
+      - Writes are slower because they go to the cache and the database, but reads of just-written data are fast and never stale
+      - Data can be lost if the cache goes down before it reaches the database
+    answer: 2
+    why: The application writes to the cache and the cache writes to the database, so writing is slow overall. In return, recently written data is already cached and current. Users tolerate latency on updates better than on reads.
+    link: "#write-through"
+    difficulty: 2
+
+  - id: write-behind-risk
+    q: A team adopts write-behind caching to speed up writes. What is the main risk they take on?
+    choices:
+      - Every read becomes a cache miss
+      - Data can be lost if the cache fails before its contents reach the data store
+      - Reads return stale data after every update
+      - The database must be rebuilt whenever a cache node is added
+    answer: 1
+    why: Write-behind updates the cache and writes to the data store asynchronously. If the cache goes down before that write happens, the update is gone. It is also harder to implement than cache-aside or write-through.
+    link: "#write-behind-write-back"
+    difficulty: 2
+
+  - id: cache-node-replaced
+    q: In a cache-aside system, a cache node fails and is replaced by a new, empty node. What happens to read latency?
+    choices:
+      - It rises until the new node has been refilled by cache misses
+      - It stays the same, because the database refills the node instantly
+      - It drops, because the empty node has fewer entries to search
+      - Reads fail until the application is restarted
+    answer: 0
+    why: Entries are only added on a miss, so the new node starts cold and every first request pays the full three-trip cost. Latency recovers as the node warms up.
+    link: "#disadvantages-cache-aside"
+    difficulty: 2
+
+  - id: query-level-caching-hard
+    q: Why is caching at the database query level hard to keep correct?
+    choices:
+      - Query results are always too large to fit in memory
+      - Queries cannot be turned into cache keys
+      - Databases refuse to return the same result twice
+      - When one piece of data changes, you must delete every cached query that might include it
+    answer: 3
+    why: A query result is keyed by the query, but it can contain many rows. Changing one table cell means finding and deleting every cached query that could include it, which is hard for complex queries. Caching whole objects is easier to invalidate.
+    link: "#caching-at-the-database-query-level"
+    difficulty: 3

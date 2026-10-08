@@ -224,7 +224,7 @@ function consistentHash(host: HTMLElement) {
     $('#ch-moved', root)!.innerHTML = moved
       ? `<h4>${esc(moved.label)}</h4><div class="ch-compare"><div><b>${(moved.ch * 100).toFixed(1)}%</b><span>keys moved with consistent hashing</span></div><div class="bad"><b>${(moved.mod * 100).toFixed(1)}%</b><span>would move with <code>hash mod N</code></span></div></div>`
       : '<h4>Change something</h4><p class="ch-note">Add or remove a server and compare how many keys have to move.</p>';
-    $('#ch-lookup', root)!.innerHTML = `<code>${esc(lookup)}</code> hashes to <b>${((lh / 4294967296) * 360).toFixed(0)}°</b>, so the next point clockwise belongs to <b style="color:${color(lo.node)}">server ${lo.node}</b>.`;
+    $('#ch-lookup', root)!.innerHTML = `<code>${esc(lookup)}</code> hashes to <b>${((lh / 4294967296) * 360).toFixed(0)}°</b>, so the next point clockwise belongs to <b class="ch-node" style="--c:${color(lo.node)}">server ${lo.node}</b>.`;
     $('#ch-v', root)!.textContent = String(vnodes);
   };
 
@@ -329,7 +329,9 @@ function cacheEviction(host: HTMLElement) {
     const steps = all[policy];
     step = Math.min(step, steps.length);
     $('#ce-title', root)!.textContent = `${policies.find((p) => p.id === policy)!.label}, request ${step} of ${steps.length}`;
-    $('#ce-seq', root)!.innerHTML = steps.map((s, i) => `<span role="listitem" class="ce-chip ${s.hit ? 'hit' : 'miss'}${i === step - 1 ? ' cur' : ''}${i >= step ? ' future' : ''}" title="${s.hit ? 'hit' : 'miss'}">${esc(s.key)}</span>`).join('');
+    $('#ce-seq', root)!.innerHTML = steps.map((s, i) => i >= step
+      ? `<span role="listitem" class="ce-chip future">${esc(s.key)}</span>`  // outcomes stay hidden until you reach them
+      : `<span role="listitem" class="ce-chip ${s.hit ? 'hit' : 'miss'}${i === step - 1 ? ' cur' : ''}" title="${s.hit ? 'hit' : 'miss'}">${esc(s.key)}<span class="sr-only"> ${s.hit ? 'hit' : 'miss'}</span></span>`).join('');
     const cur = step > 0 ? steps[step - 1] : undefined;
     const slots = Array.from({ length: cap }, (_, i) => cur?.cache[i]);
     $('#ce-now', root)!.innerHTML = `<div class="ce-slots">${slots.map((k) => `<span class="ce-slot${k ? '' : ' empty'}${cur && k === cur.key ? ' fresh' : ''}">${k ? esc(k) : ''}</span>`).join('')}</div>`

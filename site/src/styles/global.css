@@ -30,6 +30,9 @@
   --hue-practice: #cc3a5d;
   --hue-reference: #5f6b7a;
   --hue-labs: #a63d8a;
+  /* darker variants for text on light backgrounds (the plain hues are for fills and borders) */
+  --ink-start: #0a6b65; --ink-fundamentals: #3f4bc2; --ink-network: #06668f; --ink-application: #7438b8;
+  --ink-data: #9a4f06; --ink-practice: #b02c4b; --ink-reference: #4f5c6b; --ink-labs: #8c2c74;
 
   --radius: 12px;
   --header-h: 60px;
@@ -64,6 +67,8 @@
   --hue-practice: #ff7f9f;
   --hue-reference: #9fb0c3;
   --hue-labs: #e58bd0;
+  --ink-start: var(--hue-start); --ink-fundamentals: var(--hue-fundamentals); --ink-network: var(--hue-network); --ink-application: var(--hue-application);
+  --ink-data: var(--hue-data); --ink-practice: var(--hue-practice); --ink-reference: var(--hue-reference); --ink-labs: var(--hue-labs);
   color-scheme: dark;
 }
 
@@ -87,14 +92,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 ::selection { background: var(--accent-soft); color: var(--ink); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.group-start { --hue: var(--hue-start); }
-.group-fundamentals { --hue: var(--hue-fundamentals); }
-.group-network { --hue: var(--hue-network); }
-.group-application { --hue: var(--hue-application); }
-.group-data { --hue: var(--hue-data); }
-.group-practice { --hue: var(--hue-practice); }
-.group-reference { --hue: var(--hue-reference); }
-.group-labs { --hue: var(--hue-labs); }
+.group-start { --hue: var(--hue-start); --hue-ink: var(--ink-start); }
+.group-fundamentals { --hue: var(--hue-fundamentals); --hue-ink: var(--ink-fundamentals); }
+.group-network { --hue: var(--hue-network); --hue-ink: var(--ink-network); }
+.group-application { --hue: var(--hue-application); --hue-ink: var(--ink-application); }
+.group-data { --hue: var(--hue-data); --hue-ink: var(--ink-data); }
+.group-practice { --hue: var(--hue-practice); --hue-ink: var(--ink-practice); }
+.group-reference { --hue: var(--hue-reference); --hue-ink: var(--ink-reference); }
+.group-labs { --hue: var(--hue-labs); --hue-ink: var(--ink-labs); }
 
 .skip-link { position: absolute; left: 12px; top: -48px; background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; z-index: 100; transition: top 0.15s; }
 .skip-link:focus { top: 10px; }
@@ -172,7 +177,7 @@ kbd { font-family: var(--font-ui); font-size: 11.5px; font-weight: 500; color: v
 /* ------------------------------------------------------------------ article */
 .article { max-width: 760px; margin: 0 auto; }
 .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); margin-bottom: 14px; }
-.crumb a { text-decoration: none; color: var(--hue, var(--accent)); font-weight: 600; letter-spacing: 0.02em; }
+.crumb a { text-decoration: none; color: var(--hue-ink, var(--accent-strong)); font-weight: 600; letter-spacing: 0.02em; }
 .crumb a:hover { text-decoration: underline; }
 .article h1.title { font-family: var(--font-serif); font-weight: 600; font-size: clamp(2.1rem, 4.4vw, 3rem); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 14px; text-wrap: balance; }
 .article .dek { font-size: 1.18rem; line-height: 1.55; color: var(--ink-2); margin: 0 0 18px; text-wrap: pretty; }
@@ -182,12 +187,12 @@ kbd { font-family: var(--font-ui); font-size: 11.5px; font-weight: 500; color: v
 .meta-row svg { width: 15px; height: 15px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); text-decoration: none; }
 a.chip:hover { border-color: var(--accent); color: var(--accent-strong); }
-.chip.diff { background: color-mix(in srgb, var(--hue) 12%, transparent); color: var(--hue); border-color: color-mix(in srgb, var(--hue) 30%, transparent); }
+.chip.diff { background: color-mix(in srgb, var(--hue) 12%, transparent); color: var(--hue-ink); border-color: color-mix(in srgb, var(--hue) 30%, transparent); }
 .concepts { margin: -8px 0 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .concepts-label { font-size: 12px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-right: 4px; }
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 34px; counter-reset: step; }
 .steps a { counter-increment: step; display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); text-decoration: none; font-size: 13.5px; font-weight: 550; line-height: 1.35; color: var(--ink-2); transition: border-color 0.15s, transform 0.15s; }
-.steps a::before { content: counter(step, decimal-leading-zero); display: block; font-family: var(--font-mono); font-size: 12px; color: var(--hue); margin-bottom: 4px; }
+.steps a::before { content: counter(step, decimal-leading-zero); display: block; font-family: var(--font-mono); font-size: 12px; color: var(--hue-ink); margin-bottom: 4px; }
 .steps a:hover { border-color: var(--hue); color: var(--ink); transform: translateY(-1px); }
 
 .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 64px; }
@@ -311,7 +316,7 @@ dialog::backdrop { background: rgb(12 14 13 / 0.5); backdrop-filter: blur(3px); 
 .card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 18px 18px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s; overflow: hidden; }
 .card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--hue, var(--accent)); opacity: 0.85; }
 .card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--hue, var(--accent)) 50%, var(--line)); box-shadow: var(--shadow); }
-.card .kicker { font-family: var(--font-mono); font-size: 12px; color: var(--hue, var(--accent)); }
+.card .kicker { font-family: var(--font-mono); font-size: 12px; color: var(--hue-ink, var(--accent-strong)); }
 .card h3 { margin: 0; font-size: 1.06rem; font-weight: 650; letter-spacing: -0.01em; line-height: 1.3; }
 .card p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 .card .foot { margin-top: auto; padding-top: 10px; font-size: 12.5px; color: var(--ink-3); }

@@ -15,6 +15,8 @@ Effort is in focused working days for one person who knows this codebase. Conten
 | Hygiene: strict build, sitemap, share image, CI on pull requests, Dependabot, weekly external-link report | Done |
 | Tests: 67 unit tests, end-to-end and accessibility checks on every page at desktop and phone width, run in CI | Done |
 | Progress store, spaced flashcards, "your data" export/import, due badge (items 0 and 1 below) | Done |
+| Quiz engine, 19 pilot questions (draft), mixed quiz, progress dashboard, solution status, read tracking (items 2 and 3 below) | Built; waiting on the learner pilot ([PILOT.md](PILOT.md)) |
+| Colour contrast verified in both themes on every page | Done |
 
 ### Known gaps
 

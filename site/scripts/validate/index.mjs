@@ -3,18 +3,16 @@
 // Problems are fatal under STRICT=1 / CI, like the other structural checks.
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateQuizzes } from './quizzes.mjs';
+import { rules } from './rules.mjs';
+
+export { rules };
 
 /** Validators run on every build. Add new ones to this list as content types arrive. */
-export const validators = [validateFeatures];
+export const validators = [validateFeatures, validateQuizzes];
 
 export function runValidators(ctx, warn) {
   for (const v of validators) for (const problem of v(ctx)) warn(`${v.name}: ${problem}`, true);
-}
-
-/** Small assertion helper so validators read as a list of rules. */
-export function rules() {
-  const problems = [];
-  return { check: (ok, msg) => { if (!ok) problems.push(msg); }, problems };
 }
 
 function validateFeatures({ siteDir }) {
