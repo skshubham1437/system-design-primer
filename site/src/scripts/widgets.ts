@@ -287,12 +287,15 @@ const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement)
   'solution-status': () => import('./features/solution-status'),
   'progress-page': () => import('./features/progress-page'),
 };
+const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve'];
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
 $$('[data-widget]').forEach((host) => {
   const type = host.dataset.widget!;
   try {
     if (FEATURE_LOADERS[type]) {
       FEATURE_LOADERS[type]().then((m) => m.mount(host)).catch((err) => console.error('feature failed', type, err));
+    } else if (VISUAL_TYPES.includes(type)) {
+      import('./visuals.ts').then((m) => m.visualWidgets[type](host)).catch((err) => console.error('visual failed', type, err));
     } else if (LAB_TYPES.includes(type)) {
       // labs are the heaviest scripts, so they load only on the pages that use them
       import('./labs.ts').then((m) => m.labWidgets[type](host)).catch((err) => console.error('lab failed', type, err));

@@ -1,0 +1,46 @@
+{
+  "https://www.creative-artworks.eu/why-use-a-content-delivery-network-cdn/": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  },
+  "https://smartbear.com/learn/api-design/what-are-microservices": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  },
+  "http://www.escotal.com/osilayer.html": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  },
+  "http://restcookbook.com/Basics/hateoas/": {
+    "replacement": "https://web.archive.org/web/20260820115227/https://www.restcookbook.com/Basics/hateoas/",
+    "checked": "2026-10-09"
+  },
+  "https://www.owasp.org/index.php/OWASP_Top_Ten_Cheat_Sheet": {
+    "replacement": "https://web.archive.org/web/20191213125859/https://www.owasp.org/index.php/OWASP_Top_Ten_Cheat_Sheet",
+    "checked": "2026-10-09"
+  },
+  "http://arstechnica.com/civis/viewtopic.php?t=1190508": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  },
+  "https://dev.mysql.com/doc/refman/5.7/en/query-cache.html": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  },
+  "http://qnimate.com/overview-of-redis-architecture/": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  },
+  "https://developer.salesforce.com/blogs/engineering/": {
+    "replacement": "https://web.archive.org/web/20211025075209/https://developer.salesforce.com/blogs/engineering/",
+    "checked": "2026-10-09"
+  },
+  "http://www.dmoz.org/": {
+    "replacement": "https://web.archive.org/web/20250305234014/http://www.dmoz.org/",
+    "checked": "2026-10-09"
+  },
+  "https://www.zynga.com/blogs/engineering": {
+    "replacement": null,
+    "checked": "2026-10-09"
+  }
+}

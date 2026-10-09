@@ -31,6 +31,7 @@ export function createLinkResolver({ base, repo, anchorMap, warn }) {
   function resolveHref(href, ctx) {
     if (!href) return { href };
     let m;
+    if ((m = href.match(/^site:(.+)$/))) return { href: internal(m[1]) }; // link to another page of this site, e.g. site:labs/cdn/
     if (href.startsWith('#')) return anchorTo(href.slice(1), ctx);
     if ((m = href.match(/^https?:\/\/github\.com\/donnemartin\/system-design-primer\/?#(.+)$/))) return anchorTo(m[1], ctx);
     if ((m = href.match(/^https?:\/\/github\.com\/donnemartin\/system-design-primer\/(?:tree|blob)\/master\/resources\/flash_cards\/([^/]+\.apkg)$/))) {
@@ -46,4 +47,13 @@ export function createLinkResolver({ base, repo, anchorMap, warn }) {
   }
 
   return { resolveHref, anchorTo, internal };
+}
+
+/**
+ * Upstream markdown writes some links as `<a href=URL>text</a>` with an unquoted URL. Inside a paragraph
+ * (for example the superscript citations) the markdown parser then treats the URL as plain text and
+ * the tag leaks onto the page. Quoting the attribute makes it valid inline HTML everywhere.
+ */
+export function quoteHrefs(md) {
+  return md.replace(/<a\s+href=([^\s"'<>]+)>/g, '<a href="$1">');
 }

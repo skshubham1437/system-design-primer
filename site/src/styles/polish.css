@@ -127,3 +127,8 @@
 .ce-chip.cur { border-style: solid; border-color: var(--ink); }
 .ce-chip.future { opacity: 1; background: transparent; color: var(--ink-2); border: 1.5px dotted var(--line-strong); }
 .fc-actions .btn small { opacity: 1; font-weight: 600; }
+
+/* links the audit found dead: archived copy, or no copy at all */
+.prose a[data-link='archived']::after { content: ' (archived)'; font-size: 0.78em; color: var(--ink-3); text-decoration: none; display: inline-block; }
+.prose a[data-link='dead'] { text-decoration-style: dashed; color: var(--ink-2); }
+.prose a[data-link='dead']::after { content: ' (link broken)'; font-size: 0.78em; color: var(--warn); text-decoration: none; display: inline-block; }

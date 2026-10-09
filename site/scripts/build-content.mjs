@@ -17,7 +17,7 @@ import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
 import { runValidators, readFeatures } from './validate/index.mjs';
 import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
-import { createLinkResolver, deckFileName } from './lib/links.mjs';
+import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
 
@@ -111,7 +111,7 @@ async function prepareImages(sources) {
 
 // ---------------------------------------------------------------- README sections
 
-const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8').replace(/:\+1:/g, '<span class="yes" role="img" aria-label="Yes">✓</span>');
+const readme = quoteHrefs(fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')).replace(/:\+1:/g, '<span class="yes" role="img" aria-label="Yes">✓</span>');
 
 function readSections(tree) {
   // Assign GitHub-compatible heading ids across the whole README, in order.
@@ -141,6 +141,10 @@ function copyDecks() {
   fs.mkdirSync(dest, { recursive: true });
   for (const f of fs.readdirSync(src).filter((n) => n.endsWith('.apkg'))) fs.copyFileSync(path.join(src, f), path.join(dest, deckFileName(f)));
 }
+
+// Links the audit found dead: swapped for an archived copy when one exists, otherwise marked as broken.
+const overridesFile = path.join(SITE, 'data', 'link-overrides.json');
+const linkOverrides = fs.existsSync(overridesFile) ? JSON.parse(fs.readFileSync(overridesFile, 'utf8')) : {};
 
 // ---------------------------------------------------------------- hast transform
 
@@ -183,8 +187,14 @@ function primer(ctx) {
     // 3. links
     visit(root, 'element', (node) => {
       if (node.tagName !== 'a' || !node.properties.href) return;
-      const r = resolveHref(String(node.properties.href), ctx);
+      const original = String(node.properties.href);
+      const r = resolveHref(original, ctx);
       node.properties.href = r.href;
+      const fix = linkOverrides[original];
+      if (fix && r.external) {
+        if (fix.replacement) { node.properties.href = fix.replacement; node.properties.title = 'The original page is gone. This is an archived copy.'; node.properties.dataLink = 'archived'; }
+        else { node.properties.title = 'This link no longer works and no archived copy was found.'; node.properties.dataLink = 'dead'; }
+      }
       if (r.download) node.properties.download = '';
       if (r.external) { node.properties.target = '_blank'; node.properties.rel = 'noopener noreferrer'; node.properties.className = ['ext']; }
     });
@@ -298,7 +308,7 @@ async function main() {
   // Gather sources
   const sysDirs = fs.readdirSync(path.join(ROOT, 'solutions/system_design')).filter((d) => SOLUTIONS[d]);
   const oodDirs = fs.readdirSync(path.join(ROOT, 'solutions/object_oriented_design')).filter((d) => OOD[d]);
-  const solutionMd = Object.fromEntries(sysDirs.map((d) => [d, fs.readFileSync(path.join(ROOT, `solutions/system_design/${d}/README.md`), 'utf8')]));
+  const solutionMd = Object.fromEntries(sysDirs.map((d) => [d, quoteHrefs(fs.readFileSync(path.join(ROOT, `solutions/system_design/${d}/README.md`), 'utf8'))]));
   const oodNb = Object.fromEntries(oodDirs.map((d) => {
     const dir = path.join(ROOT, 'solutions/object_oriented_design', d);
     const nb = fs.readdirSync(dir).find((f) => f.endsWith('.ipynb'));

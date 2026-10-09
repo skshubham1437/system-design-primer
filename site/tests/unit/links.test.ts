@@ -90,3 +90,17 @@ describe('deckFileName', () => {
     expect(deckFileName('OO Design.apkg')).toBe('oo-design.apkg');
   });
 });
+
+describe('quoteHrefs', () => {
+  it('quotes unquoted href values, including the superscript citations that used to leak', async () => {
+    const { quoteHrefs } = await import('../../scripts/lib/links.mjs');
+    expect(quoteHrefs('text<sup><a href=http://example.com/a?b=1>1</a></sup>'))
+      .toBe('text<sup><a href="http://example.com/a?b=1">1</a></sup>');
+    expect(quoteHrefs('<i><a href=https://x.org/p#frag>Source: x</a></i>')).toBe('<i><a href="https://x.org/p#frag">Source: x</a></i>');
+  });
+  it('leaves already-quoted and markdown links alone', async () => {
+    const { quoteHrefs } = await import('../../scripts/lib/links.mjs');
+    const ok = '<a href="http://a.b">x</a> and [y](http://c.d)';
+    expect(quoteHrefs(ok)).toBe(ok);
+  });
+});
