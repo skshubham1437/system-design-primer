@@ -17,6 +17,8 @@ import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
 import { runValidators, readFeatures } from './validate/index.mjs';
 import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
+import { loadPractice, emitPractice } from './lib/practice.mjs';
+import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
@@ -284,6 +286,18 @@ function primer(ctx) {
       }
     }
     root.children = out;
+
+    // solutions: wrap each H2 and what follows it, so practice mode can hide and reveal steps
+    if (ctx.wrapSteps) {
+      const wrapped = [];
+      let cur = null;
+      for (const n of root.children) {
+        if (headingDepth(n) === 2) { cur = el('section', { className: ['sol-step'], 'data-step': n.properties.id }, [n]); wrapped.push(cur); }
+        else if (cur) cur.children.push(n);
+        else wrapped.push(n);
+      }
+      root.children = wrapped;
+    }
   };
 }
 
@@ -396,6 +410,20 @@ async function main() {
     const ctx = { name: p.path, dir: '', title: p.title, localIds: null };
     const r = await render(p.nodes, ctx);
     const { nodes, ...meta } = p;
+
+    // Original material added to an upstream page: content/extras/<slug>.md, shown in a labelled section.
+    const extraFile = path.join(SITE, 'content', 'extras', `${p.slug}.md`);
+    if (p.kind === 'topic' && fs.existsSync(extraFile)) {
+      const tr = parse(fs.readFileSync(extraFile, 'utf8'));
+      const slugger = new GithubSlugger();
+      for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: `extra-${slugger.slug(mdToString(n))}` } };
+      const ectx = { name: `${p.path} (added)`, dir: '', title: p.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+      const e = await render(tr.children, ectx);
+      r.html += `\n<section class="extra" aria-labelledby="extra-badge-${p.slug}"><p class="extra-badge" id="extra-badge-${p.slug}">Added on this site</p>\n${e.html}\n</section>`;
+      r.toc = [...r.toc, ...e.toc];
+      r.minutes += e.minutes;
+      meta.extended = true;
+    }
     out.push({ ...meta, ...r });
   }
 
@@ -418,7 +446,7 @@ async function main() {
       const pagePath = target && target.split('#')[0];
       if (pagePath && pagePath.startsWith('learn/') && !concepts.includes(pagePath)) concepts.push(pagePath);
     });
-    const ctx = { name: `solution ${d}`, dir: `solutions/system_design/${d}`, title, localIds };
+    const ctx = { name: `solution ${d}`, dir: `solutions/system_design/${d}`, title, localIds, wrapSteps: true };
     const r = await render(body, ctx);
     const thumb = imgMap.get(thumbs[d])?.src;
     out.push({
@@ -481,15 +509,19 @@ async function main() {
 
   const features = readFeatures(SITE);
   const quizzes = loadQuizzes(SITE);
-  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes }, warn);
+  const practice = loadPractice(SITE);
+  const choosers = loadChoosers(SITE);
+  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers }, warn);
+  const chooserIndex = features.choosers ? emitChoosers(choosers, SITE, out, BASE) : [];
+  const practiceCount = features.practiceMode ? emitPractice(practice, SITE, out, BASE) : 0;
   const quizIndex = features.quizzes ? emitQuizzes(quizzes, SITE, out, BASE) : [];
 
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'flashcards.json'), JSON.stringify(cards));
-  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, groups: GROUPS, solutions, ood, pages: out }));
+  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, choosers: chooserIndex, groups: GROUPS, solutions, ood, pages: out }));
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
-  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${kb} KB`);
+  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${practiceCount} practice sets, ${chooserIndex.length} choosers, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));
   if (fatal.length && (process.env.STRICT === '1' || process.env.CI)) {
     console.error(`\nFailing the build: ${fatal.length} structural problem(s) above. The README layout probably changed; update scripts/site-map.mjs.`);

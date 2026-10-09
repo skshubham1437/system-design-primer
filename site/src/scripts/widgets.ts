@@ -285,6 +285,8 @@ const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement)
   quiz: () => import('./features/quiz'),
   'quiz-mixed': () => import('./features/quiz').then((m) => ({ mount: m.mountMixed })),
   'solution-status': () => import('./features/solution-status'),
+  practice: () => import('./features/practice'),
+  chooser: () => import('./features/chooser'),
   'progress-page': () => import('./features/progress-page'),
 };
 const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve'];

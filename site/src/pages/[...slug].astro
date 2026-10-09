@@ -42,6 +42,10 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
       </a>
     </div>
 
+    {page.practice && features.practiceMode && (
+      <div class="practice-mount" data-widget="practice" data-path={page.path} data-src={page.practice.src} data-pagefind-ignore></div>
+    )}
+
     {concepts.length > 0 && (
       <div class="concepts">
         <span class="concepts-label">Concepts used</span>
@@ -68,6 +72,25 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
     )}
     <Toc items={page.toc} inline />
     <div class="prose" set:html={page.html} />
+
+    {page.practice && features.practiceMode && page.practice.followups.length > 0 && (
+      <section class="followups" id="followups" aria-labelledby="followups-h">
+        <h2 id="followups-h">Push it further</h2>
+        <p>The questions an interviewer asks next. Think about your answer before you open it.</p>
+        <ul>
+          {page.practice.followups.map((f) => (
+            <li><details><summary>{f.q}</summary><p>{f.a}</p></details></li>
+          ))}
+        </ul>
+        {!page.practice.reviewed && <p class="quiz-draft"><b>Draft.</b> These answers have not been checked by a second person yet.</p>}
+      </section>
+    )}
+
+    {page.chooser && features.choosers && (
+      <div class="chooser-mount" data-widget="chooser" data-src={page.chooser.src} data-pagefind-ignore>
+        <noscript><p>The decision aid needs JavaScript. The README section above lists the reasons for each choice.</p></noscript>
+      </div>
+    )}
 
     {page.quiz && features.quizzes && (
       <div class="quiz-mount" data-widget="quiz" data-slug={page.quiz.slug} data-src={page.quiz.src} data-pagefind-ignore>

@@ -8,6 +8,7 @@ interface Data {
   groups: { id: string; label: string; pages: { path: string; title: string }[] }[];
   solutions: { path: string; title: string }[];
   quizzes: { slug: string; topic: string; title: string; ids: string[]; count: number }[];
+  choosers?: { id: string; title: string; topic: string; scenarios: number }[];
 }
 
 const base = document.documentElement.dataset.base || '/';
@@ -42,6 +43,7 @@ export function mount(host: HTMLElement) {
     const last = lastAttempts(doc);
     const planTicks = Object.values(doc.plan.done).reduce((n, a) => n + a.length, 0);
     const solStates = data.solutions.map((s) => doc.solutions[s.path]?.status ?? 'none');
+    const practised = (path: string) => Object.values(doc.solutions[path]?.notes ?? {}).filter((n) => n && n.trim()).length;
     const readCount = trail.filter((p) => isRead(doc, p.path)).length;
     const anything = readCount || Object.keys(doc.cards).length || doc.quiz.attempts.length || Object.keys(doc.solutions).length || planTicks;
     const cta = next.kind === 'read' ? 'Start reading' : next.kind === 'cards' ? 'Review cards' : next.kind === 'solution' ? 'Open the solution' : 'Go';
@@ -78,8 +80,15 @@ export function mount(host: HTMLElement) {
       }).join('') || '<li>No quizzes yet.</li>'}</ul>
       <p><a href="${url('quiz/')}">Take a mixed quiz</a></p>
 
+      ${(data.choosers ?? []).length ? `<h2 class="prog-h">Decision aids</h2>
+      <ul class="prog-list">${(data.choosers ?? []).map((c) => {
+        const r = doc.choosers[c.id];
+        const best = r?.attempts.length ? Math.max(...r.attempts.map((a) => a.score)) : null;
+        return `<li><a href="${url(c.topic)}">${esc(c.title)}</a><span>${best !== null ? `best <b>${best} of ${c.scenarios}</b> on the scenarios` : `${c.scenarios} scenarios, not tried`}${r?.guided ? ` · guided ${r.guided} time${r.guided === 1 ? '' : 's'}` : ''}</span></li>`;
+      }).join('')}</ul>` : ''}
+
       <h2 class="prog-h">Solutions</h2>
-      <ul class="prog-list">${data.solutions.map((s, i) => `<li><a href="${url(s.path)}">${esc(s.title)}</a><span class="chip ${solStates[i]}">${solStates[i] === 'none' ? 'Not started' : solStates[i] === 'done' ? 'Done' : 'Attempted'}</span></li>`).join('')}</ul>
+      <ul class="prog-list">${data.solutions.map((s, i) => `<li><a href="${url(s.path)}">${esc(s.title)}</a>${practised(s.path) ? `<span>${practised(s.path)} step${practised(s.path) === 1 ? '' : 's'} written up</span>` : ''}<span class="chip ${solStates[i]}">${solStates[i] === 'none' ? 'Not started' : solStates[i] === 'done' ? 'Done' : 'Attempted'}</span></li>`).join('')}</ul>
 
       <h2 class="prog-h">Study plan</h2>
       <p>${planTicks ? `${planTicks} item${planTicks === 1 ? '' : 's'} ticked${doc.plan.last ? ` on the ${doc.plan.last} plan` : ''}.` : 'No plan items ticked yet.'} <a href="${url('interview/study-guide/')}">Open the planner</a></p>

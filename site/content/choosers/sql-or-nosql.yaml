@@ -1,0 +1,162 @@
+# Pilot decision aid. Grounded in the README's "SQL or NoSQL" section and its four NoSQL families.
+# `reviewed` stays false until a second person has checked it (see CONTENT_GUIDE.md).
+id: sql-or-nosql
+title: "SQL or NoSQL?"
+topic: learn/database/
+reviewed: false
+intro: "There is rarely one right answer, only a defensible one with its costs stated. Answer a few questions about your data and workload, or test yourself on realistic scenarios."
+
+tree:
+  start: transactions
+  nodes:
+    transactions:
+      ask: "Do you need transactions: several changes that must all happen together or not at all, such as moving money between two accounts?"
+      options:
+        - label: "Yes, correctness across several records matters"
+          result: sql-transactions
+        - label: "No, each record stands alone"
+          next: relational
+    relational:
+      ask: "Is your data relational, so you will often join across tables or run queries you cannot predict in advance?"
+      options:
+        - label: "Yes, joins and ad-hoc queries are common"
+          result: sql-relational
+        - label: "No, I mostly fetch things by a known key or by their own contents"
+          next: scale
+    scale:
+      ask: "How much data and write traffic do you expect?"
+      options:
+        - label: "A modest amount that fits comfortably on a few servers"
+          result: sql-default
+        - label: "Many terabytes, or a very high rate of reads and writes"
+          next: shape
+    shape:
+      ask: "What does the data look like?"
+      options:
+        - label: "Simple lookups of a value by a key, such as sessions, carts or scores"
+          result: key-value
+        - label: "Self-contained documents whose fields vary from one to the next"
+          result: document
+        - label: "Enormous volumes of time-ordered events, logs or clickstream"
+          result: wide-column
+        - label: "Highly connected data where the relationships are the point"
+          result: graph
+
+results:
+  sql-transactions:
+    title: "A relational (SQL) database"
+    why: "Transactions with ACID guarantees are exactly what relational databases are built for. Doing the same across many independent records in a NoSQL store means writing that logic yourself."
+    tradeoffs:
+      - "Scaling writes beyond one machine takes extra work, such as federation or sharding."
+      - "A strict schema means changes need planning and migrations."
+    link: "#relational-database-management-system-rdbms"
+  sql-relational:
+    title: "A relational (SQL) database"
+    why: "Joins, a strict schema and fast lookups by index are the relational model's strengths, and it has the most mature tools and community. When you cannot predict your queries, SQL's flexibility is worth a lot."
+    tradeoffs:
+      - "Joins get expensive and complicated once data is spread across shards or databases."
+      - "Denormalization can speed up reads but costs write performance and adds redundancy."
+    link: "#sql-or-nosql"
+  sql-default:
+    title: "Start with a relational (SQL) database anyway"
+    why: "If the data fits on a few servers you gain little from NoSQL and give up a mature ecosystem, clear scaling patterns and fast index lookups. Measure first, and move specific data to NoSQL later if a real bottleneck appears."
+    tradeoffs:
+      - "You may need to re-platform part of the data if growth is much faster than expected."
+      - "Scaling a single relational database further needs replication, federation or sharding."
+    link: "#sql-or-nosql"
+  key-value:
+    title: "A key-value store"
+    why: "Reads and writes by key are generally O(1), and the model is simple. It suits rapidly changing data such as sessions, carts and leaderboards, and an in-memory store like Redis even offers built-in structures such as sorted sets."
+    tradeoffs:
+      - "You can only look things up by key, so there are no joins and limited querying."
+      - "Data held in memory is limited by RAM and needs a persistence plan."
+    link: "#key-value-store"
+  document:
+    title: "A document store"
+    why: "Each record is a self-contained document, usually JSON, and the store can query by the document's internal structure. A flexible schema suits data that changes shape often."
+    tradeoffs:
+      - "Relationships between documents are your application's job, and joins are weak or absent."
+      - "Updating data that is duplicated across documents is harder to keep consistent."
+    link: "#document-store"
+  wide-column:
+    title: "A wide column store"
+    why: "Built for very large data sets with high availability, such as Bigtable, HBase and Cassandra. Rows are grouped by key into column families, which suits huge volumes of time-ordered writes."
+    tradeoffs:
+      - "Queries must be designed around the row key. Ad-hoc querying is limited."
+      - "They are operationally complex and usually give up strong consistency for availability."
+    link: "#wide-column-store"
+  graph:
+    title: "A graph database"
+    why: "Each record is a node and each relationship an arc, which makes many-to-many relationships and traversals such as friends of friends natural and fast. Social networks and recommendation engines are typical uses."
+    tradeoffs:
+      - "Less established than relational databases, with fewer people who know them well."
+      - "They fit connected questions well, and are rarely the right home for bulk or tabular data."
+    link: "#graph-database"
+
+scenarios:
+  - id: bank-transfer
+    scenario: "A bank records transfers between accounts. A transfer must either happen completely or not at all, and monthly reports join accounts, customers and transactions."
+    options:
+      - label: "A relational (SQL) database"
+        why: "Right. Transactions keep a transfer all-or-nothing, and joins make the reports straightforward. This is the classic relational use case."
+      - label: "A key-value store"
+        why: "It looks accounts up quickly, but it has no joins and no multi-record transactions, so you would rebuild both yourself."
+      - label: "A document store"
+        why: "Each document is easy to read, but a transfer touches two accounts at once and reports need joins, which a document store does poorly."
+      - label: "A graph database"
+        why: "Transfers do form a network, but the core need here is all-or-nothing updates and reporting, not traversal."
+    answer: 0
+  - id: leaderboard
+    scenario: "A game shows a live leaderboard. Scores are updated thousands of times a second and the top 100 is read constantly."
+    options:
+      - label: "A relational (SQL) database"
+        why: "It can do it at small scale, but sorting a huge, constantly changing table on every read is the kind of load that makes it a bottleneck."
+      - label: "A document store"
+        why: "Documents suit varied records, not a single hot, constantly re-ranked list."
+      - label: "A key-value store"
+        why: "Right. Leaderboard and scoring data is a typical fit. A store such as Redis keeps scores in memory with sorted sets, giving very fast reads and writes."
+      - label: "A wide column store"
+        why: "Great for huge volumes of data, but a live top-100 needs ordered access to a small hot data set, which an in-memory store handles better."
+    answer: 2
+  - id: shopping-cart
+    scenario: "An online shop keeps each visitor's shopping cart. Carts are looked up by session, change constantly, and can be thrown away after a few days."
+    options:
+      - label: "A graph database"
+        why: "Nothing here depends on relationships between records."
+      - label: "A key-value store"
+        why: "Right. Temporary data looked up by a key, with no joins needed, is a textbook key-value use. Expiry is built in to many of them."
+      - label: "A relational (SQL) database"
+        why: "It works, but you would pay for transactions and a strict schema that temporary cart data does not need."
+    answer: 1
+  - id: sensor-readings
+    scenario: "Millions of devices each send a reading every second. You keep years of data, write constantly, and read mostly by device and time range."
+    options:
+      - label: "A document store"
+        why: "Flexible documents are not the issue. The volume of constant writes over years is, and that wants a store built for scale."
+      - label: "A relational (SQL) database"
+        why: "A single relational database would struggle with this write rate and data volume without heavy sharding."
+      - label: "A key-value store"
+        why: "Single-value lookups are cheap, but range queries by time and the sheer volume suit another design better."
+      - label: "A wide column store"
+        why: "Right. Very large, high-throughput, time-ordered data is what wide column stores such as Cassandra and Bigtable are designed for, with the row key chosen around device and time."
+    answer: 3
+  - id: friends-of-friends
+    scenario: "A social app wants to show people you may know, meaning friends of your friends who live in your city."
+    options:
+      - label: "A graph database"
+        why: "Right. The relationships are the point, and walking two hops through them is what graph databases do best."
+      - label: "A key-value store"
+        why: "Fetching one person's friend list is easy, but following two hops across millions of people takes many round trips."
+      - label: "A document store"
+        why: "Embedding friend lists in documents makes the traversal painful and the data duplicated and hard to keep consistent."
+    answer: 0
+  - id: article-types
+    scenario: "A publishing site stores articles, videos, polls and galleries. The fields differ a lot by type, each item is normally loaded whole, and new types appear often."
+    options:
+      - label: "A relational (SQL) database"
+        why: "Every new type means a schema change or a tangle of mostly empty columns, which is awkward for shapes that keep changing."
+      - label: "A wide column store"
+        why: "Built for enormous scale, which is more than this needs, and with weaker support for querying inside each item."
+      - label: "A document store"
+        why: "Right. Self-contained, semi-structured items with a flexible schema, loaded whole, are exactly what a document store is for."
+    answer: 2

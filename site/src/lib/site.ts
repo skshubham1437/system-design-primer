@@ -18,6 +18,9 @@ export interface Page {
   concepts?: string[];
   labs?: string[];
   quiz?: { slug: string; count: number; reviewed: boolean; src: string };
+  practice?: { src: string; reviewed: boolean; steps: number; followups: { q: string; a: string }[] };
+  chooser?: { id: string; title: string; src: string; reviewed: boolean; scenarios: number };
+  extended?: boolean; // upstream text plus a section written for this site
   original?: boolean; // authored for this site rather than cut from the upstream README
 }
 export interface Group { id: string; label: string }
@@ -29,6 +32,8 @@ export const ORIGIN_REPO = 'https://github.com/skshubham1437/system-design-prime
 export const features = data.features as Record<string, boolean>;
 export interface QuizInfo { slug: string; topic: string; title: string; count: number; reviewed: boolean; ids: string[] }
 export const quizzes = (data.quizzes ?? []) as QuizInfo[];
+export interface ChooserInfo { id: string; title: string; topic: string; scenarios: number }
+export const choosers = (data.choosers ?? []) as ChooserInfo[];
 export const groups = data.groups as Group[];
 export const pages = data.pages as Page[];
 

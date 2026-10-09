@@ -11,7 +11,16 @@ Assumptions: one developer working full time, a second person available for cont
 | A. Groundwork (A1 to A6) | **Done** | 103 unit tests; end-to-end runs at desktop and phone width; axe on every page in **both themes including colour contrast**; CI runs all of it |
 | 1. Foundation and spaced flashcards (F1 to F7) | **Done** (M1) | Progress store, scheduler, migration, flashcards UI, data panel, due badge |
 | 2. Quizzes and dashboard | **Built, waiting on Gate A** (M2) | Q1 to Q6, Q9 and D1 to D4 done. The pilot has 19 questions on Cache, Database and Load balancer, all marked draft. **Q7 (learner pilot) and Q8 (the other ~80 questions) are not done**: they need people. Protocol in [PILOT.md](PILOT.md) |
-| 3 to 5 | Not started | |
+| 3. Practise like an interview (S1 to S5, C1 to C3) | **Built, waiting on Gate B** (M3) | Practice mode engine and the Pastebin pilot (4 step rubrics, 6 follow-ups); decision-aid engine and the SQL or NoSQL pilot (guided tree plus 6 scenarios). **S6 (learner pilot), S7 (rubrics for the other 7 solutions) and the other four choosers are not done**: they need people and review |
+| 4. Understand it visually (V0 to V6, G, L) | **Partly done** | All six planned visuals plus the load curve are built and tested, as labs (replication, sharding, queues and back pressure, DNS, CDN, TCP vs UDP, load curve). **Not done: the guided scaling path, prerequisites, and the glossary** |
+| 5. Depth and polish | **Partly done** | Link audit, archived-copy overrides, and a content review ([CONTENT_REVIEW.md](CONTENT_REVIEW.md)) done. Not done: architecture summaries, new topics (rate limiting and so on), mock interview, offline |
+
+
+### Added beyond the plan
+
+- **"Added on this site" extensions** (`content/extras/<slug>.md`): original sections appended to a thin upstream page, labelled as such. Used for Security and Latency vs throughput.
+- **A link audit and archived-copy overrides** (`scripts/audit-content.mjs`, `scripts/link-overrides.mjs`, `data/link-overrides.json`).
+- **A fix for leaked citations**: unquoted `<a href=URL>` in the upstream markdown rendered as literal text; the build now quotes those attributes.
 
 ### Decisions made while building
 
@@ -20,6 +29,7 @@ Assumptions: one developer working full time, a second person available for cont
 - **Daily new-card limit** is stored in the document (`daily`) so it survives a reload.
 - **Findings from the new tests, already fixed:** two progress bars had no accessible name; scrollable tables were not reachable by keyboard; the Reset section closed itself when the panel re-rendered.
 - **Colour contrast is now checked** on every page in light and dark, and inside the quiz, flashcard and dashboard states. It found and fixed: accent-coloured text that was too light on light backgrounds (new darker `--ink-*` variants for text, plain hues kept for fills), pale text inside tinted pills, translucent key hints on the primary button, code-block token colours (now the high-contrast Shiki themes), and a global `.bad` text colour leaking into quiz results.
+- **Authored YAML is easy to get subtly wrong.** A rubric item containing "path: look the link up" was silently read as a nested object, and the validator caught it. Every authored string that contains a colon must be quoted.
 - **`reviewed` flag.** Each quiz file carries `reviewed: false` until a second person has signed off; while false, learners see a "Draft" notice. The author cannot flip it.
 - **`link` is optional** on a question. Questions about page-level ideas with no heading to point at use the topic page itself.
 - **Read tracking** marks a page read only when the end of the page has been seen **and** at least 40% of its estimated reading time (minimum 8 seconds) has passed with the tab visible; partial reading shows as a half-filled mark.

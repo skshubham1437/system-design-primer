@@ -124,7 +124,7 @@ function sharding(host: HTMLElement) {
     const qs: [Query, string][] = [['by-key', 'Look up one user by the shard key'], ['name-prefix', 'Find users whose surname starts with “M”'], ['by-city', `Find users in ${CITIES[0]}`]];
     $('#s-queries', root)!.innerHTML = qs.map(([q, label]) => {
       const n = shardsTouched(q, strategy, shards);
-      return `<div class="v-query"><span>${esc(label)}</span><span class="v-dots" aria-label="${n} of ${shards} shards">${Array.from({ length: shards }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span><b>${n === shards && shards > 1 ? 'all ' + shards + ' (scatter-gather)' : n + ' shard'}</b></div>`;
+      return `<div class="v-query"><span>${esc(label)}</span><span class="v-dots" role="img" aria-label="${n} of ${shards} shards">${Array.from({ length: shards }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span><b>${n === shards && shards > 1 ? 'all ' + shards + ' (scatter-gather)' : n + ' shard'}</b></div>`;
     }).join('');
   };
   root.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-s]'); if (b) { strategy = b.dataset.s as Strategy; draw(); } });

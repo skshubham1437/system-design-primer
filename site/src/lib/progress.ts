@@ -24,6 +24,7 @@ export interface ProgressDoc {
   quiz: { attempts: QuizAttempt[]; items: Record<string, SrsItem> };
   solutions: Record<string, SolutionState>;
   paths: Record<string, { stage: number }>;
+  choosers: Record<string, { guided: number; attempts: { score: number; of: number; at: number }[] }>;
   sessions: Session[];
   settings: { newCardsPerDay: number };
   /** New flashcards introduced on `day` (local midnight), to enforce the daily limit. */
@@ -40,6 +41,7 @@ export const emptyDoc = (): ProgressDoc => ({
   quiz: { attempts: [], items: {} },
   solutions: {},
   paths: {},
+  choosers: {},
   sessions: [],
   settings: { newCardsPerDay: 10 },
   daily: { day: 0, newCards: 0 },
@@ -76,6 +78,9 @@ export function normalize(raw: unknown): ProgressDoc {
   }
   d.solutions = mapOf(raw.solutions, (x) => (isObj(x) && (x.status === 'attempted' || x.status === 'done') ? (x as unknown as SolutionState) : undefined));
   d.paths = mapOf(raw.paths, (x) => (isObj(x) && isNum(x.stage) ? { stage: x.stage } : undefined));
+  d.choosers = mapOf(raw.choosers, (x) => (isObj(x)
+    ? { guided: isNum(x.guided) ? x.guided : 0, attempts: Array.isArray(x.attempts) ? x.attempts.filter((a): a is { score: number; of: number; at: number } => isObj(a) && isNum(a.score) && isNum(a.of) && isNum(a.at)).slice(-50) : [] }
+    : undefined));
   if (Array.isArray(raw.sessions)) d.sessions = raw.sessions.filter((s): s is Session => isObj(s) && typeof s.id === 'string');
   if (isObj(raw.settings) && isNum(raw.settings.newCardsPerDay)) d.settings.newCardsPerDay = Math.min(100, Math.max(0, Math.round(raw.settings.newCardsPerDay)));
   if (isObj(raw.daily) && isNum(raw.daily.day) && isNum(raw.daily.newCards)) d.daily = { day: raw.daily.day, newCards: Math.max(0, Math.round(raw.daily.newCards)) };
