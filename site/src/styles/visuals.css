@@ -134,7 +134,7 @@
 .st-l { fill: var(--ink); font-size: 13px; font-weight: 650; font-family: var(--font-ui); }
 .st-s { fill: var(--ink-2); font-size: 10.5px; font-family: var(--font-ui); }
 .st-box.ghost .st-l { font-size: 11.5px; font-weight: 500; fill: var(--ink-2); }
-.st-new { fill: var(--ink); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--font-ui); }
+.st-new { fill: var(--ink); font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--font-ui); }
 .story-panel { padding: 16px 24px 4px; display: grid; gap: 10px; }
 .story-panel .quiz-count { margin: 0; }
 .widget .story-title { margin: 0; font-family: var(--font-serif); font-size: 1.35rem; text-transform: none; letter-spacing: -0.01em; color: var(--ink); }

@@ -465,7 +465,7 @@ function scaleStory(host: HTMLElement) {
           <rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="10" />
           <text x="${c.x + c.w / 2}" y="${c.y + c.h / 2 + (c.sub ? -2 : 4)}" text-anchor="middle" class="st-l">${esc(c.label)}</text>
           ${c.sub ? `<text x="${c.x + c.w / 2}" y="${c.y + c.h / 2 + 13}" text-anchor="middle" class="st-s">${esc(c.sub)}</text>` : ''}
-          ${fresh.has(c.id) ? `<text x="${c.x + c.w - 4}" y="${c.y - 4}" text-anchor="end" class="st-new">new</text>` : ''}
+          ${fresh.has(c.id) ? `<text x="${c.x + c.w - 6}" y="${c.y + 11}" text-anchor="end" class="st-new">new</text>` : ''}
         </g>`).join('');
 
     $('#st-steps', root)!.innerHTML = stages.map((_, i) => `<li><button type="button" data-go="${i + 1}" aria-label="Stage ${i + 1}: ${esc(stages[i].title)}" aria-current="${i + 1 === stage ? 'step' : 'false'}" class="${i + 1 < stage ? 'done' : ''}">${i + 1}</button></li>`).join('');
