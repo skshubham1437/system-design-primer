@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hash32, mulberry32, simulateCache, simulateLb } from '../../src/lib/sim';
+import { hash32, mulberry32, simulateCache, simulateLb, summarizeLb } from '../../src/lib/sim';
 
 const hits = (steps: { hit: boolean }[]) => steps.filter((s) => s.hit).length;
 const seq = (s: string) => s.split(' ');
@@ -97,6 +97,32 @@ describe('simulateLb', () => {
 
   it('IP hash with one hot client is worse than least connections', () => {
     expect(simulateLb('hash', uniform, true).p95).toBeGreaterThan(simulateLb('least', uniform, true).p95);
+  });
+
+  it('least connections spreads requests evenly over identical servers (ties are not always given to server 1)', () => {
+    const r = simulateLb('least', [1, 1, 1, 1, 1, 1], false);
+    expect(Math.min(...r.served) / Math.max(...r.served)).toBeGreaterThan(0.6);
+  });
+
+  it('every algorithm sees the same traffic: routing choices do not change which requests arrive', () => {
+    const total = (a: 'rr' | 'random' | 'least' | 'hash') => simulateLb(a, uniform, false).served.reduce((x, y) => x + y, 0);
+    expect(new Set([total('rr'), total('random'), total('least'), total('hash')]).size).toBe(1);
+  });
+
+  it('summaries over many runs report a median inside the range of the runs', () => {
+    const s = summarizeLb('rr', uniform, false);
+    expect(s.runs).toBe(20);
+    expect(s.p95).toBeGreaterThanOrEqual(s.p95Low);
+    expect(s.p95).toBeLessThanOrEqual(s.p95High);
+    expect(s.p95High).toBeGreaterThan(s.p95Low); // different traffic really does give different results
+  });
+
+  it('over many runs, least connections beats round robin and IP hash on tail latency', () => {
+    for (const sp of [uniform, mixed]) {
+      const least = summarizeLb('least', sp, false).p95;
+      expect(least).toBeLessThan(summarizeLb('rr', sp, false).p95);
+      expect(least).toBeLessThan(summarizeLb('hash', sp, false).p95);
+    }
   });
 
   it('records one frame per tick with one entry per server', () => {

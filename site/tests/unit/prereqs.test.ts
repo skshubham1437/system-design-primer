@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error plain JS module
 import { validatePrereqs } from '../../scripts/validate/prereqs.mjs';
 import { PREREQS } from '../../scripts/site-map.mjs';
 

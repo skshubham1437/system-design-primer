@@ -160,4 +160,11 @@ export const PREREQS = {
   'labs/cap-theorem/': ['learn/availability-vs-consistency/'],
   'labs/message-queue/': ['learn/asynchronism/'],
   'labs/cache-eviction/': ['learn/cache/'],
+  'labs/consistent-hashing/': ['learn/database/'],
+  'labs/load-balancing/': ['learn/load-balancer/'],
+  'labs/load-curve/': ['learn/performance-vs-scalability/', 'learn/latency-vs-throughput/'],
+  'labs/dns-resolution/': ['learn/dns/'],
+  'labs/cdn/': ['learn/cdn/'],
+  'labs/tcp-udp/': ['learn/communication/'],
+  'labs/estimator/': ['interview/approach/'],
 };

@@ -6,7 +6,6 @@
   "progressDashboard": true,
   "practiceMode": true,
   "choosers": true,
-  "guidedPath": false,
   "glossary": false,
   "mockInterview": false,
   "offline": false

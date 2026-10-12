@@ -5,8 +5,9 @@ const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document)
 const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => [...r.querySelectorAll<T>(s)];
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-import { mulberry32, hash32, simulateCache, simulateLb } from '../lib/sim';
-import type { Policy, Step, Algo, LbResult } from '../lib/sim';
+import { mulberry32, hash32, simulateCache, simulateLb, summarizeLb } from '../lib/sim';
+import type { Policy, Step, Algo, LbResult, LbSummary } from '../lib/sim';
+import { createCap, capWrite, capRead, capSetPartition, type CapState, type CapEvent } from '../lib/cap';
 
 /* ------------------------------------------------------------ shared helpers */
 
@@ -259,6 +260,12 @@ function consistentHash(host: HTMLElement) {
 /* ------------------------------------------------------------ cache eviction */
 
 function cacheEviction(host: HTMLElement) {
+  const LEN = 120; // requests per pattern: long enough that one lucky stretch does not decide the result
+  // Zipf-like popularity over n keys (the k-th most popular key is requested about 1/k as often), the usual shape of real traffic.
+  const zipf = (n: number, seed: number) => {
+    const r = mulberry32(seed), w = Array.from({ length: n }, (_, k) => 1 / (k + 1)), total = w.reduce((a, b) => a + b, 0);
+    return Array.from({ length: LEN }, () => { let x = r() * total, i = 0; while (i < n - 1 && x > w[i]) { x -= w[i]; i++; } return String.fromCharCode(65 + i); });
+  };
   const policies: { id: Policy; label: string; short: string }[] = [
     { id: 'lru', label: 'LRU', short: 'least recently used' },
     { id: 'lfu', label: 'LFU', short: 'least frequently used' },
@@ -267,25 +274,19 @@ function cacheEviction(host: HTMLElement) {
     { id: 'opt', label: 'Optimal', short: 'knows the future' },
   ];
   const patterns: Record<string, { label: string; make: (cap: number) => string[] }> = {
-    hot: {
-      label: 'Hot keys', make: () => {
-        const r = mulberry32(11), w = [0.34, 0.22, 0.14, 0.1, 0.07, 0.05, 0.04, 0.04];
-        const keys = 'ABCDEFGH'.split('');
-        return Array.from({ length: 60 }, () => { let x = r(), i = 0; while (i < w.length - 1 && x > w[i]) { x -= w[i]; i++; } return keys[i]; });
-      },
-    },
+    hot: { label: 'Hot keys', make: () => zipf(16, 11) },
     scan: {
       label: 'Hot keys + scans', make: () => {
         const r = mulberry32(5), out: string[] = []; let s = 0;
-        while (out.length < 60) {
-          for (let i = 0; i < 12 && out.length < 60; i++) out.push('ABCD'[Math.floor(r() * 4)]);
-          for (let i = 0; i < 8 && out.length < 60; i++) out.push(`s${++s}`);
+        while (out.length < LEN) {
+          for (let i = 0; i < 12 && out.length < LEN; i++) out.push('ABCD'[Math.floor(r() * 4)]);
+          for (let i = 0; i < 8 && out.length < LEN; i++) out.push(`s${++s}`);
         }
         return out;
       },
     },
-    loop: { label: 'Loop', make: (cap) => Array.from({ length: 60 }, (_, i) => String.fromCharCode(65 + (i % (cap + 1)))) },
-    uniform: { label: 'Uniform random', make: () => { const r = mulberry32(3); return Array.from({ length: 60 }, () => String.fromCharCode(65 + Math.floor(r() * 12))); } },
+    loop: { label: 'Loop', make: (cap) => Array.from({ length: LEN }, (_, i) => String.fromCharCode(65 + (i % (cap + 1)))) },
+    uniform: { label: 'Uniform random', make: () => { const r = mulberry32(3); return Array.from({ length: LEN }, () => String.fromCharCode(65 + Math.floor(r() * 12))); } },
     custom: { label: 'Custom', make: () => [] },
   };
 
@@ -384,12 +385,19 @@ function loadBalancing(host: HTMLElement) {
       </div>
     </div>
     <div class="lb-stage"><div class="lb-play"><button type="button" class="chip-btn" id="lb-playbtn">Pause</button><span id="lb-tick" class="ch-note"></span></div><div class="lb-servers" id="lb-servers"></div></div>
-    <div class="lb-table-wrap" tabindex="0" role="region" aria-label="Results by algorithm (scrolls sideways on small screens)"><table class="lb-table" id="lb-table"></table></div>`);
+    <div class="lb-table-wrap" tabindex="0" role="region" aria-label="Results by algorithm (scrolls sideways on small screens)"><table class="lb-table" id="lb-table"></table></div>
+    <p class="ch-note lb-runs">Latency columns are the median of 20 runs with different traffic; the range shows the best and worst run. One run on its own can mislead: the same algorithm can look good or bad depending on luck.</p>`);
 
   const speedsOf = () => Array.from({ length: servers }, (_, i) => (mixed ? [1, 1, 2, 3, 3, 4][i] : 1));
   let sims: Record<Algo, LbResult>;
+  let sums: Record<Algo, LbSummary>;
 
-  const compute = () => { const sp = speedsOf(); sims = Object.fromEntries(algos.map((a) => [a.id, simulateLb(a.id, sp, hot)])) as Record<Algo, LbResult>; frame = 0; };
+  const compute = () => {
+    const sp = speedsOf();
+    sims = Object.fromEntries(algos.map((a) => [a.id, simulateLb(a.id, sp, hot)])) as Record<Algo, LbResult>;
+    sums = Object.fromEntries(algos.map((a) => [a.id, summarizeLb(a.id, sp, hot)])) as Record<Algo, LbSummary>;
+    frame = 0;
+  };
 
   const drawServers = () => {
     const r = sims[algo], sp = speedsOf();
@@ -402,11 +410,11 @@ function loadBalancing(host: HTMLElement) {
   };
   const drawTable = () => {
     const sp = speedsOf();
-    const best = Math.min(...algos.map((a) => sims[a.id].p95));
-    $('#lb-table', root)!.innerHTML = `<thead><tr><th>Algorithm</th><th>Mean latency</th><th>p95 latency</th><th>Longest queue</th><th>Requests per server</th></tr></thead><tbody>${algos.map((a) => {
-      const r = sims[a.id];
+    const best = Math.min(...algos.map((a) => sums[a.id].p95));
+    $('#lb-table', root)!.innerHTML = `<thead><tr><th>Algorithm</th><th>Mean latency</th><th>p95 latency <small>(range)</small></th><th>Longest queue</th><th>Requests per server <small>(run shown)</small></th></tr></thead><tbody>${algos.map((a) => {
+      const r = sims[a.id], m = sums[a.id];
       const tot = r.served.reduce((x, y) => x + y, 0);
-      return `<tr class="${a.id === algo ? 'on' : ''}" data-a="${a.id}"><td><b>${a.label}</b></td><td>${r.mean.toFixed(1)}</td><td class="${r.p95 === best ? 'best' : ''}">${r.p95}</td><td>${r.maxQueue}</td>
+      return `<tr class="${a.id === algo ? 'on' : ''}" data-a="${a.id}"><td><b>${a.label}</b></td><td>${m.mean.toFixed(1)}</td><td class="${m.p95 === best ? 'best' : ''}">${m.p95} <small>(${m.p95Low}–${m.p95High})</small></td><td>${m.maxQueue}</td>
         <td><span class="lb-mini">${r.served.map((s, i) => `<i title="Server ${i + 1}: ${s} requests (${sp[i]}× speed)" style="height:${Math.max(4, (s / tot) * 90)}px"></i>`).join('')}</span></td></tr>`;
     }).join('')}</tbody>`;
   };
@@ -437,16 +445,9 @@ function loadBalancing(host: HTMLElement) {
 
 /* ------------------------------------------------------------ CAP lab */
 
-interface Replica { value: string; ts: number }
-
 function capLab(host: HTMLElement) {
-  let mode: 'cp' | 'ap' = 'cp';
-  let partitioned = false;
-  let clock = 0;
-  let writes = 0;
-  let nodes: Replica[] = [{ value: '—', ts: 0 }, { value: '—', ts: 0 }, { value: '—', ts: 0 }];
-  let divergedWrites: { node: number; side: number; value: string; ts: number }[] = [];
-  let log: { kind: 'ok' | 'bad' | 'info'; text: string }[] = [];
+  let st: CapState = createCap('cp');
+  let log: CapEvent[] = [];
 
   const root = shell(host, 'cap', 'CAP theorem lab', { eyebrow: 'Simulation', title: 'Three replicas and a flaky network', desc: 'Nodes 1 and 2 can always talk to each other. A partition cuts node 3 off from them.' }, `
     <div class="cap-controls">
@@ -457,49 +458,18 @@ function capLab(host: HTMLElement) {
     <div class="cap-stage" id="cap-stage"></div>
     <div class="cap-log" id="cap-log" aria-live="polite" role="log"></div>`);
 
-  const push = (kind: 'ok' | 'bad' | 'info', text: string) => { log = [{ kind, text }, ...log].slice(0, 7); };
-  const side = (i: number) => (partitioned && i === 2 ? 1 : 0);
-  const peers = (i: number) => [0, 1, 2].filter((j) => side(j) === side(i));
-  const hasQuorum = (i: number) => peers(i).length >= 2;
-
-  const write = (i: number) => {
-    const v = `v${++writes}`;
-    if (mode === 'cp' && !hasQuorum(i)) { writes--; push('bad', `Write to node ${i + 1} rejected: it can only reach ${peers(i).length} of 3 nodes, so it has no quorum. Unavailable, but nothing inconsistent was stored.`); return; }
-    const ts = ++clock;
-    for (const j of peers(i)) nodes[j] = { value: v, ts };
-    if (partitioned) divergedWrites.push({ node: i, side: side(i), value: v, ts });
-    push('ok', `Wrote ${v} via node ${i + 1}; replicated to ${peers(i).length === 3 ? 'all nodes' : `node${peers(i).length > 1 ? 's' : ''} ${peers(i).map((x) => x + 1).join(' and ')}`}.`);
-  };
-  const read = (i: number) => {
-    if (mode === 'cp' && !hasQuorum(i)) { push('bad', `Read from node ${i + 1} refused: it cannot confirm its data is current. Unavailable.`); return; }
-    const latest = Math.max(...nodes.map((n) => n.ts));
-    const stale = nodes[i].ts < latest;
-    push(stale ? 'bad' : 'ok', `Node ${i + 1} answered ${nodes[i].value}${stale ? ` which is STALE: another node already has ${nodes.find((n) => n.ts === latest)!.value}.` : '.'}`);
-  };
-  const setPartition = (on: boolean) => {
-    if (on === partitioned) return;
-    partitioned = on;
-    if (on) { divergedWrites = []; push('info', 'Network cut. Node 3 is now isolated from nodes 1 and 2.'); return; }
-    // heal: highest timestamp wins everywhere
-    const winner = nodes.reduce((a, b) => (b.ts > a.ts ? b : a));
-    const bothSides = new Set(divergedWrites.map((w) => w.side)).size > 1;
-    const lost = bothSides ? divergedWrites.filter((w) => w.ts !== winner.ts).map((w) => w.value) : [];
-    nodes = nodes.map(() => ({ ...winner }));
-    if (lost.length) push('bad', `Network healed. Both sides accepted writes, so they conflicted. Last-write-wins kept ${winner.value} and silently discarded ${lost.join(', ')}.`);
-    else push('ok', `Network healed. Nodes reconciled on ${winner.value}.`);
-    divergedWrites = [];
-  };
+  const push = (e?: CapEvent) => { if (e) log = [e, ...log].slice(0, 7); };
 
   const draw = () => {
-    $$('#cap-mode button', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === mode)));
+    $$('#cap-mode button', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === st.mode)));
     const part = $('#cap-part', root)!;
-    part.textContent = partitioned ? 'Heal the network' : 'Cut the network';
-    part.setAttribute('aria-pressed', String(partitioned));
-    const latest = Math.max(...nodes.map((n) => n.ts));
+    part.textContent = st.partitioned ? 'Heal the network' : 'Cut the network';
+    part.setAttribute('aria-pressed', String(st.partitioned));
+    const latest = Math.max(...st.nodes.map((n) => n.ts));
     $('#cap-stage', root)!.innerHTML = `
-      <div class="cap-net${partitioned ? ' cut' : ''}">
-        ${nodes.map((n, i) => `
-          <div class="cap-node${n.ts < latest ? ' stale' : ''}${partitioned && i === 2 ? ' island' : ''}">
+      <div class="cap-net${st.partitioned ? ' cut' : ''}">
+        ${st.nodes.map((n, i) => `
+          <div class="cap-node${n.ts < latest ? ' stale' : ''}${st.partitioned && i === 2 ? ' island' : ''}">
             <b>Node ${i + 1}</b>
             <span class="cap-val">${esc(n.value)}</span>
             ${n.ts < latest ? '<em>stale</em>' : '<em class="fresh">current</em>'}
@@ -515,11 +485,11 @@ function capLab(host: HTMLElement) {
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const w = t.closest<HTMLElement>('[data-w]'), r = t.closest<HTMLElement>('[data-r]'), m = t.closest<HTMLElement>('[data-m]');
-    if (w) write(Number(w.dataset.w));
-    else if (r) read(Number(r.dataset.r));
-    else if (m) { mode = m.dataset.m as typeof mode; push('info', mode === 'cp' ? 'CP mode: a node without a majority refuses to answer.' : 'AP mode: every node always answers with what it has.'); }
-    else if (t.closest('#cap-part')) setPartition(!partitioned);
-    else if (t.closest('#cap-reset')) { partitioned = false; clock = 0; writes = 0; nodes = [{ value: '—', ts: 0 }, { value: '—', ts: 0 }, { value: '—', ts: 0 }]; divergedWrites = []; log = []; }
+    if (w) { const out = capWrite(st, Number(w.dataset.w)); st = out.state; push(out.event); }
+    else if (r) push(capRead(st, Number(r.dataset.r)));
+    else if (m) { st = { ...st, mode: m.dataset.m as CapState['mode'] }; push({ kind: 'info', text: st.mode === 'cp' ? 'CP mode: a node without a majority refuses to answer.' : 'AP mode: every node always answers with what it has.' }); }
+    else if (t.closest('#cap-part')) { const out = capSetPartition(st, !st.partitioned); st = out.state; push(out.event); }
+    else if (t.closest('#cap-reset')) { st = createCap(st.mode); log = []; }
     else return;
     draw();
   });

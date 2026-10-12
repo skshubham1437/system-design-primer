@@ -352,7 +352,7 @@ function transport(host: HTMLElement) {
 
 function loadCurve(host: HTMLElement) {
   let arrivals = 600, perServer = 100, servers = 8, service = 20;
-  const root = shell(host, 'v-curve', 'Load curve', { eyebrow: 'Calculator', title: 'Why the last 20% of capacity is the expensive part', desc: 'Response time is flat until a server gets busy, then it shoots up. Add servers to move the point back down the curve.' }, `
+  const root = shell(host, 'v-curve', 'Load curve', { eyebrow: 'Calculator', title: 'Why the last 20% of capacity is the expensive part', desc: 'Response time rises from the start and then shoots up: twice the idle time at 50% busy, four times at 75%, ten times at 90%. Add servers to move the point back down the curve.' }, `
     <div class="vis-controls vis-grid">
       <label class="lab-range"><span>Incoming <b id="l-a">600</b> requests/s</span><input type="range" id="l-a-in" min="50" max="1500" step="50" value="600" aria-label="Incoming requests per second" /></label>
       <label class="lab-range"><span>Servers <b id="l-n">8</b> (each handles ${perServer}/s)</span><input type="range" id="l-n-in" min="1" max="20" value="8" aria-label="Number of servers" /></label>
@@ -382,6 +382,7 @@ function loadCurve(host: HTMLElement) {
       <text x="14" y="125" transform="rotate(-90 14 125)" text-anchor="middle" class="v-t">time per request</text>
       ${[1, 4, 8, 12].map((k) => `<text x="36" y="${Y(k * service) + 3}" text-anchor="end" class="v-t">${k * service}</text>`).join('')}
       <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.4"/>
+      ${[0.5, 0.75, 0.9].map((u) => `<circle cx="${X(u)}" cy="${Y(responseMs(u, service))}" r="3" fill="var(--ink-2)"/><text x="${X(u) - 6}" y="${Y(responseMs(u, service)) - 8}" text-anchor="end" class="v-t">${Math.round(1 / (1 - u))}×</text>`).join('')}
       <line x1="${X(shown)}" y1="${Y(ms)}" x2="${X(shown)}" y2="230" stroke="var(--ink-3)" stroke-dasharray="3 3"/>
       <circle cx="${X(shown)}" cy="${Y(ms)}" r="6" fill="${over ? 'var(--hue-practice)' : 'var(--accent)'}" stroke="var(--surface)" stroke-width="2"/>`;
     const needed = serversFor(arrivals, perServer, 0.7);

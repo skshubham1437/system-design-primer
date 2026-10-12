@@ -62,8 +62,9 @@ export function simulateCache(policy: Policy, seq: string[], cap: number): Step[
 export type Algo = 'rr' | 'random' | 'least' | 'wrr' | 'hash';
 export interface LbResult { served: number[]; mean: number; p50: number; p95: number; maxQueue: number; frames: number[][]; busy: number[] }
 
-export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean): LbResult {
-  const rnd = mulberry32(21);
+export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean, seed = 21): LbResult {
+  const rnd = mulberry32(seed);         // the traffic: identical for every algorithm with the same seed
+  const pick = mulberry32(seed + 7919); // routing choices, kept separate so they never change the traffic
   const n = speeds.length;
   const totalSpeed = speeds.reduce((a, b) => a + b, 0);
   const TICKS = 160;
@@ -86,8 +87,12 @@ export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean): Lb
       const client = hotClient && rnd() < 0.35 ? 0 : 1 + Math.floor(rnd() * 24);
       let s = 0;
       if (algo === 'rr') { s = rr++ % n; }
-      else if (algo === 'random') s = Math.floor(rnd() * n);
-      else if (algo === 'least') { s = 0; for (let i = 1; i < n; i++) if (queues[i].length < queues[s].length) s = i; }
+      else if (algo === 'random') s = Math.floor(pick() * n);
+      else if (algo === 'least') { // fewest in flight; ties broken at random, as real balancers do
+        const fewest = Math.min(...queues.map((q) => q.length));
+        const tied = queues.map((q, i) => (q.length === fewest ? i : -1)).filter((i) => i >= 0);
+        s = tied[Math.floor(pick() * tied.length)];
+      }
       else if (algo === 'wrr') { // smooth weighted round robin
         wrrCurrent.forEach((_, i) => (wrrCurrent[i] += speeds[i]));
         s = wrrCurrent.indexOf(Math.max(...wrrCurrent));
@@ -115,3 +120,13 @@ export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean): Lb
   return { served, mean: lat.reduce((a, b) => a + b, 0) / Math.max(1, lat.length), p50: q(0.5), p95: q(0.95), maxQueue: maxQ, frames, busy };
 }
 
+
+export interface LbSummary { mean: number; p95: number; p95Low: number; p95High: number; maxQueue: number; runs: number }
+
+/** One run proves little. Repeat the simulation over several traffic seeds and report the median and the spread. */
+export function summarizeLb(algo: Algo, speeds: number[], hotClient: boolean, runs = 20): LbSummary {
+  const rs = Array.from({ length: runs }, (_, i) => simulateLb(algo, speeds, hotClient, 21 + i * 101));
+  const med = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
+  const p95s = rs.map((r) => r.p95);
+  return { mean: med(rs.map((r) => r.mean)), p95: med(p95s), p95Low: Math.min(...p95s), p95High: Math.max(...p95s), maxQueue: med(rs.map((r) => r.maxQueue)), runs };
+}

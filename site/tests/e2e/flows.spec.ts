@@ -54,3 +54,24 @@ test('study planner remembers a ticked item after reload', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.plan-foot span')).toContainText('1 of');
 });
+
+test('load balancing reports medians over 20 runs, and least connections has the best tail', async ({ page }) => {
+  await page.goto('labs/load-balancing/');
+  await expect(page.locator('.lb-runs')).toContainText('20 runs');
+  const best = page.locator('#lb-table tr:has(td.best) td:first-child');
+  await expect(best).toContainText('Least connections');
+});
+
+test('CAP in AP mode: a conflict discards only the other side\'s last value', async ({ page }) => {
+  await page.goto('labs/cap-theorem/');
+  await page.getByRole('button', { name: /AP/ }).click();
+  await page.locator('#cap-part').click();
+  await page.locator('[data-w="2"]').click(); // v1 on the isolated node
+  await page.locator('[data-w="0"]').click(); // v2 on the majority
+  await page.locator('[data-w="0"]').click(); // v3 overwrites v2 on its own side
+  await page.locator('#cap-part').click();
+  const msg = page.locator('#cap-log p').first();
+  await expect(msg).toContainText('kept v3');
+  await expect(msg).toContainText('discarded v1');
+  await expect(msg).not.toContainText('v2');
+});

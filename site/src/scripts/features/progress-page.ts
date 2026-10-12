@@ -42,7 +42,7 @@ export function mount(host: HTMLElement) {
     const cards = summarize(Object.values(doc.cards).filter((c) => c.seen > 0), data.cardsTotal, now);
     const last = lastAttempts(doc);
     const planTicks = Object.values(doc.plan.done).reduce((n, a) => n + a.length, 0);
-    const solStates = data.solutions.map((s) => doc.solutions[s.path]?.status ?? 'none');
+    const solStates: ("done" | "attempted" | "none")[] = data.solutions.map((s) => doc.solutions[s.path]?.status ?? 'none');
     const practised = (path: string) => Object.values(doc.solutions[path]?.notes ?? {}).filter((n) => n && n.trim()).length;
     const readCount = trail.filter((p) => isRead(doc, p.path)).length;
     const anything = readCount || Object.keys(doc.cards).length || doc.quiz.attempts.length || Object.keys(doc.solutions).length || planTicks;

@@ -9,6 +9,7 @@
     "build": "npm run content && astro build && pagefind --site dist",
     "preview": "astro preview",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p .",
     "test:e2e": "playwright test"
   },
   "dependencies": {

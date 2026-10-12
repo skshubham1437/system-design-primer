@@ -44,6 +44,8 @@ jobs:
         working-directory: site
         env:
           SITE_BASE: /${{ github.event.repository.name }}/
+      - run: npm run typecheck
+        working-directory: site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/dist

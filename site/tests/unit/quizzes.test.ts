@@ -89,7 +89,7 @@ describe('validateQuizzes', () => {
   });
 
   it('restricts difficulty to 1, 2 or 3', () => {
-    const qs = good(); qs[0].difficulty = 5;
+    const qs: Record<string, unknown>[] = good(); qs[0].difficulty = 5;
     expect(validateQuizzes({ quizzes: [quiz(qs)], pages }).join('\n')).toMatch(/difficulty/);
   });
 });

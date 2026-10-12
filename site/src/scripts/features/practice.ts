@@ -134,7 +134,7 @@ export function mount(host: HTMLElement) {
     if (t.id === 'pp-notes') remember((s) => { s.notes = { ...(s.notes ?? {}), [step.id]: t.value }; });
     else if (t.dataset.r !== undefined) {
       const set = checked(step.id);
-      t.checked ? set.add(t.dataset.r) : set.delete(t.dataset.r);
+      (t as HTMLInputElement).checked ? set.add(t.dataset.r) : set.delete(t.dataset.r);
       remember((s) => { s.rubric = { ...(s.rubric ?? {}), [step.id]: [...set] }; });
     }
   });
