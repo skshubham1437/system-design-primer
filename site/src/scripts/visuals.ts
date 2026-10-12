@@ -9,6 +9,8 @@ import { assign, CITIES, imbalance, load, makeUsers, shardsTouched, type Query, 
 import { resolve as dnsResolve, type DnsOptions } from '../lib/dns';
 import * as cdn from '../lib/cdn';
 import { curve, responseMs, serversFor, MAX_UTILISATION } from '../lib/load-curve';
+import { getProgress } from '../lib/progress';
+import { architectureAt, newAt } from '../lib/scaling-story';
 
 const TONES = ['#0c7a73', '#4f5bd5', '#c4690a', '#cc3a5d', '#8a4fd0', '#0b84b8', '#9a7b0a', '#5f8a2a'];
 
@@ -398,6 +400,108 @@ function loadCurve(host: HTMLElement) {
   draw();
 }
 
+/* ------------------------------------------------------------ the scaling story */
+
+function scaleStory(host: HTMLElement) {
+  const prose = host.closest<HTMLElement>('.prose');
+  if (!prose) return;
+  // The nine stages are ordinary headings and paragraphs in the page, so it reads fine without scripts.
+  // Here they are collected and shown one at a time beside a diagram.
+  const heads = [...prose.querySelectorAll<HTMLElement>('h3')].filter((h) => /^\d+\./.test((h.firstChild?.textContent ?? '').trim()));
+  if (heads.length < 2) return;
+  const stages = heads.map((h) => {
+    const nodes: HTMLElement[] = [h];
+    let n = h.nextElementSibling as HTMLElement | null;
+    while (n && n.tagName !== 'H3' && n.tagName !== 'H2') { nodes.push(n); n = n.nextElementSibling as HTMLElement | null; }
+    const field = (label: string) => {
+      const p = nodes.find((x) => x.tagName === 'P' && x.querySelector('strong')?.textContent?.replace(/\.$/, '') === label);
+      if (!p) return '';
+      const c = p.cloneNode(true) as HTMLElement;
+      c.querySelector('strong')?.remove();
+      return c.innerHTML.trim();
+    };
+    return { title: (h.firstChild?.textContent ?? '').replace(/^\d+\.\s*/, '').trim(), symptom: field('Symptom'), fix: field('Fix'), cost: field('Cost'), nodes };
+  });
+
+  const progress = getProgress();
+  const saved = progress.get().paths['scaling-story']?.stage ?? 1;
+  let stage = Math.min(Math.max(1, saved), stages.length);
+  let predict = false;
+  let revealed = false;
+
+  const root = shell(host, 'v-story', 'From one user to millions', { eyebrow: 'Guided path', title: 'Grow a system, one bottleneck at a time', desc: 'Step through the stages. Each one adds a single component to fix a symptom, and tells you what it costs.' }, `
+    <div class="story-top">
+      <ol class="story-steps" id="st-steps" aria-label="Stages"></ol>
+      <label class="lab-check"><input type="checkbox" id="st-predict" /> Predict first: show the symptom, then guess the fix</label>
+    </div>
+    <div class="story-diagram" tabindex="0" role="group" aria-label="Architecture diagram"><svg id="st-svg" viewBox="0 0 800 340" role="img"></svg></div>
+    <div class="story-panel" id="st-panel" aria-live="polite"></div>
+    <div class="story-nav"><button type="button" class="btn" id="st-prev">Previous stage</button><button type="button" class="btn primary" id="st-next">Next stage</button></div>`);
+
+  // keep the plain-text version available, tucked away
+  const details = document.createElement('details');
+  details.className = 'story-text';
+  details.innerHTML = '<summary>Read all nine stages as plain text</summary>';
+  const first = stages[0].nodes[0];
+  first.before(details);
+  for (const st of stages) for (const n of st.nodes) details.append(n);
+
+  const draw = () => {
+    const arch = architectureAt(stage);
+    const fresh = new Set(newAt(stage));
+    const byId = new Map(arch.components.map((c) => [c.id, c]));
+    const edge = (a: string, b: string, dashed?: boolean) => {
+      const A = byId.get(a), B = byId.get(b);
+      if (!A || !B) return '';
+      const x1 = A.x + A.w, y1 = A.y + A.h / 2, x2 = B.x, y2 = B.y + B.h / 2;
+      const mid = (x1 + x2) / 2;
+      return `<path d="M${x1} ${y1}C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}" fill="none" stroke="var(--ink-3)" stroke-width="1.5" ${dashed ? 'stroke-dasharray="4 4"' : ''} />`;
+    };
+    $('#st-svg', root)!.setAttribute('aria-label', `Architecture at stage ${stage}: ${arch.components.map((c) => c.label).join(', ')}`);
+    $('#st-svg', root)!.innerHTML =
+      arch.edges.map((e) => edge(e.from, e.to, e.dashed)).join('') +
+      arch.components.map((c) => `
+        <g class="st-box${fresh.has(c.id) ? ' new' : ''}${c.ghost ? ' ghost' : ''}">
+          <rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="10" />
+          <text x="${c.x + c.w / 2}" y="${c.y + c.h / 2 + (c.sub ? -2 : 4)}" text-anchor="middle" class="st-l">${esc(c.label)}</text>
+          ${c.sub ? `<text x="${c.x + c.w / 2}" y="${c.y + c.h / 2 + 13}" text-anchor="middle" class="st-s">${esc(c.sub)}</text>` : ''}
+          ${fresh.has(c.id) ? `<text x="${c.x + c.w - 4}" y="${c.y - 4}" text-anchor="end" class="st-new">new</text>` : ''}
+        </g>`).join('');
+
+    $('#st-steps', root)!.innerHTML = stages.map((_, i) => `<li><button type="button" data-go="${i + 1}" aria-label="Stage ${i + 1}: ${esc(stages[i].title)}" aria-current="${i + 1 === stage ? 'step' : 'false'}" class="${i + 1 < stage ? 'done' : ''}">${i + 1}</button></li>`).join('');
+
+    const st = stages[stage - 1];
+    const hide = predict && !revealed;
+    $('#st-panel', root)!.innerHTML = `
+      <p class="quiz-count">Stage ${stage} of ${stages.length}</p>
+      <h4 class="story-title">${esc(st.title)}</h4>
+      <div class="story-block"><b>The symptom</b><p>${st.symptom}</p></div>
+      ${hide
+        ? '<div class="story-block predict"><b>Your turn</b><p>Before you look: what one component or change would you add to fix this, and what would it cost you?</p><button type="button" class="btn primary" id="st-reveal">Show the fix</button></div>'
+        : `<div class="story-block"><b>The fix</b><p>${st.fix}</p></div><div class="story-block cost"><b>What it costs</b><p>${st.cost}</p></div>`}`;
+    ($('#st-prev', root) as HTMLButtonElement).disabled = stage === 1;
+    ($('#st-next', root) as HTMLButtonElement).disabled = stage === stages.length;
+    $('#st-next', root)!.textContent = stage === stages.length - 1 ? 'Last stage' : 'Next stage';
+  };
+
+  const go = (n: number) => {
+    stage = Math.min(Math.max(1, n), stages.length);
+    revealed = false;
+    progress.update((d) => { d.paths['scaling-story'] = { stage }; });
+    draw();
+  };
+  root.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const g = t.closest<HTMLElement>('[data-go]');
+    if (g) go(Number(g.dataset.go));
+    else if (t.closest('#st-prev')) go(stage - 1);
+    else if (t.closest('#st-next')) go(stage + 1);
+    else if (t.closest('#st-reveal')) { revealed = true; draw(); }
+  });
+  $('#st-predict', root)!.addEventListener('change', (e) => { predict = (e.target as HTMLInputElement).checked; revealed = false; draw(); });
+  draw();
+}
+
 export const visualWidgets: Record<string, (host: HTMLElement) => void> = {
   replication,
   sharding,
@@ -406,4 +510,5 @@ export const visualWidgets: Record<string, (host: HTMLElement) => void> = {
   cdn: cdnVisual,
   'tcp-udp': transport,
   'load-curve': loadCurve,
+  'scale-story': scaleStory,
 };

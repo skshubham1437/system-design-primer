@@ -21,6 +21,7 @@ const crumb =
   : { label: groupLabel(page.group), href: `${page.section}/` };
 const steps = isSolution ? page.toc.filter((t) => /^Step \d/.test(t.text)) : [];
 const concepts = (page.concepts ?? []).map((p) => pageByPath(p)).filter(Boolean) as Page[];
+const prereqs = (page.prereqs ?? []).map((p) => pageByPath(p)).filter(Boolean) as Page[];
 const tryLabs = (page.labs ?? []).map((p) => pageByPath(p)).filter(Boolean) as Page[];
 const hueGroup = page.kind === 'solution' || page.kind === 'ood' ? 'practice' : page.group;
 const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
@@ -50,6 +51,12 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
       <div class="concepts">
         <span class="concepts-label">Concepts used</span>
         {concepts.slice(0, 8).map((c) => <a class="chip" href={href(c)}>{c.title}</a>)}
+      </div>
+    )}
+    {prereqs.length > 0 && (
+      <div class="concepts prereqs" data-pagefind-ignore>
+        <span class="concepts-label">Before this</span>
+        {prereqs.map((c) => <a class="chip" href={href(c)}>{c.title}</a>)}
       </div>
     )}
     {steps.length > 0 && (

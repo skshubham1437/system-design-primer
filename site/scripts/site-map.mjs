@@ -106,6 +106,7 @@ export const WIDGETS = {
 // Original, interactive pages that live in site/content/labs/<slug>.md. Each markdown file
 // mounts its widget with a raw <div data-widget="..."></div>.
 export const LABS = [
+  { slug: 'scaling-story', title: 'From one user to millions', blurb: 'Follow one product as it grows, nine stages at a time, and see which problem each building block solves.' },
   { slug: 'estimator', title: 'Capacity estimator', blurb: 'Turn users and request sizes into QPS, storage, bandwidth and server counts.' },
   { slug: 'consistent-hashing', title: 'Consistent hashing', blurb: 'Add and remove nodes on a hash ring and see how few keys have to move.' },
   { slug: 'cache-eviction', title: 'Cache eviction', blurb: 'Replay the same traffic through LRU, LFU, FIFO and random eviction.' },
@@ -122,6 +123,7 @@ export const LABS = [
 
 // Topic page -> labs worth trying from it.
 export const RELATED_LABS = {
+  'learn/start-here/': ['labs/scaling-story/'],
   'learn/cache/': ['labs/cache-eviction/'],
   'learn/dns/': ['labs/dns-resolution/'],
   'learn/cdn/': ['labs/cdn/'],
@@ -137,4 +139,25 @@ export const RELATED_LABS = {
   'interview/approach/': ['labs/estimator/'],
   'reference/powers-of-two/': ['labs/estimator/'],
   'reference/latency-numbers/': ['labs/estimator/'],
+};
+
+// Page -> pages worth reading first ("Before this"). The build checks that every path exists
+// and that the chain never loops back on itself.
+export const PREREQS = {
+  'learn/latency-vs-throughput/': ['learn/performance-vs-scalability/'],
+  'learn/availability-vs-consistency/': ['learn/performance-vs-scalability/'],
+  'learn/consistency-patterns/': ['learn/availability-vs-consistency/'],
+  'learn/availability-patterns/': ['learn/consistency-patterns/'],
+  'learn/cdn/': ['learn/dns/'],
+  'learn/load-balancer/': ['learn/dns/'],
+  'learn/reverse-proxy/': ['learn/load-balancer/'],
+  'learn/application-layer/': ['learn/load-balancer/'],
+  'learn/asynchronism/': ['learn/application-layer/'],
+  'learn/database/': ['learn/consistency-patterns/'],
+  'learn/cache/': ['learn/database/'],
+  'labs/replication/': ['learn/database/'],
+  'labs/sharding/': ['learn/database/'],
+  'labs/cap-theorem/': ['learn/availability-vs-consistency/'],
+  'labs/message-queue/': ['learn/asynchronism/'],
+  'labs/cache-eviction/': ['learn/cache/'],
 };

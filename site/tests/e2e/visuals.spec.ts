@@ -64,6 +64,7 @@ test.describe('message queue', () => {
     await page.goto('labs/message-queue/');
     const root = page.locator('.v-queue');
     const dropped = root.locator('#q-stats > div', { hasText: 'Dropped' }).locator('dd');
+    await expect(dropped).toBeVisible(); // the widget loads lazily; wait for it before moving the fake clock
     await page.clock.runFor(8_000);
     expect(Number(await dropped.textContent())).toBeGreaterThan(0);
 

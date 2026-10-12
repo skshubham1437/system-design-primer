@@ -21,7 +21,7 @@ import { loadPractice, emitPractice } from './lib/practice.mjs';
 import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
-import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
+import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS, PREREQS } from './site-map.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.resolve(here, '..');
@@ -314,6 +314,24 @@ async function render(nodes, ctx) {
   return { html, toc: ctx.toc, minutes: Math.max(1, Math.round(words / 210)) };
 }
 
+// Original material added to an upstream page: content/extras/<slug>.md, shown in a labelled section.
+async function appendExtras(r, meta, slug, pagePath, title) {
+  const extraFile = path.join(SITE, 'content', 'extras', `${slug}.md`);
+  if (!fs.existsSync(extraFile)) return;
+  const tr = parse(fs.readFileSync(extraFile, 'utf8'));
+  const slugger = new GithubSlugger();
+  for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: `extra-${slugger.slug(mdToString(n))}` } };
+  const ectx = { name: `${pagePath} (added)`, dir: '', title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+  const e = await render(tr.children, ectx);
+  r.html += `
+<section class="extra" aria-labelledby="extra-badge-${slug}"><p class="extra-badge" id="extra-badge-${slug}">Added on this site</p>
+${e.html}
+</section>`;
+  r.toc = [...r.toc, ...e.toc];
+  r.minutes += e.minutes;
+  meta.extended = true;
+}
+
 // ---------------------------------------------------------------- main
 
 async function main() {
@@ -411,19 +429,7 @@ async function main() {
     const r = await render(p.nodes, ctx);
     const { nodes, ...meta } = p;
 
-    // Original material added to an upstream page: content/extras/<slug>.md, shown in a labelled section.
-    const extraFile = path.join(SITE, 'content', 'extras', `${p.slug}.md`);
-    if (p.kind === 'topic' && fs.existsSync(extraFile)) {
-      const tr = parse(fs.readFileSync(extraFile, 'utf8'));
-      const slugger = new GithubSlugger();
-      for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: `extra-${slugger.slug(mdToString(n))}` } };
-      const ectx = { name: `${p.path} (added)`, dir: '', title: p.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
-      const e = await render(tr.children, ectx);
-      r.html += `\n<section class="extra" aria-labelledby="extra-badge-${p.slug}"><p class="extra-badge" id="extra-badge-${p.slug}">Added on this site</p>\n${e.html}\n</section>`;
-      r.toc = [...r.toc, ...e.toc];
-      r.minutes += e.minutes;
-      meta.extended = true;
-    }
+    await appendExtras(r, meta, p.slug, p.path, p.title);
     out.push({ ...meta, ...r });
   }
 
@@ -484,7 +490,9 @@ async function main() {
     const body = tr.children.filter((n) => n !== h1 && !(n.type === 'paragraph' && mdToString(n).startsWith('This notebook was prepared by')));
     const ctx = { name: `ood ${d}`, dir: `solutions/object_oriented_design/${d}`, title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
     const r = await render(body, ctx);
-    out.push({ kind: 'ood', section: 'practice', slug, group: 'practice', path: `practice/object-oriented/${slug}/`, title, blurb: OOD[d].blurb, ...r });
+    const oodMeta = {};
+    await appendExtras(r, oodMeta, slug, `practice/object-oriented/${slug}/`, title);
+    out.push({ kind: 'ood', section: 'practice', slug, group: 'practice', path: `practice/object-oriented/${slug}/`, title, blurb: OOD[d].blurb, ...oodMeta, ...r });
     ood.push(slug);
   }
 
@@ -500,6 +508,7 @@ async function main() {
     out.push({ kind: 'topic', section: 'labs', slug: lab.slug, group: 'labs', path: `labs/${lab.slug}/`, title: lab.title, blurb: lab.blurb, original: true, ...r });
   }
   for (const p of out) if (RELATED_LABS[p.path]) p.labs = RELATED_LABS[p.path];
+  for (const p of out) if (PREREQS[p.path]) p.prereqs = PREREQS[p.path];
 
   const cardCtx = { name: 'flashcards', dir: '', localIds: null };
   const cards = deck.map((c) => ({

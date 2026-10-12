@@ -16,6 +16,7 @@ export interface Page {
   difficulty?: string;
   thumb?: string;
   concepts?: string[];
+  prereqs?: string[];
   labs?: string[];
   quiz?: { slug: string; count: number; reviewed: boolean; src: string };
   practice?: { src: string; reviewed: boolean; steps: number; followups: { q: string; a: string }[] };
