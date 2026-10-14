@@ -149,3 +149,38 @@
 .widget .ch-costs li { margin: 3px 0; padding: 0; font-size: 14.5px; color: var(--ink-2); }
 .ch-opt-why { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); font-weight: 400; }
 @media (max-width: 560px) { .chooser-draft { margin-inline: 16px; } }
+
+/* ------------------------------------------------------------------ databases section */
+.draft-note { margin: 0 0 24px; padding: 10px 14px; border-radius: 12px; background: var(--warn-soft); border-left: 3px solid var(--warn); font-size: 14px; color: var(--ink); }
+.db-hero-note { font-size: 14px; color: var(--ink-2); }
+.db-module { margin-top: 40px; }
+.db-module h2 { font-family: var(--font-serif); font-size: 1.5rem; margin: 0 0 16px; }
+
+/* real query output embedded at build time */
+.db-run { margin: -6px 0 26px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; background: var(--surface); }
+.db-run figcaption { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); }
+.db-run figcaption b { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+.db-out { margin: 0; padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; white-space: pre; background: none; border: 0; }
+.db-run .table-wrap { margin: 0; border: 0; border-radius: 0; }
+.db-table { font-family: var(--font-mono); font-size: 12.5px; }
+.db-none { margin: 0; padding: 10px 14px; font-size: 13.5px; color: var(--ink-2); }
+.code-block:has(+ .db-run) { margin-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
+.code-block + .db-run { margin-top: 0; }
+
+/* SQL playground */
+.sqlp-start, .sqlp-body { padding: 18px 24px 4px; }
+.sqlp-start p { margin: 0 0 12px; color: var(--ink-2); font-size: 14.5px; }
+.sqlp-samples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.sqlp-label { display: flex; align-items: baseline; gap: 10px; font-size: 13px; font-weight: 650; margin-bottom: 6px; }
+.sqlp-label small { font-weight: 500; color: var(--ink-2); }
+.sqlp-sql { display: block; width: 100%; min-height: 9em; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg); color: var(--ink); font-family: var(--font-mono); font-size: 13.5px; line-height: 1.55; resize: vertical; tab-size: 2; }
+.sqlp-sql:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sqlp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.sqlp-status { margin: 0; padding: 12px 24px 0; min-height: 1.6em; font-size: 13.5px; color: var(--ink-2); }
+.sqlp-out { padding: 10px 24px 22px; }
+.sqlp-out:empty { padding-bottom: 12px; }
+.sqlp-out .table-wrap, .sqlp-out .db-out { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.sqlp-out .db-table { margin: 0; }
+.db-null { color: var(--ink-2); font-style: italic; }
+.db-error { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--warn-soft); border-left: 3px solid var(--warn); font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; }
+@media (max-width: 700px) { .sqlp-start, .sqlp-body { padding-inline: 16px; } .sqlp-status, .sqlp-out { padding-inline: 16px; } }

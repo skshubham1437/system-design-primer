@@ -43,6 +43,10 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
       </a>
     </div>
 
+    {page.draft && (
+      <p class="draft-note" data-pagefind-ignore><b>Draft.</b> This page is new and has not yet been reviewed by a second person. {page.engine ? <>Every query output on it was produced by a real run on {page.engine}.</> : null}</p>
+    )}
+
     {page.practice && features.practiceMode && (
       <div class="practice-mount" data-widget="practice" data-path={page.path} data-src={page.practice.src} data-pagefind-ignore></div>
     )}

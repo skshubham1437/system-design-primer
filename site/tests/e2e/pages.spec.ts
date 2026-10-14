@@ -13,7 +13,7 @@ for (const theme of ['light', 'dark'] as const) test.describe(`every page (${the
     const res = await request.get(`${baseURL}search-index.json`);
     expect(res.ok()).toBeTruthy();
     const entries = (await res.json()) as Entry[];
-    paths = ['', 'learn/', 'labs/', 'practice/', 'interview/', 'reference/', 'progress/', 'quiz/', ...entries.map((e) => e.p)];
+    paths = ['', 'learn/', 'labs/', 'databases/', 'practice/', 'interview/', 'reference/', 'progress/', 'quiz/', ...entries.map((e) => e.p)];
   });
 
   test('load cleanly, fit the screen, and pass axe including contrast', async ({ page }, info) => {

@@ -11,6 +11,7 @@ export const GROUPS = [
   { id: 'application', label: 'Application' },
   { id: 'data', label: 'Data' },
   { id: 'labs', label: 'Labs' },
+  { id: 'databases', label: 'Databases' },
   { id: 'practice', label: 'Practice' },
   { id: 'reference', label: 'Reference' },
 ];
@@ -168,3 +169,19 @@ export const PREREQS = {
   'labs/tcp-udp/': ['learn/communication/'],
   'labs/estimator/': ['interview/approach/'],
 };
+
+// The Databases section: original pages in site/content/databases/<slug>.md, grouped into modules.
+// Pages run their SQL examples against the sample database at build time (see scripts/lib/db-runs.mjs).
+export const DB_MODULES = [
+  { id: 'start', label: 'Start here' },
+  { id: 'storage', label: 'How data is stored and found' },
+  { id: 'plans', label: 'Reading query plans' },
+  { id: 'sql', label: 'Writing faster SQL' },
+  { id: 'concurrency', label: 'Concurrency' },
+  { id: 'scale', label: 'Scaling a table' },
+  { id: 'practice', label: 'Practice' },
+];
+
+export const DB_PAGES = [
+  { slug: 'playground', module: 'start', title: 'SQL playground', blurb: 'A real PostgreSQL database in your browser, loaded with a sample shop. Run queries and read their plans.', draft: true },
+];

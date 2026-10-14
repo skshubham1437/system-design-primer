@@ -19,9 +19,11 @@ import { runValidators, readFeatures } from './validate/index.mjs';
 import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
 import { loadPractice, emitPractice } from './lib/practice.mjs';
 import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
+import { loadDbExercises, emitDbExercises } from './lib/db-exercises.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
-import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS, PREREQS } from './site-map.mjs';
+import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
+import { createDbRunner, parseRunMeta, outputHtml } from './lib/db-runs.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.resolve(here, '..');
@@ -505,7 +507,36 @@ async function main() {
     for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
     const ctx = { name: `labs/${lab.slug}/`, dir: '', title: lab.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
     const r = await render(tr.children, ctx);
-    out.push({ kind: 'topic', section: 'labs', slug: lab.slug, group: 'labs', path: `labs/${lab.slug}/`, title: lab.title, blurb: lab.blurb, original: true, ...r });
+    out.push({ kind: 'topic', section: 'labs', slug: lab.slug, group: 'labs', path: `labs/${lab.slug}/`, title: lab.title, blurb: lab.blurb, original: true, source: `site/content/labs/${lab.slug}.md`, ...r });
+  }
+
+  // The Databases section (site/content/databases/*.md). Top-level ```sql blocks marked run / explain /
+  // explain-analyze / setup are executed against the sample database and their real output is placed after them.
+  const dbOn = readFeatures(SITE).advancedDb === true;
+  const dbRunner = dbOn ? createDbRunner({ siteDir: SITE, warn }) : null;
+  try {
+    for (const pg of dbOn ? DB_PAGES : []) {
+      const file = path.join(SITE, 'content', 'databases', `${pg.slug}.md`);
+      if (!fs.existsSync(file)) { warn(`database page missing: ${file}`, true); continue; }
+      const tr = parse(fs.readFileSync(file, 'utf8'));
+      const slugger = new GithubSlugger();
+      for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
+      const pagePath = `databases/${pg.slug}/`;
+      const runnable = tr.children.map((n, i) => ({ n, i, m: n.type === 'code' ? parseRunMeta(n.lang, n.meta) : null })).filter((x) => x.m);
+      if (runnable.length) {
+        const outs = await dbRunner.runPage(pagePath, runnable.map((x) => ({ kind: x.m.kind, sql: x.n.value })));
+        for (let k = runnable.length - 1; k >= 0; k--) {
+          const { i, m } = runnable[k];
+          const html = outputHtml(outs[k], dbRunner.engine());
+          tr.children.splice(i, 1, ...(m.hidden ? [] : [tr.children[i]]), ...(html ? [{ type: 'html', value: html }] : []));
+        }
+      }
+      const ctx = { name: pagePath, dir: '', title: pg.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+      const r = await render(tr.children, ctx);
+      out.push({ kind: 'topic', section: 'databases', slug: pg.slug, group: 'databases', module: pg.module, path: pagePath, title: pg.title, blurb: pg.blurb, original: true, draft: pg.draft === true, source: `site/content/databases/${pg.slug}.md`, engine: runnable.length ? dbRunner.engine() : undefined, ...r });
+    }
+  } finally {
+    await dbRunner?.close();
   }
   for (const p of out) if (RELATED_LABS[p.path]) p.labs = RELATED_LABS[p.path];
   for (const p of out) if (PREREQS[p.path]) p.prereqs = PREREQS[p.path];
@@ -520,7 +551,9 @@ async function main() {
   const quizzes = loadQuizzes(SITE);
   const practice = loadPractice(SITE);
   const choosers = loadChoosers(SITE);
-  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers }, warn);
+  const dbExercises = dbOn ? loadDbExercises(SITE) : [];
+  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises }, warn);
+  const dbExerciseIndex = dbOn ? emitDbExercises(dbExercises, SITE) : [];
   const chooserIndex = features.choosers ? emitChoosers(choosers, SITE, out, BASE) : [];
   const practiceCount = features.practiceMode ? emitPractice(practice, SITE, out, BASE) : 0;
   const quizIndex = features.quizzes ? emitQuizzes(quizzes, SITE, out, BASE) : [];
@@ -528,9 +561,9 @@ async function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'flashcards.json'), JSON.stringify(cards));
-  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, choosers: chooserIndex, groups: GROUPS, solutions, ood, pages: out }));
+  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, choosers: chooserIndex, groups: GROUPS.filter((g) => g.id !== 'databases' || dbOn), dbModules: dbOn ? DB_MODULES : [], solutions, ood, pages: out }));
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
-  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${practiceCount} practice sets, ${chooserIndex.length} choosers, ${kb} KB`);
+  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${practiceCount} practice sets, ${chooserIndex.length} choosers, ${dbExerciseIndex.length} database exercises, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));
   if (fatal.length && (process.env.STRICT === '1' || process.env.CI)) {
     console.error(`\nFailing the build: ${fatal.length} structural problem(s) above. The README layout probably changed; update scripts/site-map.mjs.`);

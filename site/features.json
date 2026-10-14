@@ -6,6 +6,7 @@
   "progressDashboard": true,
   "practiceMode": true,
   "choosers": true,
+  "advancedDb": true,
   "glossary": false,
   "mockInterview": false,
   "offline": false

@@ -12,7 +12,7 @@ import '../styles/visuals.css';
 import '../styles/polish.css';
 import Sidebar from '../components/Sidebar.astro';
 import SearchDialog from '../components/SearchDialog.astro';
-import { BASE, REPO, withBase } from '../lib/site';
+import { BASE, REPO, features, withBase } from '../lib/site';
 
 interface Props {
   title: string;
@@ -26,6 +26,7 @@ const section = current.split('/')[0];
 const nav = [
   { label: 'Learn', href: 'learn/', key: 'learn' },
   { label: 'Labs', href: 'labs/', key: 'labs' },
+  ...(features.advancedDb ? [{ label: 'Databases', href: 'databases/', key: 'databases' }] : []),
   { label: 'Interview', href: 'interview/', key: 'interview' },
   { label: 'Practice', href: 'practice/', key: 'practice' },
   { label: 'Reference', href: 'reference/', key: 'reference' },

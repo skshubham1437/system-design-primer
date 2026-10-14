@@ -1,0 +1,27 @@
+---
+import Base from '../../layouts/Base.astro';
+import Card from '../../components/Card.astro';
+import { dbModules, features, pagesInModule } from '../../lib/site';
+
+export function getStaticPaths() {
+  return features.advancedDb ? [{ params: {} }] : [];
+}
+const modules = dbModules.filter((m) => pagesInModule(m.id).length);
+let n = 0;
+---
+<Base title="Databases" description="How databases store, find and lock data, and how to read a query plan to make a slow query fast. Runs on real PostgreSQL in your browser." current="databases/">
+  <div class="page-hero group-databases" style="padding-top:0">
+    <p class="eyebrow">Databases</p>
+    <h1>Make slow queries fast, and know why they were slow</h1>
+    <p>How a database stores rows, finds them through indexes, plans a query and keeps transactions apart. Every example runs on a real PostgreSQL in your browser, against a sample shop with 100,000 orders, and every plan shown on these pages came from a real run.</p>
+    <p class="db-hero-note">New and still in draft: the pages say so until someone other than the author has reviewed them.</p>
+  </div>
+  {modules.map((m) => (
+    <section class="db-module" aria-labelledby={`m-${m.id}`}>
+      <h2 id={`m-${m.id}`}>{m.label}</h2>
+      <div class="card-grid">
+        {pagesInModule(m.id).map((p) => <Card page={p} kicker={`Part ${String(++n).padStart(2, '0')}`} />)}
+      </div>
+    </section>
+  ))}
+</Base>

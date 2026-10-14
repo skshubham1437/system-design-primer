@@ -30,9 +30,10 @@
   --hue-practice: #cc3a5d;
   --hue-reference: #5f6b7a;
   --hue-labs: #a63d8a;
+  --hue-databases: #2e7d32;
   /* darker variants for text on light backgrounds (the plain hues are for fills and borders) */
   --ink-start: #0a6b65; --ink-fundamentals: #3f4bc2; --ink-network: #06668f; --ink-application: #7438b8;
-  --ink-data: #9a4f06; --ink-practice: #b02c4b; --ink-reference: #4f5c6b; --ink-labs: #8c2c74;
+  --ink-data: #9a4f06; --ink-practice: #b02c4b; --ink-reference: #4f5c6b; --ink-labs: #8c2c74; --ink-databases: #23692a;
 
   --radius: 12px;
   --header-h: 60px;
@@ -67,8 +68,9 @@
   --hue-practice: #ff7f9f;
   --hue-reference: #9fb0c3;
   --hue-labs: #e58bd0;
+  --hue-databases: #7bd389;
   --ink-start: var(--hue-start); --ink-fundamentals: var(--hue-fundamentals); --ink-network: var(--hue-network); --ink-application: var(--hue-application);
-  --ink-data: var(--hue-data); --ink-practice: var(--hue-practice); --ink-reference: var(--hue-reference); --ink-labs: var(--hue-labs);
+  --ink-data: var(--hue-data); --ink-practice: var(--hue-practice); --ink-reference: var(--hue-reference); --ink-labs: var(--hue-labs); --ink-databases: var(--hue-databases);
   color-scheme: dark;
 }
 
@@ -100,6 +102,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .group-practice { --hue: var(--hue-practice); --hue-ink: var(--ink-practice); }
 .group-reference { --hue: var(--hue-reference); --hue-ink: var(--ink-reference); }
 .group-labs { --hue: var(--hue-labs); --hue-ink: var(--ink-labs); }
+.group-databases { --hue: var(--hue-databases); --hue-ink: var(--ink-databases); }
 
 .skip-link { position: absolute; left: 12px; top: -48px; background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; z-index: 100; transition: top 0.15s; }
 .skip-link:focus { top: 10px; }

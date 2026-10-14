@@ -1,0 +1,40 @@
+{
+ "engine": "PostgreSQL 18.6 (PGlite 0.5.9)",
+ "entries": {
+  "22d32c7717ab3d5e": {
+   "kind": "run",
+   "columns": [
+    "table_name",
+    "rows"
+   ],
+   "rows": [
+    [
+     "users",
+     "20000"
+    ],
+    [
+     "products",
+     "2000"
+    ],
+    [
+     "categories",
+     "40"
+    ],
+    [
+     "orders",
+     "100000"
+    ],
+    [
+     "order_items",
+     "300350"
+    ],
+    [
+     "events",
+     "60000"
+    ]
+   ],
+   "total": 6,
+   "at": "2026-10-14"
+  }
+ }
+}

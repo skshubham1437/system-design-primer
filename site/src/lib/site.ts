@@ -23,6 +23,10 @@ export interface Page {
   chooser?: { id: string; title: string; src: string; reviewed: boolean; scenarios: number };
   extended?: boolean; // upstream text plus a section written for this site
   original?: boolean; // authored for this site rather than cut from the upstream README
+  source?: string;    // where an original page's markdown lives in this repository
+  module?: string;    // Databases pages: which module they belong to
+  engine?: string;    // Databases pages: the engine that produced the outputs shown
+  draft?: boolean;    // not yet reviewed by a second person
 }
 export interface Group { id: string; label: string }
 
@@ -36,6 +40,7 @@ export const quizzes = (data.quizzes ?? []) as QuizInfo[];
 export interface ChooserInfo { id: string; title: string; topic: string; scenarios: number }
 export const choosers = (data.choosers ?? []) as ChooserInfo[];
 export const groups = data.groups as Group[];
+export const dbModules = ((data as { dbModules?: Group[] }).dbModules ?? []) as Group[];
 export const pages = data.pages as Page[];
 
 export const withBase = (p: string) => BASE + p.replace(/^\//, '');
@@ -47,6 +52,7 @@ export const solutions = pages.filter((p) => p.kind === 'solution');
 export const oodPages = pages.filter((p) => p.kind === 'ood');
 
 export const pagesInGroup = (id: string) => topicPages.filter((p) => p.group === id);
+export const pagesInModule = (id: string) => topicPages.filter((p) => p.group === 'databases' && p.module === id);
 
 // Reading order: groups in order, topics inside each group.
 export const trail: Page[] = groups.flatMap((g) => pagesInGroup(g.id));
@@ -62,7 +68,7 @@ export const groupLabel = (id: string) => groups.find((g) => g.id === id)?.label
 
 // Where the page's markdown lives upstream, for "Edit on GitHub".
 export function sourceUrl(page: Page): string {
-  if (page.original) return `${ORIGIN_REPO}/blob/master/site/content/labs/${page.slug}.md`;
+  if (page.original) return `${ORIGIN_REPO}/blob/master/${page.source ?? `site/content/labs/${page.slug}.md`}`;
   if (page.kind === 'solution') return `${REPO}/blob/master/solutions/system_design/${page.slug.replace(/-/g, '_')}/README.md`;
   if (page.kind === 'ood') return `${REPO}/tree/master/solutions/object_oriented_design/${page.slug.replace(/-/g, '_')}`;
   return `${REPO}/blob/master/README.md`;

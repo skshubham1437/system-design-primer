@@ -7,12 +7,13 @@ import { validateQuizzes } from './quizzes.mjs';
 import { validatePractice } from './practice.mjs';
 import { validateChoosers } from './choosers.mjs';
 import { validatePrereqs } from './prereqs.mjs';
+import { validateDbExercises } from './db-exercises.mjs';
 import { rules } from './rules.mjs';
 
 export { rules };
 
 /** Validators run on every build. Add new ones to this list as content types arrive. */
-export const validators = [validateFeatures, validateQuizzes, validatePractice, validateChoosers, validatePrereqs];
+export const validators = [validateFeatures, validateQuizzes, validatePractice, validateChoosers, validatePrereqs, validateDbExercises];
 
 export function runValidators(ctx, warn) {
   for (const v of validators) for (const problem of v(ctx)) warn(`${v.name}: ${problem}`, true);

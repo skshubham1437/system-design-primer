@@ -1,0 +1,29 @@
+id: orders-for-one-user
+title: One customer's orders
+difficulty: 1
+reviewed: false
+scenario: >-
+  The "Your orders" page lists one customer's orders, newest first. Every visit reads the whole orders table,
+  and the page gets slower as the shop grows.
+task: Make the query read only the rows it needs, without changing what it returns.
+query: |
+  select id, status, created_at, total
+  from orders
+  where user_id = 42
+  order by created_at desc
+ordered: true
+allowChanges: true
+checks:
+  - avoid: { node: Seq Scan, relation: orders }
+  - max_buffers: 120
+  - max_rows_removed: 0
+hints:
+  - "Explain it: the plan reads every order (Seq Scan on orders) and throws away almost all of them (Rows Removed by Filter)."
+  - The database needs a way to jump straight to the orders of user 42. That is what an index on the filtered column gives it.
+  - "create index orders_user_id_idx on orders (user_id);"
+solution:
+  changes: create index orders_user_id_idx on orders (user_id);
+why: >-
+  Without an index on user_id the only way to find user 42's orders is to read all 100,000 of them and keep the
+  few that match. An index on user_id is sorted by user, so the database can find the first matching entry
+  directly and read just those rows. The pages read drop from about 800 to a few dozen.

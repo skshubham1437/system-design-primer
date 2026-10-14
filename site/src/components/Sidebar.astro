@@ -1,5 +1,5 @@
 ---
-import { features, groups, pagesInGroup, solutions, oodPages, href, withBase, type Page } from '../lib/site';
+import { features, groups, dbModules, pagesInGroup, pagesInModule, solutions, oodPages, href, withBase, type Page } from '../lib/site';
 interface Props { current: string }
 const { current } = Astro.props;
 const cur = (p: Page) => (p.path === current ? 'page' : undefined);
@@ -40,7 +40,20 @@ const inOod = oodPages.some((p) => p.path === current);
             </li>
           </>
         )}
-        {pagesInGroup(g.id).map((p) => (
+        {g.id === 'databases' && (
+          <>
+            <li><a class="nav-link" href={withBase('databases/')} aria-current={current === 'databases/' ? 'page' : undefined}>Overview</a></li>
+            {dbModules.filter((m) => pagesInModule(m.id).length).map((m) => (
+              <li>
+                <details class="nav-sub" open={pagesInModule(m.id).some((p) => p.path === current)}>
+                  <summary>{m.label} <span class="count">· {pagesInModule(m.id).length}</span></summary>
+                  <ul>{pagesInModule(m.id).map((p) => <li><a class="nav-link" href={href(p)} data-path={p.path} aria-current={cur(p)}>{p.title}</a></li>)}</ul>
+                </details>
+              </li>
+            ))}
+          </>
+        )}
+        {g.id !== 'databases' && pagesInGroup(g.id).map((p) => (
           <li><a class="nav-link" href={href(p)} data-path={p.path} aria-current={cur(p)}>{p.title}{p.path === 'practice/flashcards/' && <span class="due-badge" data-due-badge hidden></span>}</a></li>
         ))}
       </ul>

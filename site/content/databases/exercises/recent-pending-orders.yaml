@@ -1,0 +1,31 @@
+id: recent-pending-orders
+title: The oldest pending orders
+difficulty: 2
+reviewed: false
+scenario: >-
+  The warehouse screen shows the 50 oldest orders that are still pending, so staff can deal with them first.
+  Only about 4% of orders are pending, yet the screen reads the whole table and sorts what it finds.
+task: Let the database find the oldest pending orders already in order, without sorting and without reading the whole table.
+query: |
+  select id, user_id, created_at
+  from orders
+  where status = 'pending'
+  order by created_at
+  limit 50
+ordered: true
+allowChanges: true
+checks:
+  - avoid: { node: Seq Scan, relation: orders }
+  - avoid: { node: Sort }
+  - max_buffers: 80
+hints:
+  - "Explain it: a Seq Scan reads every order, a filter keeps the pending ones, and a Sort orders them before the Limit can take 50."
+  - An index on created_at returns rows already in time order, so the database can stop after 50. But it would still walk past all the delivered orders on the way.
+  - "A partial index holds only the rows you care about: create index orders_pending_created_idx on orders (created_at) where status = 'pending';"
+solution:
+  changes: create index orders_pending_created_idx on orders (created_at) where status = 'pending';
+why: >-
+  The query wants a small, ordered slice of a rare subset. A partial index on created_at that only contains
+  pending orders is already sorted in the order the query asks for, so the database reads the first 50 entries
+  and stops: no full scan, no sort. Because it holds about 4% of the rows, the index is also small and cheap to
+  keep up to date.
