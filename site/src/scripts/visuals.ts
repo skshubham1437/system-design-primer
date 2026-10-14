@@ -1,9 +1,9 @@
 // Interactive visuals: replication, sharding, message queues, DNS, CDN, TCP vs UDP, and the load curve.
 // The behaviour is in src/lib/*; this file only draws it and wires the controls.
 
-import { $, $$, esc, reducedMotion, shell, ticker } from './lab-kit';
+import { $, $$, esc, player, reducedMotion, shell, ticker } from './lab-kit';
 import * as repl from '../lib/replication';
-import { emptyQueue, step as queueStep, waitTicks, PRESSURE_AT, type QueueParams, type QueueState } from '../lib/queue-sim';
+import { emptyQueue, step as queueStep, totalWaitTicks, PRESSURE_AT, type QueueParams, type QueueState } from '../lib/queue-sim';
 import { simulate } from '../lib/transport';
 import { assign, CITIES, imbalance, load, makeUsers, shardsTouched, type Query, type Strategy } from '../lib/sharding';
 import { resolve as dnsResolve, type DnsOptions } from '../lib/dns';
@@ -140,7 +140,7 @@ function sharding(host: HTMLElement) {
 function messageQueue(host: HTMLElement) {
   const p: QueueParams = { produce: 6, consumers: 2, perConsumer: 2, capacity: 40, backPressure: false };
   let state: QueueState = emptyQueue();
-  let history: number[] = [];
+  let history: { depth: number; backlog: number }[] = [];
   const root = shell(host, 'v-queue', 'Message queue', { eyebrow: 'Simulation', title: 'A queue between two speeds', desc: 'A queue smooths out bursts. It cannot fix a producer that is permanently faster than its consumers. Change the rates and see what gives.' }, `
     <div class="vis-controls vis-grid">
       <label class="lab-range"><span>Producer sends <b id="q-p">6</b> / tick</span><input type="range" id="q-p-in" min="0" max="12" value="6" aria-label="Producer rate per tick" /></label>
@@ -148,9 +148,12 @@ function messageQueue(host: HTMLElement) {
       <label class="lab-range"><span>Queue holds <b id="q-cap">40</b> messages</span><input type="range" id="q-cap-in" min="10" max="80" step="10" value="40" aria-label="Queue capacity" /></label>
       <label class="lab-check"><input type="checkbox" id="q-bp" /> Back pressure: slow the producer when the queue is ${Math.round(PRESSURE_AT * 100)}% full</label>
     </div>
-    <div class="vis-actions"><button type="button" class="btn primary" id="q-play">Pause</button><button type="button" class="chip-btn" id="q-reset">Reset</button></div>
+    <div class="vis-actions" id="q-actions"><button type="button" class="chip-btn" id="q-burst">Send a burst of 30</button></div>
+    <p class="vis-h">Waiting at the producer <small id="q-bl-n"></small></p>
+    <div class="v-qbox v-backlog" id="q-backlog" role="img" aria-label="Messages waiting at the producer"></div>
+    <p class="vis-h">In the queue</p>
     <div class="v-qbox" id="q-box" role="img" aria-label="The queue"></div>
-    <svg class="v-spark" id="q-spark" viewBox="0 0 300 50" preserveAspectRatio="none" role="img" aria-label="Queue depth over time"></svg>
+    <svg class="v-spark" id="q-spark" viewBox="0 0 300 50" preserveAspectRatio="none" role="img" aria-label="Queue depth (solid) and producer backlog (dashed) over time"></svg>
     <dl class="vis-stats" id="q-stats"></dl>
     <p class="vis-status" id="q-verdict" role="status" aria-live="polite"></p>`);
 
@@ -160,28 +163,43 @@ function messageQueue(host: HTMLElement) {
     $('#q-cap', root)!.textContent = String(p.capacity);
     const cells = Math.min(p.capacity, 80);
     $('#q-box', root)!.innerHTML = Array.from({ length: cells }, (_, i) => `<i class="${i < state.depth ? 'full' : ''}${i >= PRESSURE_AT * cells && p.backPressure ? ' zone' : ''}"></i>`).join('');
-    const pts = history.slice(-150).map((d, i, a) => `${(i / Math.max(1, a.length - 1)) * 300},${50 - (d / p.capacity) * 48}`).join(' ');
-    $('#q-spark', root)!.innerHTML = `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
-    const wait = waitTicks(state.depth, p);
-    $('#q-stats', root)!.innerHTML = [['In the queue', `${state.depth} / ${p.capacity}`], ['Wait for a new message', `${wait.toFixed(1)} ticks`], ['Delivered', state.consumed], ['Dropped', state.dropped], ['Held back by back pressure', Math.round(state.throttled)]]
-      .map(([k, v]) => `<div class="${k === 'Dropped' && Number(v) > 0 ? 'bad' : ''}"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    const shownBacklog = Math.min(state.backlog, 80);
+    $('#q-backlog', root)!.innerHTML = state.backlog ? Array.from({ length: shownBacklog }, () => '<i class="full"></i>').join('') : '<span class="v-empty">Nothing waiting</span>';
+    $('#q-bl-n', root)!.textContent = state.backlog > 80 ? `(${state.backlog}, showing 80)` : `(${state.backlog})`;
+    const recent = history.slice(-150);
+    const top = Math.max(p.capacity, ...recent.map((h) => h.backlog));
+    const line = (f: (h: { depth: number; backlog: number }) => number) => recent.map((h, i, a) => `${(i / Math.max(1, a.length - 1)) * 300},${50 - (f(h) / top) * 48}`).join(' ');
+    $('#q-spark', root)!.innerHTML = `<polyline points="${line((h) => h.depth)}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`
+      + (p.backPressure ? `<polyline points="${line((h) => h.backlog)}" fill="none" stroke="var(--hue-practice)" stroke-width="1.6" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>` : '');
+    $('#q-stats', root)!.innerHTML = [
+      ['In the queue', `${state.depth} / ${p.capacity}`],
+      ['Waiting at the producer', state.backlog],
+      ['Wait for a new message', `${totalWaitTicks(state, p).toFixed(1)} ticks`],
+      ['Delivered', state.consumed],
+      ['Dropped', state.dropped],
+    ].map(([k, v]) => `<div class="${k === 'Dropped' && Number(v) > 0 ? 'bad' : ''}"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     const cap = p.consumers * p.perConsumer;
     $('#q-verdict', root)!.textContent = p.produce <= cap
-      ? `Consumers can handle ${cap} per tick, which is at least what is produced (${p.produce}), so the queue stays short.`
+      ? (state.backlog > 0 ? `Consumers can take ${cap} per tick, more than is produced (${p.produce}), so the backlog at the producer is draining.` : `Consumers can handle ${cap} per tick, which is at least what is produced (${p.produce}), so the queue stays short.`)
+      : p.backPressure ? `Producer (${p.produce}) outpaces consumers (${cap}). Back pressure stops the drops, but the extra work now waits at the producer, and that backlog keeps growing. Only more consumers fix it.`
       : state.dropped > 0 ? `Producer (${p.produce}) outpaces consumers (${cap}). The queue is full and messages are being dropped.`
-      : p.backPressure ? `Producer (${p.produce}) outpaces consumers (${cap}), but back pressure is holding it to what the consumers can take.`
       : `Producer (${p.produce}) outpaces consumers (${cap}). The queue is filling and will start dropping when it is full.`;
   };
-  const reset = () => { state = emptyQueue(); history = [0]; draw(); };
-  const timer = ticker(root, () => { state = queueStep(state, p); history.push(state.depth); draw(); }, 160);
+  const reset = () => { state = emptyQueue(); history = [{ depth: 0, backlog: 0 }]; draw(); };
+  const pl = player(root, {
+    ms: 160, autoplay: true,
+    step: () => { state = queueStep(state, p); history.push({ depth: state.depth, backlog: state.backlog }); draw(); },
+    reset,
+    describe: () => `Tick ${state.tick}: ${state.depth} in the queue, ${state.backlog} waiting at the producer, ${state.dropped} dropped.`,
+  });
+  $('#q-actions', root)!.prepend(pl.el);
 
   const bind = (id: string, key: 'produce' | 'consumers' | 'capacity') => $(id, root)!.addEventListener('input', (e) => { p[key] = Number((e.target as HTMLInputElement).value); draw(); });
   bind('#q-p-in', 'produce'); bind('#q-c-in', 'consumers'); bind('#q-cap-in', 'capacity');
-  $('#q-bp', root)!.addEventListener('change', (e) => { p.backPressure = (e.target as HTMLInputElement).checked; });
-  $('#q-reset', root)!.addEventListener('click', reset);
-  $('#q-play', root)!.addEventListener('click', (e) => { const b = e.currentTarget as HTMLElement; if (timer.running()) { timer.stop(); b.textContent = 'Play'; } else { timer.start(); b.textContent = 'Pause'; } });
+  $('#q-bp', root)!.addEventListener('change', (e) => { p.backPressure = (e.target as HTMLInputElement).checked; draw(); });
+  // A one-off spike: 30 extra messages arrive at once, through the same rules as everything else.
+  $('#q-burst', root)!.addEventListener('click', () => { state = queueStep(state, { ...p, produce: p.produce + 30 }); history.push({ depth: state.depth, backlog: state.backlog }); draw(); });
   reset();
-  if (!reducedMotion()) timer.start(); else $('#q-play', root)!.textContent = 'Play';
 }
 
 /* ------------------------------------------------------------ DNS */

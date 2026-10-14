@@ -75,3 +75,16 @@ test('CAP in AP mode: a conflict discards only the other side\'s last value', as
   await expect(msg).toContainText('discarded v1');
   await expect(msg).not.toContainText('v2');
 });
+
+test('load balancing: a dead server loses requests until health checks remove it', async ({ page }) => {
+  await page.goto('labs/load-balancing/');
+  await page.getByLabel(/Server 1 dies/).check();
+  const failed = (name: string) => page.locator('#lb-table tbody tr', { has: page.locator('td:first-child', { hasText: new RegExp(`^${name}$`) }) }).locator('td').nth(3);
+  const blind = Number(await failed('Round robin').textContent());
+  expect(blind).toBeGreaterThan(5);
+  await page.getByLabel(/Health checks/).check();
+  await expect(failed('Round robin')).not.toHaveText(String(blind));
+  expect(Number(await failed('Round robin').textContent())).toBeLessThan(blind);
+  await page.getByRole('button', { name: /Least connections/ }).click();
+  await expect(page.locator('#lb-goal')).toContainText('Done');
+});

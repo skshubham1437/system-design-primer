@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as repl from '../../src/lib/replication';
-import { emptyQueue, run, step, waitTicks, PRESSURE_AT, type QueueParams } from '../../src/lib/queue-sim';
+import { emptyQueue, run, step, waitTicks, totalWaitTicks, PRESSURE_AT, type QueueParams } from '../../src/lib/queue-sim';
 import { simulate } from '../../src/lib/transport';
 import { assign, imbalance, load, makeUsers, shardsTouched } from '../../src/lib/sharding';
 import { resolve } from '../../src/lib/dns';
@@ -123,6 +123,31 @@ describe('queue simulation', () => {
     expect(calm.throttled).toBe(0);
     const busy = step({ ...emptyQueue(), depth: Math.ceil(PRESSURE_AT * p.capacity) }, p);
     expect(busy.throttled).toBeGreaterThan(0);
+  });
+
+  it('accounts for every message created: in the queue, consumed, dropped or waiting at the producer', () => {
+    for (const bp of [false, true]) {
+      const f = run({ ...base, backPressure: bp }, 80).at(-1)!;
+      expect(f.created).toBe(f.produced + f.dropped + f.backlog);
+      if (!bp) expect(f.backlog).toBe(0);
+    }
+  });
+
+  it('back pressure moves the waiting upstream: a permanently faster producer builds an ever-growing backlog', () => {
+    const p = { ...base, backPressure: true };
+    const frames = run(p, 120);
+    expect(frames[120].backlog).toBeGreaterThan(frames[60].backlog);
+    expect(frames[120].dropped).toBe(0);
+    expect(totalWaitTicks(frames[120], p)).toBeGreaterThan(waitTicks(frames[120].depth, p));
+  });
+
+  it('a burst under back pressure drains once the producer slows down', () => {
+    const p = { ...base, backPressure: true };
+    let s = run(p, 30).at(-1)!;
+    expect(s.backlog).toBeGreaterThan(0);
+    for (let i = 0; i < 200; i++) s = step(s, { ...p, produce: 1 });
+    expect(s.backlog).toBe(0);
+    expect(s.dropped).toBe(0);
   });
 
   it('estimates the wait behind queued messages', () => {

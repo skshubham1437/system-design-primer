@@ -8,6 +8,7 @@ A [load balancer](#load-balancer) spreads requests over a pool of servers, but "
 - **Random** needs no state and evens out over many requests.
 - **Least connections** sends each request to the server with the fewest in flight. It adapts to slow requests, at the cost of tracking state.
 - **Weighted round robin** gives stronger servers a larger share. Switch on mixed hardware to see why it matters.
+- **Power of two choices** picks two servers at random and sends the request to the less busy of the two. It needs far less shared state than least connections and gets most of its benefit, which is why many large systems use it.
 - **IP hash** pins each client to one server, which keeps sessions sticky but follows whatever skew the clients have. A single heavy client overloads its server.
 
 ## What to notice
@@ -20,6 +21,14 @@ A [load balancer](#load-balancer) spreads requests over a pool of servers, but "
 
 All of these algorithms can run at [layer 4](#layer-4-load-balancing), which sees only addresses and ports, or at [layer 7](#layer-7-load-balancing), which reads the request itself. Routing by content, such as sending video requests to video servers, needs layer 7. See also [horizontal scaling](#horizontal-scaling).
 
+## When a server dies
+
+Tick **Server 1 dies**. The server stops working but still accepts connections, which is the nastiest kind of failure: nothing errors, requests just wait.
+
+- **Without health checks**, round robin, random and IP hash keep sending it their share, and every one of those requests is lost. Least connections loses far fewer by accident: the dead server's queue grows, so it stops being the least busy.
+- **Turn on health checks.** After a few missed probes the balancer takes the server out of rotation and failures almost stop. Look at p95, though: it gets *worse*, because three servers now carry the work of four. Detecting a failure is only half the job; the other half is having spare capacity. This is why the [load balancer page](#load-balancer) lists health checks first, and why [availability patterns](#availability-patterns) talk about redundancy.
+- Try the challenge: a few failed requests and a short tail at the same time.
+
 ## What the model leaves out
 
-Real balancers also run health checks and stop sending traffic to a server that fails them, which is the main reason to have one. They retry failed requests, drain connections before a server is removed, and often use "power of two choices": pick two servers at random and send the request to the less busy one, which gets most of the benefit of least connections with far less shared state.
+Real balancers retry a failed request on another server, drain connections gracefully before removing a server, and bring a recovered server back slowly so it is not flooded. Failed requests are left out of the latency figures here, which is also how many dashboards hide an outage: always look at error rates beside latency.

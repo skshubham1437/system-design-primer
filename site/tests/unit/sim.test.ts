@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hash32, mulberry32, simulateCache, simulateLb, summarizeLb } from '../../src/lib/sim';
+import { hash32, mulberry32, simulateCache, simulateLb, summarizeLb, DETECT_TICKS } from '../../src/lib/sim';
 
 const hits = (steps: { hit: boolean }[]) => steps.filter((s) => s.hit).length;
 const seq = (s: string) => s.split(' ');
@@ -123,6 +123,27 @@ describe('simulateLb', () => {
       expect(least).toBeLessThan(summarizeLb('rr', sp, false).p95);
       expect(least).toBeLessThan(summarizeLb('hash', sp, false).p95);
     }
+  });
+
+  it('a dead server that still accepts connections loses requests, unless health checks take it out', () => {
+    const blind = summarizeLb('rr', uniform, false, { failAt: 60 });
+    const checked = summarizeLb('rr', uniform, false, { failAt: 60, healthChecks: true });
+    expect(blind.failed).toBeGreaterThan(10);
+    expect(checked.failed).toBeLessThan(blind.failed / 4);
+  });
+
+  it('least connections loses fewer requests to a dead server even without health checks', () => {
+    expect(summarizeLb('least', uniform, false, { failAt: 60 }).failed).toBeLessThan(summarizeLb('rr', uniform, false, { failAt: 60 }).failed / 3);
+  });
+
+  it('after detection the dead server receives nothing', () => {
+    const r = simulateLb('rr', uniform, false, 21, { failAt: 60, healthChecks: true });
+    const after = r.frames.slice(60 + DETECT_TICKS);
+    expect(after.every((f) => f[0] === 0)).toBe(true);
+  });
+
+  it('power of two choices beats random on tail latency', () => {
+    expect(summarizeLb('p2c', uniform, false).p95).toBeLessThan(summarizeLb('random', uniform, false).p95);
   });
 
   it('records one frame per tick with one entry per server', () => {

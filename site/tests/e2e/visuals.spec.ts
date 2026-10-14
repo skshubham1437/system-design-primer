@@ -72,15 +72,22 @@ test.describe('message queue', () => {
     await root.locator('#q-bp').check();
     await page.clock.runFor(8_000);
     await expect(dropped).toHaveText('0');
-    await expect(root.locator('#q-verdict')).toContainText('back pressure');
+    await expect(root.locator('#q-verdict')).toContainText(/back pressure/i);
+    await expect(root.locator('#q-stats > div', { hasText: 'Waiting at the producer' }).locator('dd')).not.toHaveText('0');
   });
 
-  test('can be paused with the keyboard', async ({ page }) => {
+  test('can be paused with the keyboard, and stepped one tick at a time', async ({ page }) => {
     await page.goto('labs/message-queue/');
-    const play = page.locator('.v-queue #q-play');
+    const play = page.locator('.v-queue .player [data-pl="toggle"]');
+    await expect(play).toHaveText('Pause');
     await play.focus();
     await page.keyboard.press('Enter');
     await expect(play).toHaveText('Play');
+    const delivered = page.locator('.v-queue #q-stats > div', { hasText: 'Delivered' }).locator('dd');
+    const before = Number(await delivered.textContent());
+    await page.keyboard.press('ArrowRight');
+    await expect(delivered).not.toHaveText(String(before));
+    await expect(page.locator('.v-queue .player-status')).toContainText('Tick');
   });
 });
 

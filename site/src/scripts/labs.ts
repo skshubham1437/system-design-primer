@@ -5,8 +5,9 @@ const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document)
 const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => [...r.querySelectorAll<T>(s)];
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-import { mulberry32, hash32, simulateCache, simulateLb, summarizeLb } from '../lib/sim';
-import type { Policy, Step, Algo, LbResult, LbSummary } from '../lib/sim';
+import { mulberry32, hash32, simulateCache, simulateLb, summarizeLb, DETECT_TICKS } from '../lib/sim';
+import type { Policy, Step, Algo, LbResult, LbSummary, LbOptions } from '../lib/sim';
+import { player } from './lab-kit';
 import { createCap, capWrite, capRead, capSetPartition, type CapState, type CapEvent } from '../lib/cap';
 
 /* ------------------------------------------------------------ shared helpers */
@@ -366,14 +367,16 @@ function cacheEviction(host: HTMLElement) {
 function loadBalancing(host: HTMLElement) {
   const algos: { id: Algo; label: string }[] = [
     { id: 'rr', label: 'Round robin' }, { id: 'random', label: 'Random' }, { id: 'least', label: 'Least connections' },
-    { id: 'wrr', label: 'Weighted round robin' }, { id: 'hash', label: 'IP hash' },
+    { id: 'p2c', label: 'Power of two choices' }, { id: 'wrr', label: 'Weighted round robin' }, { id: 'hash', label: 'IP hash' },
   ];
+  const FAIL_AT = 60;
   let algo: Algo = 'rr';
   let mixed = false;
   let hot = false;
+  let failure = false;
+  let checks = false;
   let servers = 4;
   let frame = 0;
-  let timer: number | undefined;
 
   const root = shell(host, 'lb', 'Load balancing simulator', { eyebrow: 'Simulation', title: 'Same traffic, different routing', desc: 'Most requests are quick, some are slow. Servers work through their own queue.' }, `
     <div class="lb-controls">
@@ -381,21 +384,25 @@ function loadBalancing(host: HTMLElement) {
       <div class="lb-toggles">
         <label class="lab-check"><input type="checkbox" id="lb-mixed" /> Mixed hardware <small>(speeds 1, 1, 2, 3…)</small></label>
         <label class="lab-check"><input type="checkbox" id="lb-hot" /> One very busy client</label>
+        <label class="lab-check"><input type="checkbox" id="lb-fail" /> Server 1 dies at tick ${FAIL_AT}</label>
+        <label class="lab-check"><input type="checkbox" id="lb-checks" /> Health checks <small>(notice after ${DETECT_TICKS} ticks)</small></label>
         <label class="lab-range"><span>Servers <b id="lb-n">4</b></span><input type="range" min="2" max="6" value="4" id="lb-ns" aria-label="Number of servers" /></label>
       </div>
     </div>
-    <div class="lb-stage"><div class="lb-play"><button type="button" class="chip-btn" id="lb-playbtn">Pause</button><span id="lb-tick" class="ch-note"></span></div><div class="lb-servers" id="lb-servers"></div></div>
+    <div class="lb-stage"><div class="lb-play" id="lb-play"><span id="lb-tick" class="ch-note"></span></div><div class="lb-servers" id="lb-servers"></div></div>
+    <p class="lb-goal" id="lb-goal" hidden></p>
     <div class="lb-table-wrap" tabindex="0" role="region" aria-label="Results by algorithm (scrolls sideways on small screens)"><table class="lb-table" id="lb-table"></table></div>
-    <p class="ch-note lb-runs">Latency columns are the median of 20 runs with different traffic; the range shows the best and worst run. One run on its own can mislead: the same algorithm can look good or bad depending on luck.</p>`);
+    <p class="ch-note lb-runs">Latency and failure columns are the median of 20 runs with different traffic; the range shows the best and worst run. One run on its own can mislead: the same algorithm can look good or bad depending on luck.</p>`);
 
   const speedsOf = () => Array.from({ length: servers }, (_, i) => (mixed ? [1, 1, 2, 3, 3, 4][i] : 1));
+  const optsOf = (): LbOptions => (failure ? { failAt: FAIL_AT, healthChecks: checks } : {});
   let sims: Record<Algo, LbResult>;
   let sums: Record<Algo, LbSummary>;
 
   const compute = () => {
-    const sp = speedsOf();
-    sims = Object.fromEntries(algos.map((a) => [a.id, simulateLb(a.id, sp, hot)])) as Record<Algo, LbResult>;
-    sums = Object.fromEntries(algos.map((a) => [a.id, summarizeLb(a.id, sp, hot)])) as Record<Algo, LbSummary>;
+    const sp = speedsOf(), o = optsOf();
+    sims = Object.fromEntries(algos.map((a) => [a.id, simulateLb(a.id, sp, hot, 21, o)])) as Record<Algo, LbResult>;
+    sums = Object.fromEntries(algos.map((a) => [a.id, summarizeLb(a.id, sp, hot, o)])) as Record<Algo, LbSummary>;
     frame = 0;
   };
 
@@ -403,44 +410,59 @@ function loadBalancing(host: HTMLElement) {
     const r = sims[algo], sp = speedsOf();
     const f = r.frames[Math.min(frame, r.frames.length - 1)];
     const top = Math.max(8, r.maxQueue);
-    $('#lb-servers', root)!.innerHTML = f.map((q, i) => `
-      <div class="lb-server"><div class="lb-stack" style="--top:${top}">${'<i></i>'.repeat(Math.min(q, top))}</div>
-      <b>Server ${i + 1}</b><small>${sp[i]}× speed · ${q} queued</small></div>`).join('');
+    const down = failure && frame >= FAIL_AT;
+    const removed = down && checks && frame >= FAIL_AT + DETECT_TICKS;
+    $('#lb-servers', root)!.innerHTML = f.map((q, i) => {
+      const state = i === 0 && removed ? 'removed' : i === 0 && down ? 'down' : '';
+      const note = state === 'removed' ? 'taken out of rotation' : state === 'down' ? `dead · ${q} stuck` : `${sp[i]}× speed · ${q} queued`;
+      return `<div class="lb-server ${state}"><div class="lb-stack" style="--top:${top}">${'<i></i>'.repeat(Math.min(q, top))}</div>
+        <b>Server ${i + 1}</b><small>${note}</small></div>`;
+    }).join('');
     $('#lb-tick', root)!.textContent = `tick ${Math.min(frame + 1, r.frames.length)} / ${r.frames.length}`;
   };
   const drawTable = () => {
     const sp = speedsOf();
     const best = Math.min(...algos.map((a) => sums[a.id].p95));
-    $('#lb-table', root)!.innerHTML = `<thead><tr><th>Algorithm</th><th>Mean latency</th><th>p95 latency <small>(range)</small></th><th>Longest queue</th><th>Requests per server <small>(run shown)</small></th></tr></thead><tbody>${algos.map((a) => {
+    $('#lb-table', root)!.innerHTML = `<thead><tr><th>Algorithm</th><th>Mean latency</th><th>p95 latency <small>(range)</small></th>${failure ? '<th>Failed requests</th>' : ''}<th>Longest queue</th><th>Requests per server <small>(run shown)</small></th></tr></thead><tbody>${algos.map((a) => {
       const r = sims[a.id], m = sums[a.id];
       const tot = r.served.reduce((x, y) => x + y, 0);
-      return `<tr class="${a.id === algo ? 'on' : ''}" data-a="${a.id}"><td><b>${a.label}</b></td><td>${m.mean.toFixed(1)}</td><td class="${m.p95 === best ? 'best' : ''}">${m.p95} <small>(${m.p95Low}–${m.p95High})</small></td><td>${m.maxQueue}</td>
+      return `<tr class="${a.id === algo ? 'on' : ''}" data-a="${a.id}"><td><b>${a.label}</b></td><td>${m.mean.toFixed(1)}</td><td class="${m.p95 === best ? 'best' : ''}">${m.p95} <small>(${m.p95Low}–${m.p95High})</small></td>${failure ? `<td class="${m.failed > 5 ? 'bad' : ''}">${m.failed}</td>` : ''}<td>${m.maxQueue}</td>
         <td><span class="lb-mini">${r.served.map((s, i) => `<i title="Server ${i + 1}: ${s} requests (${sp[i]}× speed)" style="height:${Math.max(4, (s / tot) * 90)}px"></i>`).join('')}</span></td></tr>`;
     }).join('')}</tbody>`;
+    // A goal for the failure scenario: few failed requests without a slow tail.
+    const goal = $('#lb-goal', root)!;
+    goal.hidden = !failure;
+    if (failure) {
+      const m = sums[algo];
+      const ok = m.failed <= 2 && m.p95 <= 25;
+      goal.className = `lb-goal${ok ? ' ok' : ''}`;
+      goal.innerHTML = `<b>Challenge:</b> a server dies. Get the median of failed requests to 2 or fewer with p95 at 25 or below. <span>${esc(algos.find((a) => a.id === algo)!.label)}: ${m.failed} failed, p95 ${m.p95}. ${ok ? '<strong>Done.</strong>' : 'Not yet.'}</span>`;
+    }
   };
   const draw = () => {
     $$('#lb-algo button', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.a === algo)));
     $('#lb-n', root)!.textContent = String(servers);
     drawServers(); drawTable();
   };
-  const play = () => {
-    if (timer) clearInterval(timer);
-    $('#lb-playbtn', root)!.textContent = 'Pause';
-    timer = window.setInterval(() => { frame = (frame + 1) % sims[algo].frames.length; drawServers(); }, 90);
-  };
-  const pause = () => { if (timer) { clearInterval(timer); timer = undefined; } $('#lb-playbtn', root)!.textContent = 'Play'; };
+  const pl = player(root, {
+    ms: 90, autoplay: true,
+    step: () => { frame = (frame + 1) % sims[algo].frames.length; drawServers(); },
+    reset: () => { frame = 0; drawServers(); },
+    describe: () => `Tick ${frame + 1}: queues ${sims[algo].frames[frame].join(', ')}.`,
+  });
+  $('#lb-play', root)!.prepend(pl.el);
 
   root.addEventListener('click', (e) => {
-    const t = e.target as HTMLElement;
-    const a = t.closest<HTMLElement>('[data-a]');
+    const a = (e.target as HTMLElement).closest<HTMLElement>('[data-a]');
     if (a) { algo = a.dataset.a as Algo; frame = 0; draw(); }
-    else if (t.closest('#lb-playbtn')) { timer ? pause() : play(); }
   });
-  $('#lb-mixed', root)!.addEventListener('change', (e) => { mixed = (e.target as HTMLInputElement).checked; compute(); draw(); });
-  $('#lb-hot', root)!.addEventListener('change', (e) => { hot = (e.target as HTMLInputElement).checked; compute(); draw(); });
+  const toggle = (id: string, set: (v: boolean) => void) => $(id, root)!.addEventListener('change', (e) => { set((e.target as HTMLInputElement).checked); compute(); draw(); });
+  toggle('#lb-mixed', (v) => (mixed = v));
+  toggle('#lb-hot', (v) => (hot = v));
+  toggle('#lb-fail', (v) => (failure = v));
+  toggle('#lb-checks', (v) => (checks = v));
   $('#lb-ns', root)!.addEventListener('input', (e) => { servers = Number((e.target as HTMLInputElement).value); compute(); draw(); });
   compute(); draw();
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) play(); else pause();
 }
 
 /* ------------------------------------------------------------ CAP lab */

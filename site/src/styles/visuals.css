@@ -148,3 +148,15 @@
 .story-text { margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; padding: 4px 18px; }
 .story-text summary { cursor: pointer; padding: 10px 0; font-weight: 600; color: var(--ink-2); }
 @media (max-width: 700px) { .story-top, .story-panel, .story-nav { padding-inline: 16px; } .story-diagram { margin-inline: 16px; } }
+
+/* shared playback controls */
+.player { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.player .btn[data-pl="toggle"] { min-width: 5.5em; }
+.player-speed { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.player-speed select { padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; }
+
+/* message queue: the producer's backlog */
+.v-backlog i.full { background: var(--hue-practice); border-color: var(--hue-practice); }
+.v-empty { font-size: 12.5px; color: var(--ink-2); padding: 4px 2px; }
+.vis-h small { font-weight: 500; color: var(--ink-2); }
+.vis-h + .v-qbox { margin-top: 0; }

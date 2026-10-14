@@ -59,49 +59,72 @@ export function simulateCache(policy: Policy, seq: string[], cap: number): Step[
 }
 
 
-export type Algo = 'rr' | 'random' | 'least' | 'wrr' | 'hash';
-export interface LbResult { served: number[]; mean: number; p50: number; p95: number; maxQueue: number; frames: number[][]; busy: number[] }
+export type Algo = 'rr' | 'random' | 'least' | 'p2c' | 'wrr' | 'hash';
+export interface LbResult { served: number[]; mean: number; p50: number; p95: number; maxQueue: number; frames: number[][]; busy: number[]; failed: number }
 
-export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean, seed = 21): LbResult {
+export interface LbOptions {
+  /** Server 1 stops working at this tick. It still accepts connections, so requests sent to it just wait. */
+  failAt?: number;
+  /** The balancer probes its servers and stops using one that fails, after `DETECT_TICKS`. */
+  healthChecks?: boolean;
+}
+
+export const LB_TICKS = 160;
+/** How long a health check takes to notice a dead server (a few missed probes). */
+export const DETECT_TICKS = 6;
+
+export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean, seed = 21, opts: LbOptions = {}): LbResult {
   const rnd = mulberry32(seed);         // the traffic: identical for every algorithm with the same seed
   const pick = mulberry32(seed + 7919); // routing choices, kept separate so they never change the traffic
   const n = speeds.length;
   const totalSpeed = speeds.reduce((a, b) => a + b, 0);
-  const TICKS = 160;
   const queues: { work: number; arrived: number }[][] = speeds.map(() => []);
   const served = speeds.map(() => 0);
   const lat: number[] = [];
   const frames: number[][] = [];
   const busy = speeds.map(() => 0);
   let rr = 0;
+  let failed = 0;
   const wrrCurrent = speeds.map(() => 0);
   const meanWork = 0.8 * 2 + 0.2 * 15; // 4.6 work units per request
   const rate = (0.72 * totalSpeed) / meanWork; // arrivals per tick targeting ~72% utilisation
   let maxQ = 0;
+  const dead = (t: number) => opts.failAt !== undefined && t >= opts.failAt;
+  const detected = (t: number) => !!opts.healthChecks && opts.failAt !== undefined && t >= opts.failAt + DETECT_TICKS;
 
-  for (let t = 0; t < TICKS; t++) {
+  for (let t = 0; t < LB_TICKS; t++) {
+    // The moment the health check notices, connections to the dead server are reset: those requests fail.
+    if (opts.healthChecks && opts.failAt !== undefined && t === opts.failAt + DETECT_TICKS) { failed += queues[0].length; queues[0] = []; }
+    const live = speeds.map((_, i) => i).filter((i) => !(i === 0 && detected(t))); // the servers the balancer will use
+    const liveSpeed = live.reduce((a, i) => a + speeds[i], 0);
+
     let arrivals = Math.floor(rate);
     if (rnd() < rate - arrivals) arrivals++;
     for (let a = 0; a < arrivals; a++) {
       const work = rnd() < 0.8 ? 1 + rnd() * 2 : 8 + rnd() * 14;
       const client = hotClient && rnd() < 0.35 ? 0 : 1 + Math.floor(rnd() * 24);
-      let s = 0;
-      if (algo === 'rr') { s = rr++ % n; }
-      else if (algo === 'random') s = Math.floor(pick() * n);
+      let s = live[0];
+      if (algo === 'rr') { do { s = rr++ % n; } while (!live.includes(s)); }
+      else if (algo === 'random') s = live[Math.floor(pick() * live.length)];
       else if (algo === 'least') { // fewest in flight; ties broken at random, as real balancers do
-        const fewest = Math.min(...queues.map((q) => q.length));
-        const tied = queues.map((q, i) => (q.length === fewest ? i : -1)).filter((i) => i >= 0);
+        const fewest = Math.min(...live.map((i) => queues[i].length));
+        const tied = live.filter((i) => queues[i].length === fewest);
         s = tied[Math.floor(pick() * tied.length)];
-      }
-      else if (algo === 'wrr') { // smooth weighted round robin
-        wrrCurrent.forEach((_, i) => (wrrCurrent[i] += speeds[i]));
-        s = wrrCurrent.indexOf(Math.max(...wrrCurrent));
-        wrrCurrent[s] -= totalSpeed;
-      } else s = hash32(`client-${client}`) % n;
+      } else if (algo === 'p2c') { // power of two choices: sample two servers, use the less busy one
+        const a1 = live[Math.floor(pick() * live.length)];
+        let a2 = live[Math.floor(pick() * live.length)];
+        if (live.length > 1) while (a2 === a1) a2 = live[Math.floor(pick() * live.length)];
+        s = queues[a2].length < queues[a1].length ? a2 : a1;
+      } else if (algo === 'wrr') { // smooth weighted round robin over the live servers
+        for (const i of live) wrrCurrent[i] += speeds[i];
+        s = live.reduce((best, i) => (wrrCurrent[i] > wrrCurrent[best] ? i : best), live[0]);
+        wrrCurrent[s] -= liveSpeed;
+      } else s = live[hash32(`client-${client}`) % live.length]; // when a server leaves, clients are rehashed
       queues[s].push({ work, arrived: t });
       served[s]++;
     }
     for (let i = 0; i < n; i++) {
+      if (i === 0 && dead(t)) continue; // a dead server does no work
       let budget = speeds[i];
       if (queues[i].length) busy[i]++;
       while (budget > 0 && queues[i].length) {
@@ -112,21 +135,24 @@ export function simulateLb(algo: Algo, speeds: number[], hotClient: boolean, see
       }
     }
     frames.push(queues.map((q) => q.length));
-    maxQ = Math.max(maxQ, ...queues.map((q) => q.length));
+    maxQ = Math.max(maxQ, ...queues.filter((_, i) => !(i === 0 && dead(t))).map((q) => q.length));
   }
-  for (let i = 0; i < n; i++) for (const r of queues[i]) lat.push(TICKS - r.arrived + Math.ceil(r.work / speeds[i]));
+  for (let i = 0; i < n; i++) {
+    if (i === 0 && dead(LB_TICKS)) { failed += queues[i].length; continue; } // stuck on a dead server: they time out
+    for (const r of queues[i]) lat.push(LB_TICKS - r.arrived + Math.ceil(r.work / speeds[i]));
+  }
   lat.sort((a, b) => a - b);
   const q = (p: number) => lat[Math.min(lat.length - 1, Math.floor(p * lat.length))] ?? 0;
-  return { served, mean: lat.reduce((a, b) => a + b, 0) / Math.max(1, lat.length), p50: q(0.5), p95: q(0.95), maxQueue: maxQ, frames, busy };
+  return { served, mean: lat.reduce((a, b) => a + b, 0) / Math.max(1, lat.length), p50: q(0.5), p95: q(0.95), maxQueue: maxQ, frames, busy, failed };
 }
 
 
-export interface LbSummary { mean: number; p95: number; p95Low: number; p95High: number; maxQueue: number; runs: number }
+export interface LbSummary { mean: number; p95: number; p95Low: number; p95High: number; maxQueue: number; failed: number; runs: number }
 
 /** One run proves little. Repeat the simulation over several traffic seeds and report the median and the spread. */
-export function summarizeLb(algo: Algo, speeds: number[], hotClient: boolean, runs = 20): LbSummary {
-  const rs = Array.from({ length: runs }, (_, i) => simulateLb(algo, speeds, hotClient, 21 + i * 101));
+export function summarizeLb(algo: Algo, speeds: number[], hotClient: boolean, opts: LbOptions = {}, runs = 20): LbSummary {
+  const rs = Array.from({ length: runs }, (_, i) => simulateLb(algo, speeds, hotClient, 21 + i * 101, opts));
   const med = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
   const p95s = rs.map((r) => r.p95);
-  return { mean: med(rs.map((r) => r.mean)), p95: med(p95s), p95Low: Math.min(...p95s), p95High: Math.max(...p95s), maxQueue: med(rs.map((r) => r.maxQueue)), runs };
+  return { mean: med(rs.map((r) => r.mean)), p95: med(p95s), p95Low: Math.min(...p95s), p95High: Math.max(...p95s), maxQueue: med(rs.map((r) => r.maxQueue)), failed: med(rs.map((r) => r.failed)), runs };
 }
