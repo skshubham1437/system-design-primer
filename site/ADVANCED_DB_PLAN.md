@@ -1,6 +1,22 @@
 # Plan: lab review and the "Advanced Databases" section
 
-Status: **plan only, awaiting approval.** No code, content or configuration was changed to produce this document. Nothing is pushed.
+Status: **approved** ("do as per your recommendation"). The answers to the open questions are the recommendations below: hybrid engine, first release = phases 0 to 4, Part A fixes first, top-level Databases section, dataset sized by the spike, recorded traces via Docker later, dormant behind a flag, cut hash-index detail, pooling and LSM first if time runs short. Nothing is pushed.
+
+## Phase 0 spike report (measured)
+
+| Question | Answer |
+|---|---|
+| Engine | **PostgreSQL 18.6** (PGlite 0.5.9, 32-bit WebAssembly). Plans use the PG 18 format: actual rows are shown with decimals (`rows=1.00`) and index scans print `Index Searches`. The reading guide is written for this output. |
+| Download | `pglite.wasm` 10.1 MB, `pglite.data` 6.3 MB, `initdb.wasm` 0.4 MB, worker JS 0.6 MB. Gzipped: 3.4 + 1.9 + 0.1 MB, about **5.6 MB** in total (the docs' "under 3 MB" does not hold for this version). |
+| GitHub Pages | Works without cross-origin isolation (tested in the browser with `crossOriginIsolated = false`). The live site already serves binary files gzip-encoded (checked on the Pagefind WebAssembly), so the transfer should be the gzipped size. Recheck after the first deploy. |
+| Bundling | Vite bundles PGlite and a module worker with no config changes. PGlite's own code triggers harmless "direct eval" build warnings. |
+| Browser timing | In a Web Worker on this machine: engine ready and 100k orders seeded and analysed in **2.8 s** total, the seed itself 0.5 s. |
+| Dataset | The full target (100k users, 500k orders, 1.5M items) took 43 s to seed in Node, 1 GB of memory and 176 MB of disk: **rejected**. Loading rows first and adding keys afterwards, at 20k users, 2k products, 100k orders and 300k items: 3.9 s in Node, 39 MB. **Chosen.** |
+| Snapshot instead of seeding | A gzipped data-directory dump is 17.8 MB and loads in 1.2 s. Seeding is smaller to download, so seed in the browser. |
+| Features | PL/pgSQL functions, recursive CTEs, materialized views, declarative partitioning with pruning, `pg_locks` for the current transaction, `xmin`/`xmax`/`ctid` and `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` all work. Plan shapes repeat between runs. |
+| Concurrency | Confirmed single connection, so two-session locks and deadlocks use recorded traces (as planned). |
+
+Go.
 
 Every number in Part A was measured by running the real simulation modules (seeded, so they repeat) or by reading the code. Where a finding comes from reading code only, it says so.
 
