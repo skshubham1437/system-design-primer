@@ -3,6 +3,8 @@ import fs from 'node:fs';
 
 const KEY = 'primer:v1';
 const DAY = 86_400_000;
+// The deck size comes from the build (upstream cards plus the site's own), so tests read it instead of hard-coding it.
+const DECK = (JSON.parse(fs.readFileSync(new URL('../../src/generated/flashcards.json', import.meta.url), 'utf8')) as unknown[]).length;
 
 /** Put data in localStorage before the page's own scripts run, but only the first time (not on reload). */
 async function seed(page: Page, values: Record<string, unknown>) {
@@ -21,12 +23,12 @@ const stat = (page: Page, label: string) => page.locator('.fc-stats > div', { ha
 test.describe('spaced flashcards', () => {
   test('grading a new card moves it out of New, saves it, and schedules it for tomorrow', async ({ page }) => {
     await page.goto('practice/flashcards/');
-    await expect(stat(page, 'New')).toHaveText('42');
+    await expect(stat(page, 'New')).toHaveText(String(DECK));
     await expect(stat(page, 'Due')).toHaveText('0');
 
     await page.getByRole('button', { name: /Show answer/ }).click();
     await page.keyboard.press('2'); // Good
-    await expect(stat(page, 'New')).toHaveText('41');
+    await expect(stat(page, 'New')).toHaveText(String(DECK - 1));
     await expect(stat(page, 'Learning')).toHaveText('1');
 
     await expect.poll(async () => Object.keys((await doc(page))?.cards ?? {}).length).toBe(1);
@@ -36,7 +38,7 @@ test.describe('spaced flashcards', () => {
     expect(card.due).toBeLessThan(Date.now() + 2 * DAY);
 
     await page.reload();
-    await expect(stat(page, 'New')).toHaveText('41');
+    await expect(stat(page, 'New')).toHaveText(String(DECK - 1));
     await expect(stat(page, 'Due')).toHaveText('0');
   });
 
@@ -84,7 +86,7 @@ test.describe('migration from the old storage keys', () => {
     });
     await page.goto('practice/flashcards/');
     await expect(stat(page, 'Learning')).toHaveText('2'); // box 3 is learning, not yet mastered
-    await expect(stat(page, 'New')).toHaveText('40');
+    await expect(stat(page, 'New')).toHaveText(String(DECK - 2));
 
     await page.goto('interview/study-guide/#short');
     await expect(page.locator('.plan-foot span').first()).toContainText('2 of');

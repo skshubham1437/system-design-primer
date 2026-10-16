@@ -15,6 +15,7 @@ import { toString as mdToString } from 'mdast-util-to-string';
 import { toString as hastToString } from 'hast-util-to-string';
 import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
+import { load as loadYaml } from 'js-yaml';
 import { runValidators, readFeatures } from './validate/index.mjs';
 import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
 import { loadPractice, emitPractice } from './lib/practice.mjs';
@@ -573,6 +574,25 @@ async function main() {
     front: cardTitle(c.front),
     back: cleanCard(c.back, { resolveHref: (h) => resolveHref(h, cardCtx), resolveImg: (src) => imgMap.get(src) }),
   })).filter((c) => c.front && c.back);
+
+  // Cards written for this site (content/flashcards/*.yaml), appended after the upstream deck. Cards are stored in
+  // progress by their front, so a front must be unique across the whole deck.
+  const ownCardsDir = path.join(SITE, 'content', 'flashcards');
+  const dbFlashcardsOn = readFeatures(SITE).advancedDb === true;
+  for (const file of fs.existsSync(ownCardsDir) ? fs.readdirSync(ownCardsDir).filter((x) => /\.ya?ml$/.test(x)).sort() : []) {
+    if (file.startsWith('databases') && !dbFlashcardsOn) continue;
+    let list = [];
+    try { list = loadYaml(fs.readFileSync(path.join(ownCardsDir, file), 'utf8')) ?? []; } catch (e) { warn(`content/flashcards/${file}: could not parse (${e.message.split('\n')[0]})`, true); continue; }
+    for (const [i, c] of list.entries()) {
+      const where = `content/flashcards/${file} card ${i + 1}`;
+      if (typeof c?.front !== 'string' || typeof c?.back !== 'string' || c.front.length < 8 || c.back.length < 20) { warn(`${where}: needs a front and a back`, true); continue; }
+      if (cards.some((x) => x.front === c.front)) { warn(`${where}: front "${c.front}" is already in the deck`, true); continue; }
+      if (c.link && !out.some((p) => p.path === c.link)) warn(`${where}: link "${c.link}" is not a page`, true);
+      const html = String(await unified().use(remarkParse).use(remarkRehype).use(rehypeStringify).process(c.back));
+      const more = c.link ? `<p><a href="${BASE}${c.link}">Read more</a></p>` : '';
+      cards.push({ front: c.front, back: html + more });
+    }
+  }
 
   const features = readFeatures(SITE);
   const quizzes = loadQuizzes(SITE);

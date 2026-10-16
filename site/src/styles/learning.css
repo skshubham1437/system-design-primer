@@ -215,3 +215,9 @@
 .sqlx-host + .sqlx-host { margin-top: 18px; }
 .prog-h small { font-size: 0.7em; font-weight: 500; color: var(--ink-2); margin-left: 8px; }
 @media (max-width: 700px) { .sqlx-body, .sqlx-out { padding-inline: 16px; } }
+
+/* question-and-answer blocks written in page text (for example the interview questions) */
+.prose > details { margin: 10px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.prose > details > summary { cursor: pointer; padding: 12px 16px; font-weight: 600; line-height: 1.45; }
+.prose > details[open] > summary { border-bottom: 1px solid var(--line); }
+.prose > details > :not(summary) { margin: 12px 16px; }

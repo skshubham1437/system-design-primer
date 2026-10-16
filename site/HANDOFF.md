@@ -1,53 +1,52 @@
 # Handoff: learning features and the Databases section
 
-Branch `learning-features`. **Nothing has been pushed**: the user asked for local commits only. Every commit message ends with a `Co-Authored-By` line.
+Branch `learning-features`. **Nothing has been pushed**: the user asked for local commits only.
 
 ## Where things stand
 
-The work follows [ADVANCED_DB_PLAN.md](ADVANCED_DB_PLAN.md), which the user approved ("do as per your recommendation"). The plan file also contains the Phase 0 spike report.
+The plan is [ADVANCED_DB_PLAN.md](ADVANCED_DB_PLAN.md). Phases 0 to 8 are built and committed:
 
-| Phase | State | Commit |
-|---|---|---|
-| 0. Fixes from the lab review | Done | `dee78cb` |
-| 0. Engine spike (PGlite) | Done | `7612e66` |
-| 1. Shared player; load-balancing failures and power of two choices; queue producer backlog | Done | `f2125f4` |
-| 2. Databases foundations: seed, build-time runner, worker engine, playground, exercise format, validator and checker | Done | `08524cb` |
-| 3. Core pages and animations | **Written and tested, not committed** | none |
-| 4. Exercise widget and 12 exercises | Not started | none |
-| 5 to 8 | Not started | none |
+| Phase | What |
+|---|---|
+| 0 | Lab review fixes; PGlite engine spike |
+| 1 | Shared animation player; load-balancing failures and power of two choices; queue producer backlog |
+| 2 | Databases foundations: seed, build-time runner, engine worker, playground, exercise format and checker |
+| 3 | Pages on storage, B-trees, index design, scan types and reading EXPLAIN, with four animations |
+| 4 | Exercise widget and 12 exercises, each proved on the engine |
+| 5 | Joins (animation), planner statistics, pagination and N+1, slow-query checklist |
+| 6 | Concurrency: 10 traces recorded on real PostgreSQL 18.3; transactions, isolation, locks, pooling |
+| 7 | CTEs, window functions, views/functions/triggers, partitioning (pruning widget), replicas and sharding |
+| 8 | 7 quizzes, 23 flashcards, interview questions, build checks for every claim the pages make |
 
-## Uncommitted Phase 3 work (in the working tree)
+## What is left
 
-- Pages in `content/databases/`: `how-rows-are-stored.md`, `btree-indexes.md`, `index-design.md`, `scan-types.md`, `reading-plans.md`. They are registered in `DB_PAGES` and `PREREQS` in `scripts/site-map.mjs`.
-- Tested models in `src/lib/db/`: `btree.ts`, `scans.ts`, `composite.ts`, `plan-steps.ts`. Their tests are in `tests/unit/db-models.test.ts`.
-- `src/scripts/db-visuals.ts` has four widgets: `btree`, `scan-compare`, `composite-index` and `plan-tree`. They are registered in `widgets.ts` and styled in `visuals.css`.
-- The runner (`scripts/lib/db-runs.mjs`) has a new `plan-tree` block kind. It also now runs `vacuum` after each page so pages don't leak state into each other.
-- `VACUUM ANALYZE` runs as a separate statement after the seed in the worker, the runner and the tests, because VACUUM cannot run inside a multi-statement string.
-- `data/db-runs.json` holds the regenerated real outputs.
+1. **A review by a second person.** Every Databases page, quiz and exercise is marked Draft or `reviewed: false`. After review, remove `draft: true` in `DB_PAGES` and set `reviewed: true`.
+2. **Deferred lab improvements from Part A** (medium and low priority):
+   - DNS: TTL expiry.
+   - CDN: a hit-ratio counter.
+   - Estimator: headroom and overhead factors.
+   - Replication: read-your-writes and semi-synchronous mode.
+   - A quorum (N, R, W) lab.
+   - QUIC in the TCP lab.
+   - Replicas and hot keys in the consistent-hashing lab.
+   - Traffic drift in the sharding lab.
+   - Quizzes on the labs.
+3. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
 
-**Verified so far:**
-- Strict content build passes.
-- 243 unit tests pass and the typecheck is clean.
-- `databases.spec.ts` and `lab-states.spec.ts` pass (64 tests, including axe in both themes).
-- The widgets were checked by hand in the browser.
+## Rules for working on the Databases section
 
-**Not yet run:** the full e2e suite after the last changes. The user stopped that run.
-
-**Next steps:**
-1. Run the full e2e suite.
-2. Commit Phase 3.
-3. Start Phase 4: the `sql-exercise` widget on top of `src/lib/db/exercise.ts`, plus 12 exercises. The format and validator already exist, and `db-engine.test.ts` proves each exercise fails as written and passes with its solution.
-
-## Things to know before continuing
-
-- **Engine:** PGlite 0.5.9, which is **PostgreSQL 18.6**. EXPLAIN ANALYZE prints buffers by default, and B-tree skip scan exists (`Index Searches: N`). The pages are written for PG 18 output.
-- **Locks:** PGlite has a single connection. Lock and deadlock pages must use traces recorded from a real multi-session Postgres via Docker. That is Phase 6.
-- **Real outputs only:** in a Databases page, `sql run / explain / explain-analyze / plan-tree / setup` blocks run at build time. Read the output before writing prose about it. Two of my claims were wrong until I checked them against real runs. Use `DB_RERUN=1` to run everything again.
-- **Determinism:** the seed is UTC and `default_statistics_target = 1100`, so ANALYZE reads every row and estimates are identical on every machine.
-- **Feature flag:** the section is behind `advancedDb` in `features.json`. It is on, and every page shows a Draft notice. Turn it off before pushing if the section should stay hidden.
-- **File editing on Windows:** files use CRLF line endings and Python's default encoding is cp1252. Edit with the Edit tool, or the line-ending-aware patch script kept in the session scratchpad.
-- **Browser pane conflicts:** stop the preview server before running Playwright, because both use port 4321.
-- **Unrelated change in Phase 0:** CI now runs `npm run typecheck`.
+- **Outputs:** never type an output by hand.
+  - `sql run / explain / explain-analyze / plan-tree / setup` blocks run at build time; outputs are cached in `data/db-runs.json`. `DB_RERUN=1` re-runs them.
+  - Concurrency scenarios live in `content/databases/concurrency-scenarios.yaml`. Re-record with `node scripts/record-traces.mjs`, which needs Docker; `PGIMAGE=postgres:latest` uses the local image.
+- **Tests:**
+  - `tests/unit/db-claims.test.ts` re-checks every claim a page makes about its outputs.
+  - `tests/unit/db-engine.test.ts` proves every exercise fails as written and passes with its solution.
+  - `tests/unit/db-traces.test.ts` checks the recordings are current.
+- **The engine:** PGlite 0.5.9 (PostgreSQL 18.6), with a single connection. The seed is deterministic: UTC, statistics over every row, and `VACUUM ANALYZE` run as a separate statement.
+- **Windows quirks:**
+  - Never pipe Playwright into `head`, and never run Vitest and Playwright together.
+  - Stop the preview on port 4321 before running Playwright.
+  - Heredocs and regex escapes often break in bash here; prefer the Write and Edit tools.
 
 ## Running it
 

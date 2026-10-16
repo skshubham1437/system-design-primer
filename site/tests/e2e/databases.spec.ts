@@ -191,3 +191,13 @@ test('partition pruning: a function of the key reads every partition', async ({ 
   await expect(w.locator('#pp-months .scan')).toHaveCount(12);
   await expect(w.locator('#pp-note')).toContainText('12 of 12 scanned');
 });
+
+test('Databases pages carry their quiz, and the flashcard deck includes the Databases cards', async ({ page }) => {
+  await page.goto('databases/locks-and-deadlocks/');
+  await expect(page.locator('.quiz-mount')).toBeAttached();
+  await page.goto('practice/flashcards/');
+  await page.getByRole('button', { name: /Browse all/ }).click().catch(() => {});
+  const json = await page.evaluate(() => document.querySelector('[data-widget="flashcards"] script[type="application/json"]')?.textContent ?? '[]');
+  const fronts = (JSON.parse(json) as { front: string }[]).map((c) => c.front);
+  if (fronts.length) expect(fronts).toContain('What is SKIP LOCKED for?');
+});

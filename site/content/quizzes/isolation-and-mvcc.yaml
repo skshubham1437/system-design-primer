@@ -1,0 +1,63 @@
+# Questions drawn from the Isolation levels and MVCC page and its recorded traces.
+topic: databases/isolation-and-mvcc/
+reviewed: false
+questions:
+  - id: mvcc-readers-writers
+    q: Under PostgreSQL's MVCC, which of these waits for which?
+    choices:
+      - Readers wait for writers
+      - Writers wait for readers
+      - Neither readers nor writers wait for each other; only two writers of the same row do
+      - Everything waits for everything
+    answer: 2
+    why: Every query reads from a snapshot of committed row versions, so reads and writes never block each other. A second writer of the same row waits for the first to finish.
+    link: "#mvcc-snapshots-instead-of-read-locks"
+    difficulty: 1
+
+  - id: iso-read-committed
+    q: At read committed, a transaction runs the same SELECT twice and gets different results. Why?
+    choices:
+      - It is a bug
+      - Each statement takes a new snapshot, so it sees changes committed between the two statements
+      - Read committed allows dirty reads
+      - The first SELECT was cached
+    answer: 1
+    why: At read committed each statement sees everything committed before it began. That is a non-repeatable read, and it is allowed at this level.
+    link: "#read-committed-each-statement-sees-the-latest-commits"
+    difficulty: 1
+
+  - id: iso-dirty-read
+    q: Can a PostgreSQL transaction ever see another transaction's uncommitted changes?
+    choices:
+      - Yes, at READ UNCOMMITTED
+      - Yes, at READ COMMITTED
+      - No, at no isolation level
+      - Only inside a function
+    answer: 2
+    why: PostgreSQL accepts READ UNCOMMITTED but treats it as READ COMMITTED. The recording shows session B still reading 100 while A's change was uncommitted.
+    link: "#the-isolation-levels"
+    difficulty: 2
+
+  - id: iso-repeatable-conflict
+    q: At repeatable read, a transaction updates a row that another transaction changed after its snapshot was taken. What happens?
+    choices:
+      - The update silently overwrites the other change
+      - It fails with a serialization error (SQLSTATE 40001), and the application must retry the transaction
+      - It waits forever
+      - It updates the old version of the row
+    answer: 1
+    why: Repeatable read refuses to overwrite a change it cannot see. The recording shows "could not serialize access due to concurrent update".
+    link: "#repeatable-read-one-snapshot-for-the-whole-transaction"
+    difficulty: 2
+
+  - id: iso-write-skew
+    q: Two doctors each check that two are on call, then each takes themselves off call, updating different rows. Which level prevents both from committing?
+    choices:
+      - Read committed
+      - Repeatable read
+      - Serializable
+      - None; it needs a table lock
+    answer: 2
+    why: Neither transaction writes a row the other wrote, so only serializable isolation, which tracks read/write dependencies, detects the anomaly and aborts one of them.
+    link: "#serializable-as-if-one-at-a-time"
+    difficulty: 3

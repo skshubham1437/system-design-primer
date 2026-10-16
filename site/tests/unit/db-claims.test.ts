@@ -98,3 +98,17 @@ describe.skipIf(!built || !site?.features.advancedDb)('claims the Databases page
     expect(dec(page.html)).toMatch(/products\s*ShareLock/);
   });
 });
+
+describe.skipIf(!built || !site?.features.advancedDb)('Databases study material in the build', () => {
+  it('the flashcard deck includes the Databases cards, each front once', () => {
+    const cards = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../src/generated/flashcards.json'), 'utf8')) as { front: string; back: string }[];
+    const fronts = cards.map((c) => c.front);
+    expect(fronts).toContain('What is SKIP LOCKED for?');
+    expect(new Set(fronts).size).toBe(fronts.length);
+    expect(cards.find((c) => c.front === 'What is SKIP LOCKED for?')!.back).toContain('databases/locks-and-deadlocks/');
+  });
+  it('every Databases topic with a quiz has it attached', () => {
+    const quizzes = (JSON.parse(fs.readFileSync(file, 'utf8')) as { quizzes: { topic: string }[] }).quizzes.map((q) => q.topic);
+    for (const t of ['btree-indexes', 'index-design', 'reading-plans', 'joins', 'isolation-and-mvcc', 'locks-and-deadlocks', 'partitioning']) expect(quizzes).toContain(`databases/${t}/`);
+  });
+});

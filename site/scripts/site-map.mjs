@@ -221,5 +221,6 @@ export const DB_PAGES = [
   { slug: 'locks-and-deadlocks', module: 'concurrency', title: 'Locks and deadlocks', blurb: 'Lock modes, waiting, the lock queue behind a migration, deadlocks, SKIP LOCKED and advisory locks.', draft: true },
   { slug: 'connection-pooling', module: 'concurrency', title: 'Connection pooling', blurb: 'Why connections are expensive, what a pool does, PgBouncer modes and how to size a pool.', draft: true },
   { slug: 'query-checklist', module: 'practice', title: 'Slow query checklist', blurb: 'A method for any slow query, and a table from what the plan shows to the likely fix.', draft: true },
+  { slug: 'interview-questions', module: 'practice', title: 'Database interview questions', blurb: 'Eleven questions interviewers ask about indexes, transactions and scale, with answers to compare against yours.', draft: true },
   { slug: 'tuning-exercises', module: 'practice', title: 'Query-tuning exercises', blurb: 'Twelve slow queries from a real-looking shop. Fix each one; the database checks your plan.', draft: true },
 ];

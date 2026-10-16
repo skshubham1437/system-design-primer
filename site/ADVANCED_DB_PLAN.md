@@ -1,6 +1,6 @@
 # Plan: lab review and the "Advanced Databases" section
 
-Status: **approved** ("do as per your recommendation"). The answers to the open questions are the recommendations below: hybrid engine, first release = phases 0 to 4, Part A fixes first, top-level Databases section, dataset sized by the spike, recorded traces via Docker later, dormant behind a flag, cut hash-index detail, pooling and LSM first if time runs short. Nothing is pushed.
+Status: **phases 0 to 8 built** (October 2026), on branch learning-features, not pushed. 21 Databases pages, 12 exercises, 10 recorded traces, 7 quizzes, 23 flashcards. Every page is still marked Draft: the remaining step is a review by a second person, after which the Draft flags (draft: true in DB_PAGES, reviewed: false in quizzes and exercises) can be removed. Deferred lab improvements from Part A are tracked in HANDOFF.md.
 
 ## Phase 0 spike report (measured)
 

@@ -1,0 +1,70 @@
+# Questions drawn from the Locks and deadlocks page and its recorded traces.
+topic: databases/locks-and-deadlocks/
+reviewed: false
+questions:
+  - id: lock-select-conflicts
+    q: Which table lock mode does a plain SELECT conflict with?
+    choices:
+      - ROW EXCLUSIVE, taken by INSERT and UPDATE
+      - SHARE, taken by CREATE INDEX
+      - Only ACCESS EXCLUSIVE, taken by most ALTER TABLE, DROP and TRUNCATE
+      - Every other mode
+    answer: 2
+    why: SELECT takes ACCESS SHARE, the weakest mode. It conflicts only with ACCESS EXCLUSIVE, which is why reads and writes run side by side.
+    link: '#which-modes-conflict'
+    difficulty: 2
+  - id: lock-create-index
+    q: What does a plain CREATE INDEX block while it runs?
+    choices:
+      - Writes to the table (INSERT, UPDATE, DELETE), but not reads
+      - Nothing
+      - Reads and writes
+      - Only other CREATE INDEX statements
+    answer: 0
+    why: CREATE INDEX takes a SHARE lock, which conflicts with the ROW EXCLUSIVE lock writers need. CREATE INDEX CONCURRENTLY avoids that.
+    link: '#what-a-statement-locks'
+    difficulty: 2
+  - id: lock-queue-migration
+    q: A quick ALTER TABLE waits behind a long open transaction that read the table. What happens to new SELECTs on the table?
+    choices:
+      - They run normally
+      - They fail immediately
+      - They read the old schema
+      - They queue behind the ALTER TABLE, so the table effectively stops
+    answer: 3
+    why: Locks are granted in order. The ALTER TABLE waits for ACCESS EXCLUSIVE, and later requests, even ones compatible with the open transaction, queue behind it. Set lock_timeout before migrations.
+    link: '#the-lock-queue-how-a-quick-migration-takes-a-site-down'
+    difficulty: 2
+  - id: deadlock-handling
+    q: Two transactions each hold a row the other needs. What does PostgreSQL do?
+    choices:
+      - Waits forever
+      - After deadlock_timeout it detects the cycle and aborts one transaction with error 40P01
+      - Rolls back both
+      - Lets both continue and merges their changes
+    answer: 1
+    why: Deadlock detection runs after deadlock_timeout (1 second by default), finds the cycle and aborts one transaction so the other can finish. The recording shows exactly that.
+    link: '#deadlocks'
+    difficulty: 1
+  - id: deadlock-prevention
+    q: Which practice makes deadlocks between money transfers rare?
+    choices:
+      - Use longer transactions
+      - Turn off deadlock detection
+      - Always lock the rows in a consistent order, for example the lower account id first
+      - Use SERIALIZABLE for everything
+    answer: 2
+    why: If every transfer locks rows in the same order, two transfers cannot each hold what the other needs. Keep transactions short and retry the ones that still fail.
+    link: '#deadlocks'
+    difficulty: 1
+  - id: skip-locked-use
+    q: What is SELECT … FOR UPDATE SKIP LOCKED good for?
+    choices:
+      - Several workers taking different jobs from one queue table without waiting for each other
+      - Reading rows without any locks
+      - Skipping rows that fail a constraint
+      - Speeding up full table scans
+    answer: 0
+    why: Each worker locks the first row nobody else holds and skips the locked ones, so workers never wait on each other.
+    link: '#patterns-that-use-locks-well'
+    difficulty: 1
