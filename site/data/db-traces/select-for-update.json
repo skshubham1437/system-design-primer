@@ -1,0 +1,311 @@
+{
+ "id": "select-for-update",
+ "title": "SELECT … FOR UPDATE makes the second writer wait",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "5c5a90d4d2bcd018",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100);",
+ "events": [
+  {
+   "at": 125,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 258,
+   "step": 1,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1 for update",
+   "note": "A reads 100 and locks the row for the rest of its transaction.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 100
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 766",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 391,
+   "step": 2,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 766",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 941,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1 for update",
+   "note": "B asks for the same lock and has to wait for A.",
+   "status": "waiting",
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 766",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "tuple",
+     "mode": "AccessExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ShareLock",
+     "granted": false,
+     "on": "transaction 766",
+     "blockedBy": [
+      "A"
+     ]
+    }
+   ]
+  },
+  {
+   "at": 1141,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = 150 where id = 1",
+   "note": "",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 766",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "tuple",
+     "mode": "AccessExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ShareLock",
+     "granted": false,
+     "on": "transaction 766",
+     "blockedBy": [
+      "A"
+     ]
+    }
+   ]
+  },
+  {
+   "at": 1335,
+   "step": 5,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "A commits and releases the lock. B's read completes, and it sees 150, the new value.",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 767",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1335,
+   "session": "B",
+   "kind": "resumed",
+   "sql": "select balance from accounts where id = 1 for update",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 150
+    }
+   ]
+  },
+  {
+   "at": 1471,
+   "step": 6,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = 180 where id = 1",
+   "note": "",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 767",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1622,
+   "step": 7,
+   "session": "B",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "Both deposits are kept: 100 + 50 + 30 = 180.",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  }
+ ]
+}

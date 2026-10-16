@@ -142,6 +142,21 @@
    "text": "Nested Loop  (cost=4.92..156.21 rows=44 width=31) (actual time=0.243..0.407 rows=44.00 loops=1)\n  Buffers: shared hit=45 read=4\n  ->  Index Scan using users_pkey on users u  (cost=0.29..8.30 rows=1 width=25) (actual time=0.107..0.110 rows=1.00 loops=1)\n        Index Cond: (id = 42)\n        Index Searches: 1\n        Buffers: shared hit=1 read=2\n  ->  Bitmap Heap Scan on orders o  (cost=4.63..147.46 rows=44 width=14) (actual time=0.107..0.197 rows=44.00 loops=1)\n        Recheck Cond: (user_id = 42)\n        Heap Blocks: exact=44\n        Buffers: shared hit=44 read=2\n        ->  Bitmap Index Scan on orders_user_id_idx  (cost=0.00..4.62 rows=44 width=0) (actual time=0.057..0.057 rows=44.00 loops=1)\n              Index Cond: (user_id = 42)\n              Index Searches: 1\n              Buffers: shared read=2\nPlanning:\n  Buffers: shared hit=48 read=1\nPlanning Time: 0.627 ms\nExecution Time: 0.550 ms",
    "at": "2026-10-16"
   },
+  "61ddf449bd681edb": {
+   "kind": "run",
+   "columns": [
+    "id",
+    "status"
+   ],
+   "rows": [
+    [
+     "10",
+     "delivered"
+    ]
+   ],
+   "total": 1,
+   "at": "2026-10-16"
+  },
   "670fb0eeea80f29b": {
    "kind": "run",
    "columns": [
@@ -178,6 +193,10 @@
    "kind": "explain-analyze",
    "text": "Limit  (cost=0.29..33.10 rows=10 width=16) (actual time=0.035..0.071 rows=10.00 loops=1)\n  Buffers: shared hit=11 read=1\n  ->  Index Scan using orders_user_id_idx on orders  (cost=0.29..1243.86 rows=379 width=16) (actual time=0.030..0.051 rows=10.00 loops=1)\n        Index Cond: ((user_id >= 100) AND (user_id <= 110))\n        Index Searches: 1\n        Buffers: shared hit=11 read=1\nPlanning:\n  Buffers: shared hit=18 read=1\nPlanning Time: 0.664 ms\nExecution Time: 0.109 ms",
    "at": "2026-10-14"
+  },
+  "6f3d1a87967d7916": {
+   "kind": "setup",
+   "at": "2026-10-16"
   },
   "72d778b2ac48a9fe": {
    "kind": "setup",
@@ -360,6 +379,10 @@
    "total": 4,
    "at": "2026-10-14"
   },
+  "a70756cdb2b9953b": {
+   "kind": "setup",
+   "at": "2026-10-16"
+  },
   "ae91d4e329d61569": {
    "kind": "explain-analyze",
    "text": "Aggregate  (cost=2060.19..2060.20 rows=1 width=8) (actual time=13.933..13.935 rows=1.00 loops=1)\n  Buffers: shared hit=810\n  ->  Seq Scan on orders  (cost=0.00..2060.00 rows=75 width=0) (actual time=0.225..13.902 rows=61.00 loops=1)\n        Filter: (total > 2033.8983050847457627)\n        Rows Removed by Filter: 99939\n        Buffers: shared hit=810\nPlanning Time: 0.514 ms\nExecution Time: 13.972 ms",
@@ -373,6 +396,49 @@
    "kind": "explain-analyze",
    "text": "Sort  (cost=37378.27..38129.15 rows=300350 width=14) (actual time=497.222..654.986 rows=300350.00 loops=1)\n  Sort Key: price DESC, order_id\n  Sort Method: external merge  Disk: 7360kB\n  Buffers: shared hit=1914, temp read=920 written=923\n  ->  Seq Scan on order_items  (cost=0.00..4917.50 rows=300350 width=14) (actual time=0.010..91.926 rows=300350.00 loops=1)\n        Buffers: shared hit=1914\nPlanning Time: 0.075 ms\nExecution Time: 734.816 ms",
    "at": "2026-10-14"
+  },
+  "bd6296f545717df9": {
+   "kind": "run",
+   "columns": [
+    "locktype",
+    "relation",
+    "mode",
+    "granted"
+   ],
+   "rows": [
+    [
+     "relation",
+     "orders",
+     "RowExclusiveLock",
+     "true"
+    ],
+    [
+     "relation",
+     "orders_pkey",
+     "RowExclusiveLock",
+     "true"
+    ],
+    [
+     "relation",
+     "products",
+     "ShareLock",
+     "true"
+    ],
+    [
+     "relation",
+     "products_price_idx",
+     "AccessExclusiveLock",
+     "true"
+    ],
+    [
+     "transactionid",
+     "NULL",
+     "ExclusiveLock",
+     "true"
+    ]
+   ],
+   "total": 5,
+   "at": "2026-10-16"
   },
   "cd9340b49c7e4bd5": {
    "kind": "setup",
@@ -400,6 +466,25 @@
   "dc0fe0427fc81ff1": {
    "kind": "explain-analyze",
    "text": "HashAggregate  (cost=3231.56..3231.64 rows=8 width=11) (actual time=147.738..147.746 rows=8.00 loops=1)\n  Group Key: u.country\n  Batches: 1  Memory Usage: 32kB\n  Buffers: shared hit=1019\n  ->  Hash Join  (cost=659.00..2731.56 rows=100000 width=3) (actual time=18.062..107.781 rows=100000.00 loops=1)\n        Hash Cond: (o.user_id = u.id)\n        Buffers: shared hit=1019\n        ->  Seq Scan on orders o  (cost=0.00..1810.00 rows=100000 width=4) (actual time=0.009..26.484 rows=100000.00 loops=1)\n              Buffers: shared hit=810\n        ->  Hash  (cost=409.00..409.00 rows=20000 width=7) (actual time=17.974..17.976 rows=20000.00 loops=1)\n              Buckets: 32768  Batches: 1  Memory Usage: 753kB\n              Buffers: shared hit=209\n              ->  Seq Scan on users u  (cost=0.00..409.00 rows=20000 width=7) (actual time=0.006..8.864 rows=20000.00 loops=1)\n                    Buffers: shared hit=209\nPlanning:\n  Buffers: shared hit=21 read=3\nPlanning Time: 0.590 ms\nExecution Time: 147.801 ms",
+   "at": "2026-10-16"
+  },
+  "ddf651a999a2691e": {
+   "kind": "run",
+   "columns": [
+    "id",
+    "status"
+   ],
+   "rows": [
+    [
+     "10",
+     "cancelled"
+    ]
+   ],
+   "total": 1,
+   "at": "2026-10-16"
+  },
+  "deb8a5bb06f573eb": {
+   "kind": "setup",
    "at": "2026-10-16"
   },
   "e219a2cf31eb010a": {

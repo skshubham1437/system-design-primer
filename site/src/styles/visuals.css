@@ -245,3 +245,29 @@
 .j-bucket em { color: var(--ink-2); font-size: 12px; }
 .j-bucket.now { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
 @media (max-width: 700px) { .j-stage { margin-inline: 16px; } }
+
+/* recorded concurrency traces */
+.tx-head, .tx-log { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 6px 10px; margin: 14px 24px 0; }
+.tx-sess { padding: 8px 10px; border-radius: 10px; background: var(--surface-2); border: 1.5px solid var(--line); }
+.tx-sess b { display: block; font-size: 13px; }
+.tx-state { font-size: 12px; color: var(--ink-2); }
+.tx-sess[data-state="in-transaction"] { border-color: var(--line-strong); }
+.tx-sess[data-state="waiting"] { border-color: var(--warn); background: var(--warn-soft); }
+.tx-sess[data-state="failed"] { border-color: var(--hue-practice); }
+.tx-log { list-style: none; padding: 0; margin-top: 8px; }
+.tx-log li { display: grid; gap: 3px; padding: 7px 9px; border: 1.5px solid var(--line); border-radius: 9px; background: var(--bg); min-width: 0; }
+.tx-log li.now { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tx-log li.resumed { border-style: dashed; }
+.tx-who { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); }
+.tx-log code { font-size: 12px; white-space: normal; overflow-wrap: anywhere; background: none; border: 0; padding: 0; }
+.tx-r { font-family: var(--font-mono); font-size: 11.5px; overflow-wrap: anywhere; }
+.tx-r.wait { color: var(--ink); font-weight: 700; }
+.tx-r.err { color: var(--ink); font-weight: 700; text-decoration: underline 2px var(--hue-practice); text-underline-offset: 3px; }
+.tx-r.ok { color: var(--ink-2); }
+.tx-locks { margin: 12px 24px 0; overflow-x: auto; }
+.tx-locks table { margin: 0; }
+.trace-static { padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); margin: 1.4em 0; font-size: 14px; }
+.trace-static ol { padding-left: 20px; }
+.trace-static li { margin: 6px 0; }
+.trace-static li span { color: var(--ink-2); }
+@media (max-width: 700px) { .tx-head, .tx-log, .tx-locks { margin-inline: 16px; } .tx-log code { font-size: 11px; } }

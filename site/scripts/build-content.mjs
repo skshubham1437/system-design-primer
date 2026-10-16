@@ -20,6 +20,7 @@ import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
 import { loadPractice, emitPractice } from './lib/practice.mjs';
 import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
 import { loadDbExercises, emitDbExercises } from './lib/db-exercises.mjs';
+import { loadTraces, emitTraces } from './lib/db-traces.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
@@ -515,6 +516,14 @@ async function main() {
   const dbOn = readFeatures(SITE).advancedDb === true;
   const dbRunner = dbOn ? createDbRunner({ siteDir: SITE, warn }) : null;
   const dbExercises = dbOn ? loadDbExercises(SITE) : [];
+  const traceById = new Map((dbOn ? loadTraces(SITE) : []).filter((t) => t.trace).map((t) => [t.id, t.trace]));
+  // <div data-widget="tx-trace" data-id="x"></div> becomes the recorded steps as a list, which the replay widget replaces.
+  const traceHtml = (id) => {
+    const t = traceById.get(id);
+    if (!t) return `<div data-widget="tx-trace" data-id="${escHtml(id)}"></div>`;
+    const res = (e) => e.status === 'waiting' ? 'waits' : e.status === 'error' ? `error: ${escHtml(e.error)}` : e.rows?.length ? escHtml(e.rows.map((r) => Object.values(r).join(', ')).join(' | ')) : 'ok';
+    return `<div class="widget-host trace-host" data-widget="tx-trace" data-id="${escHtml(id)}" data-src="${BASE}data/db/traces/${escHtml(id)}.json"><div class="trace-static"><p class="eyebrow">Recorded on ${escHtml(t.engine.replace(/ [(].*$/, ''))}, ${escHtml(t.recorded)}</p><p class="sqlx-static-title">${escHtml(t.title)}</p><ol>${t.events.map((e) => `<li><b>${escHtml(e.session)}${e.kind === 'resumed' ? ' (finishes)' : ''}:</b> <code>${escHtml(e.sql)}</code> → ${res(e)}${e.note ? `<br><span>${escHtml(e.note)}</span>` : ''}</li>`).join('')}</ol></div></div>`;
+  };
   const exerciseById = new Map(dbExercises.filter((x) => x.data?.id).map((x) => [x.data.id, x.data]));
   // <div data-widget="sql-exercise" data-id="x"></div> becomes a readable static version that the widget replaces:
   // without JavaScript, and for search, the page still shows the scenario, the task and the query.
@@ -537,6 +546,8 @@ async function main() {
       for (const n of tr.children) {
         const m = n.type === 'html' && n.value.match(/^<div data-widget="sql-exercise" data-id="([^"]+)"><\/div>$/);
         if (m) n.value = exerciseHtml(m[1]);
+        const tm = n.type === 'html' && n.value.match(/^<div data-widget="tx-trace" data-id="([^"]+)"><\/div>$/);
+        if (tm) n.value = traceHtml(tm[1]);
       }
       const runnable = tr.children.map((n, i) => ({ n, i, m: n.type === 'code' ? parseRunMeta(n.lang, n.meta) : null })).filter((x) => x.m);
       if (runnable.length) {
@@ -567,7 +578,9 @@ async function main() {
   const quizzes = loadQuizzes(SITE);
   const practice = loadPractice(SITE);
   const choosers = loadChoosers(SITE);
-  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises }, warn);
+  const dbTraces = dbOn ? loadTraces(SITE) : [];
+  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises, dbTraces }, warn);
+  if (dbOn) emitTraces(dbTraces, SITE);
   const dbExerciseIndex = dbOn ? emitDbExercises(dbExercises, SITE) : [];
   const chooserIndex = features.choosers ? emitChoosers(choosers, SITE, out, BASE) : [];
   const practiceCount = features.practiceMode ? emitPractice(practice, SITE, out, BASE) : 0;

@@ -164,3 +164,21 @@ test('join animation: a hash join compares far fewer pairs than a plain nested l
   await finish();
   await expect(w.locator('#j-note')).toContainText('one pass over each side');
 });
+
+test('recorded traces: the deadlock replay shows one session waiting, then the server aborting one side', async ({ page }) => {
+  await page.goto('databases/locks-and-deadlocks/');
+  const w = page.locator('.v-trace', { hasText: 'A deadlock' });
+  await expect(w).toContainText('PostgreSQL 18');
+  const step = w.locator('[data-pl="step"]');
+  for (let i = 0; i < 4; i++) await step.click();
+  await expect(w.locator('.tx-sess[data-state="waiting"]')).toHaveCount(1);
+  await expect(w.locator('.tx-locks')).toContainText('waiting for');
+  for (let i = 0; i < 3; i++) await step.click();
+  await expect(w.locator('.tx-log')).toContainText('deadlock detected');
+});
+
+test('recorded traces read as a plain list without the replay', async ({ page }) => {
+  await page.route('**/data/db/traces/**', (r) => r.abort());
+  await page.goto('databases/isolation-and-mvcc/');
+  await expect(page.locator('.trace-static').first()).toContainText('Recorded on PostgreSQL 18');
+});

@@ -7,6 +7,7 @@ import { makeEntries, QUERIES, usage, COUNTRIES } from '../lib/db/composite';
 import { planSteps, hottest, nodeName, NODE_HELP, type PlanStep } from '../lib/db/plan-steps';
 import type { PlanNode } from '../lib/db/checks';
 import { joinSteps, OUTER, INNER, type JoinAlgo, type JoinStep } from '../lib/db/joins';
+import { sessionsAt, locksAt, type Trace, type TraceEvent } from '../lib/db/traces';
 
 const fmt = (n: number, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
 
@@ -283,10 +284,61 @@ function joinAlgos(host: HTMLElement) {
   draw();
 }
 
+/* ------------------------------------------------------------ recorded concurrency traces */
+
+function txTrace(host: HTMLElement) {
+  const id = host.dataset.id!;
+  const src = host.dataset.src ?? `${document.documentElement.dataset.base ?? '/'}data/db/traces/${id}.json`;
+  fetch(src).then((r) => r.json()).then((t: Trace) => mountTrace(host, t)).catch(() => { /* the static version stays */ });
+}
+
+function mountTrace(host: HTMLElement, t: Trace) {
+  let count = 1;
+  const root = shell(host, 'v-trace', `Recorded: ${t.title}`, { eyebrow: 'Recorded on a real server', title: t.title, desc: `${t.sessions.length} sessions, each its own connection to ${t.engine.replace(/ \(.*\)$/, '')}, recorded on ${t.recorded}. Step through what each session ran and what the server did.` }, `
+    <div class="vis-actions" id="tx-play"></div>
+    <div class="tx-head" style="--n:${t.sessions.length}">${t.sessions.map((s) => `<div class="tx-sess" data-s="${s}"><b>Session ${s}</b><span class="tx-state"></span></div>`).join('')}</div>
+    <ol class="tx-log" style="--n:${t.sessions.length}" aria-label="Statements in order"></ol>
+    <div class="tx-locks" tabindex="0" role="region" aria-label="Locks at this moment"></div>
+    <p class="vis-status tx-note"></p>`);
+  const col = (s: string) => t.sessions.indexOf(s) + 1;
+  const result = (e: TraceEvent) => {
+    if (e.status === 'waiting') return '<span class="tx-r wait">waiting…</span>';
+    if (e.status === 'error') return `<span class="tx-r err">ERROR ${esc(e.code ?? '')}: ${esc(e.error ?? '')}</span>`;
+    if (e.rows?.length) return `<span class="tx-r ok">${esc(e.rows.map((r) => Object.values(r).join(', ')).join(' | '))}</span>`;
+    return `<span class="tx-r ok">${esc(e.command ?? 'OK')}${e.rowCount ? ` ${e.rowCount}` : ''}</span>`;
+  };
+  const draw = () => {
+    const views = sessionsAt(t, count);
+    $$('.tx-sess', root).forEach((el) => { const v = views[el.dataset.s!]; el.querySelector('.tx-state')!.textContent = v.state + (v.waitingFor.length ? ` for ${v.waitingFor.join(', ')}` : ''); el.dataset.state = v.state.replace(' ', '-'); });
+    $('.tx-log', root)!.innerHTML = t.events.slice(0, count).map((e, i) => `
+      <li class="${i === count - 1 ? 'now' : ''}${e.kind === 'resumed' ? ' resumed' : ''}" style="grid-column:${col(e.session)};grid-row:${i + 1}">
+        <span class="tx-who">${e.session}${e.kind === 'resumed' ? ' · finishes' : ''}</span>
+        <code>${esc(e.sql)}</code>${result(e)}
+      </li>`).join('');
+    const locks = locksAt(t, count).filter((l) => l.type !== 'relation' || !l.granted || l.mode !== 'AccessShareLock' || t.id === 'lock-queue');
+    $('.tx-locks', root)!.innerHTML = locks.length
+      ? `<table class="lb-table"><thead><tr><th>Session</th><th>Lock</th><th>On</th><th>State</th></tr></thead><tbody>${locks.map((l) => `<tr class="${l.granted ? '' : 'on'}"><td>${l.session}</td><td>${esc(l.mode)}</td><td>${esc(l.on)}</td><td>${l.granted ? 'held' : `waiting for ${l.blockedBy.join(', ') || '?'}`}</td></tr>`).join('')}</tbody></table>`
+      : '<p class="ch-note">No locks worth showing at this moment.</p>';
+    const e = t.events[count - 1];
+    $('.tx-note', root)!.textContent = e.kind === 'resumed'
+      ? `Session ${e.session} stops waiting: ${e.status === 'error' ? `its statement failed (${e.error}).` : 'its statement completes.'}`
+      : (e.note || (e.status === 'waiting' ? `Session ${e.session} has to wait.` : ''));
+  };
+  const pl = player(root, {
+    ms: 1500,
+    step: () => { if (count >= t.events.length) return false; count++; draw(); return count < t.events.length; },
+    reset: () => { count = 1; draw(); },
+    describe: () => { const e = t.events[count - 1]; return `Session ${e.session}: ${e.sql}. ${e.status === 'waiting' ? 'Waiting.' : e.status === 'error' ? `Error: ${e.error}` : 'Done.'} ${e.note ?? ''}`; },
+  });
+  $('#tx-play', root)!.append(pl.el);
+  draw();
+}
+
 export const dbVisualWidgets: Record<string, (host: HTMLElement) => void> = {
   btree,
   'scan-compare': scanCompare,
   'composite-index': compositeIndex,
   'plan-tree': planTree,
   'join-algos': joinAlgos,
+  'tx-trace': txTrace,
 };

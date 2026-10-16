@@ -1,0 +1,276 @@
+{
+ "id": "skip-locked",
+ "title": "A job queue with SKIP LOCKED",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "4e7908aab46a29a5",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table jobs (id int primary key, payload text not null, done boolean not null default false);\ninsert into jobs (id, payload) select g, 'job ' || g from generate_series(1, 5) g;",
+ "events": [
+  {
+   "at": 132,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 258,
+   "step": 1,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select id from jobs where not done order by id limit 1 for update skip locked",
+   "note": "Worker A claims the first job that nobody else has locked: job 1.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "id": 1
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 786",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 387,
+   "step": 2,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 786",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 520,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select id from jobs where not done order by id limit 1 for update skip locked",
+   "note": "Worker B skips job 1, which A holds, and claims job 2 without waiting. Without SKIP LOCKED it would wait for A.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "id": 2
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 786",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 787",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 654,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update jobs set done = true where id = 1",
+   "note": "",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 786",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 787",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 804,
+   "step": 5,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 787",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 938,
+   "step": 6,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update jobs set done = true where id = 2",
+   "note": "",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowShareLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "jobs",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 787",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1087,
+   "step": 7,
+   "session": "B",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  }
+ ]
+}

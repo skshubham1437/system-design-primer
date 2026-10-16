@@ -35,7 +35,7 @@ A one-page method for a slow query, and a table that maps what you see in a plan
 
 ## Things that are not the database's fault
 
-Sometimes the plan is fine and the time goes elsewhere: too many round trips, fetching thousands of rows to show twenty, a connection opened per request instead of taken from a pool, or waiting on a lock held by another transaction. If `Execution Time` is small but the request is slow, look outside the plan.
+Sometimes the plan is fine and the time goes elsewhere: too many round trips, fetching thousands of rows to show twenty, a connection opened per request instead of taken from a [pool](site:databases/connection-pooling/), or waiting on a lock held by another transaction. If `Execution Time` is small but the request is slow, look outside the plan.
 
 ## Sources
 

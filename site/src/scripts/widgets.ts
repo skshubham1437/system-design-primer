@@ -293,7 +293,7 @@ const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement)
 };
 const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve', 'scale-story'];
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
-const DB_VISUAL_TYPES = ['btree', 'scan-compare', 'composite-index', 'plan-tree', 'join-algos'];
+const DB_VISUAL_TYPES = ['btree', 'scan-compare', 'composite-index', 'plan-tree', 'join-algos', 'tx-trace'];
 $$('[data-widget]').forEach((host) => {
   const type = host.dataset.widget!;
   try {

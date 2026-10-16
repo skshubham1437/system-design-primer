@@ -50,6 +50,10 @@ const states: { name: string; path: string; act: (page: Page) => Promise<void> }
     await p.getByRole('button', { name: 'Hash join', exact: true }).click();
     for (let i = 0; i < 4; i++) await p.locator('.v-joins [data-pl="step"]').click();
   } },
+  { name: 'lock queue replay with sessions waiting', path: 'databases/locks-and-deadlocks/', act: async (p) => {
+    const w = p.locator('.v-trace', { hasText: 'migration' });
+    for (let i = 0; i < 3; i++) await w.locator('[data-pl="step"]').click();
+  } },
   { name: 'plan stepper on a flagged node', path: 'databases/reading-plans/', act: async (p) => { await p.locator('.pt-node.flag').first().click(); } },
   { name: 'scaling story in predict mode', path: 'labs/scaling-story/', act: async (p) => {
     await p.getByRole('button', { name: /Stage 5/ }).click();

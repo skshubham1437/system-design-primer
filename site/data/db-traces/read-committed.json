@@ -1,0 +1,190 @@
+{
+ "id": "read-committed",
+ "title": "Read committed sees each new commit",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "911244efddb0f741",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);",
+ "events": [
+  {
+   "at": 122,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 254,
+   "step": 1,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = 150 where id = 1",
+   "note": "A changes Asha's balance but has not committed.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 755",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 386,
+   "step": 2,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 755",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 513,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "B still sees 100: PostgreSQL never shows another transaction's uncommitted work (no dirty reads), at any isolation level.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 100
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 755",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 654,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 787,
+   "step": 5,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "The same query inside the same transaction now returns 150. At read committed, each statement sees everything committed before it started: a non-repeatable read.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 150
+    }
+   ],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 916,
+   "step": 6,
+   "session": "B",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  }
+ ]
+}

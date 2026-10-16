@@ -1,0 +1,265 @@
+{
+ "id": "deadlock",
+ "title": "A deadlock, detected and broken",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "610071c2267d0d14",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);",
+ "events": [
+  {
+   "at": 130,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 257,
+   "step": 1,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 394,
+   "step": 2,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance - 10 where id = 1",
+   "note": "A moves money from Asha to Ben: it locks Asha's row first.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 779",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 528,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance - 10 where id = 2",
+   "note": "B moves money the other way: it locks Ben's row first.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 779",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 780",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1062,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance + 10 where id = 2",
+   "note": "A now needs Ben's row, which B holds. A waits.",
+   "status": "waiting",
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "B"
+     ]
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 779",
+     "blockedBy": [
+      "B"
+     ]
+    },
+    {
+     "session": "A",
+     "type": "tuple",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "B"
+     ]
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ShareLock",
+     "granted": false,
+     "on": "transaction 780",
+     "blockedBy": [
+      "B"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 780",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1610,
+   "step": 5,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance + 10 where id = 1",
+   "note": "B needs Asha's row, which A holds. Each waits for the other: a deadlock. After deadlock_timeout (1 second by default) PostgreSQL checks, finds the cycle and aborts one transaction so the other can finish.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 780",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1610,
+   "session": "A",
+   "kind": "resumed",
+   "sql": "update accounts set balance = balance + 10 where id = 2",
+   "status": "error",
+   "error": "deadlock detected",
+   "code": "40P01"
+  },
+  {
+   "at": 1743,
+   "step": 6,
+   "session": "A",
+   "kind": "statement",
+   "sql": "rollback",
+   "note": "",
+   "status": "ok",
+   "command": "ROLLBACK",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 780",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1872,
+   "step": 7,
+   "session": "B",
+   "kind": "statement",
+   "sql": "rollback",
+   "note": "",
+   "status": "ok",
+   "command": "ROLLBACK",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  }
+ ]
+}

@@ -178,6 +178,10 @@ export const PREREQS = {
   'databases/pagination-and-n-plus-one/': ['databases/btree-indexes/'],
   'databases/query-checklist/': ['databases/reading-plans/'],
   'databases/tuning-exercises/': ['databases/reading-plans/'],
+  'databases/transactions/': ['databases/how-rows-are-stored/'],
+  'databases/isolation-and-mvcc/': ['databases/transactions/'],
+  'databases/locks-and-deadlocks/': ['databases/isolation-and-mvcc/'],
+  'databases/connection-pooling/': ['databases/transactions/'],
 };
 
 // The Databases section: original pages in site/content/databases/<slug>.md, grouped into modules.
@@ -202,6 +206,10 @@ export const DB_PAGES = [
   { slug: 'joins', module: 'plans', title: 'Join algorithms', blurb: 'Nested loop, hash and merge joins: how each works, what it costs, and when the planner picks it.', draft: true },
   { slug: 'statistics', module: 'plans', title: 'Planner statistics', blurb: 'What ANALYZE records, how estimates are made, and why they go wrong.', draft: true },
   { slug: 'pagination-and-n-plus-one', module: 'sql', title: 'Pagination and N+1', blurb: 'Why OFFSET gets slower every page, keyset pagination, and replacing many small queries with one.', draft: true },
+  { slug: 'transactions', module: 'concurrency', title: 'Transactions', blurb: 'ACID, savepoints, and the lost update that transactions alone do not prevent.', draft: true },
+  { slug: 'isolation-and-mvcc', module: 'concurrency', title: 'Isolation levels and MVCC', blurb: 'What each isolation level lets a transaction see, shown with recordings from a real server.', draft: true },
+  { slug: 'locks-and-deadlocks', module: 'concurrency', title: 'Locks and deadlocks', blurb: 'Lock modes, waiting, the lock queue behind a migration, deadlocks, SKIP LOCKED and advisory locks.', draft: true },
+  { slug: 'connection-pooling', module: 'concurrency', title: 'Connection pooling', blurb: 'Why connections are expensive, what a pool does, PgBouncer modes and how to size a pool.', draft: true },
   { slug: 'query-checklist', module: 'practice', title: 'Slow query checklist', blurb: 'A method for any slow query, and a table from what the plan shows to the likely fix.', draft: true },
   { slug: 'tuning-exercises', module: 'practice', title: 'Query-tuning exercises', blurb: 'Twelve slow queries from a real-looking shop. Fix each one; the database checks your plan.', draft: true },
 ];
