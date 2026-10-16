@@ -1,0 +1,70 @@
+An index is a second, smaller structure kept next to the table that lets the database find rows without reading every page. PostgreSQL's default, and by far the most common, is the **B-tree**. It keeps keys sorted, it stays shallow however much data it holds, and it answers equality, ranges and sorted output with the same structure.
+
+<div data-widget="btree"></div>
+
+## Without an index
+
+To find one customer's orders, the database has no choice but to read the whole table and test every row:
+
+```sql explain-analyze
+select * from orders where user_id = 42;
+```
+
+`Seq Scan on orders` read every page of the table (`Buffers` counts pages), and `Rows Removed by Filter` shows almost 100,000 rows were read only to be thrown away. In PostgreSQL 18, `EXPLAIN ANALYZE` reports buffers by default.
+
+## With an index
+
+```sql setup
+create index orders_user_id_idx on orders (user_id);
+```
+
+```sql explain-analyze
+select * from orders where user_id = 42;
+```
+
+The plan now starts from the index. The number of pages read drops by more than an order of magnitude, and nothing is read just to be discarded. (Why a *bitmap* scan here rather than a plain index scan is the subject of [scan types](site:databases/scan-types/).)
+
+## How it stays fast
+
+- **Sorted pages.** Each page holds keys in order. Inner pages hold boundaries and point down to the page that covers a range of keys; leaf pages hold every key, each with the address of its row.
+- **Shallow.** A real page holds hundreds of keys, so each level multiplies the reach by hundreds. Three or four levels cover hundreds of millions of rows, which means a lookup reads three or four index pages. In the animation the pages hold three keys so that you can see the splits.
+- **Always balanced.** When a page fills up it splits in two and passes a boundary key up to its parent. The tree only grows taller when the root itself splits, so every leaf is always the same distance from the root.
+- **Linked leaves.** Each leaf points to the next one, so a range is one descent followed by a walk sideways. That also makes `ORDER BY` on the indexed column free: the rows come out sorted.
+
+```sql explain-analyze
+select id, user_id, created_at from orders
+where user_id between 100 and 110
+order by user_id
+limit 10;
+```
+
+No `Sort` node: the index already returns rows in `user_id` order, so the database reads entries from the start of the range and stops after ten. `Index Searches: 1` (new in PostgreSQL 18) confirms a single descent served it.
+
+Take the `LIMIT` away and the plan changes: the same range matches a few hundred orders scattered across the table, and the planner prefers to collect them with a [bitmap scan](site:databases/scan-types/) and sort them afterwards. Sorted order from an index is free, but it is only one of the costs the planner weighs.
+
+## What a B-tree can answer
+
+A B-tree helps when a query compares an indexed column using `=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `IN`, or `IS NULL`, and when it sorts by the indexed column (in either direction). A pattern match like `LIKE 'abc%'` can also use one, but only when the index uses the `C` collation or a pattern operator class such as `text_pattern_ops`; a pattern that starts with a wildcard, `LIKE '%abc'`, cannot.
+
+It does not help when the column is wrapped in a function or expression the index was not built on: an index on `email` does nothing for `where lower(email) = …`. That needs an [expression index](site:databases/index-design/).
+
+## What it costs
+
+```sql run
+select pg_size_pretty(pg_relation_size('orders_user_id_idx')) as index_size,
+       pg_size_pretty(pg_relation_size('orders')) as table_size;
+```
+
+- **Space.** Every index is another structure on disk and in memory.
+- **Writes.** Every `INSERT` adds an entry to every index on the table, and an `UPDATE` that changes an indexed column (or cannot be done as a [HOT update](site:databases/how-rows-are-stored/)) must touch the indexes too. A table with ten indexes pays for ten extra writes per insert.
+- **Choice.** The planner may still decide a full scan is cheaper, for example when a large share of the rows match. See [designing indexes](site:databases/index-design/).
+
+## In MySQL
+
+*Not run here; from the MySQL reference manual.* InnoDB indexes are also B+trees. Because an InnoDB table is itself the primary-key B-tree, a secondary index entry holds the primary key rather than a row address, so a lookup through a secondary index is followed by a search of the primary key. Keeping the primary key short keeps every secondary index small.
+
+## Sources
+
+- PostgreSQL documentation: *Indexes* (Introduction, Index Types, Indexes and ORDER BY), *B-Tree Indexes* (implementation), *Operator Classes and Operator Families*, *Using EXPLAIN*.
+- *Use The Index, Luke* by Markus Winand, chapter "Anatomy of an Index".
+- MySQL reference manual: *Clustered and Secondary Indexes*.

@@ -16,7 +16,7 @@ const exercises: Exercise[] = fs.readdirSync(path.join(SITE, 'content/databases/
   .map((f) => loadYaml(fs.readFileSync(path.join(SITE, 'content/databases/exercises', f), 'utf8')) as Exercise);
 
 let db: PGlite;
-beforeAll(async () => { db = new PGlite(); await db.exec(seed); }, 120_000);
+beforeAll(async () => { db = new PGlite(); await db.exec(seed); await db.exec('vacuum analyze'); }, 120_000);
 afterAll(async () => { await db?.close(); });
 
 describe('the sample database', () => {

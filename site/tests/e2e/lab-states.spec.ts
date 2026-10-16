@@ -37,6 +37,16 @@ const states: { name: string; path: string; act: (page: Page) => Promise<void> }
     await p.getByRole('button', { name: /Pull CDN/ }).click();
     await p.locator('[data-req="eu"]').click();
   } },
+  { name: 'B-tree after a split', path: 'databases/btree-indexes/', act: async (p) => {
+    await p.getByRole('button', { name: 'Insert 8 more in a row' }).click();
+    for (let i = 0; i < 5; i++) await p.locator('.v-btree [data-pl="step"]').click();
+  } },
+  { name: 'scan types mid-scan', path: 'databases/scan-types/', act: async (p) => {
+    await p.getByRole('button', { name: 'Bitmap scan' }).click();
+    for (let i = 0; i < 4; i++) await p.locator('.v-scans [data-pl="step"]').click();
+  } },
+  { name: 'composite index skip scan', path: 'databases/index-design/', act: async (p) => { await p.getByRole('button', { name: /status = banned only/ }).click(); } },
+  { name: 'plan stepper on a flagged node', path: 'databases/reading-plans/', act: async (p) => { await p.locator('.pt-node.flag').first().click(); } },
   { name: 'scaling story in predict mode', path: 'labs/scaling-story/', act: async (p) => {
     await p.getByRole('button', { name: /Stage 5/ }).click();
     await p.getByLabel(/Predict first/).check();

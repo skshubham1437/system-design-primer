@@ -292,6 +292,7 @@ const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement)
 };
 const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve', 'scale-story'];
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
+const DB_VISUAL_TYPES = ['btree', 'scan-compare', 'composite-index', 'plan-tree'];
 $$('[data-widget]').forEach((host) => {
   const type = host.dataset.widget!;
   try {
@@ -299,6 +300,8 @@ $$('[data-widget]').forEach((host) => {
       FEATURE_LOADERS[type]().then((m) => m.mount(host)).catch((err) => console.error('feature failed', type, err));
     } else if (VISUAL_TYPES.includes(type)) {
       import('./visuals.ts').then((m) => m.visualWidgets[type](host)).catch((err) => console.error('visual failed', type, err));
+    } else if (DB_VISUAL_TYPES.includes(type)) {
+      import('./db-visuals.ts').then((m) => m.dbVisualWidgets[type](host)).catch((err) => console.error('db visual failed', type, err));
     } else if (LAB_TYPES.includes(type)) {
       // labs are the heaviest scripts, so they load only on the pages that use them
       import('./labs.ts').then((m) => m.labWidgets[type](host)).catch((err) => console.error('lab failed', type, err));

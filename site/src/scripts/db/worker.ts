@@ -8,6 +8,7 @@ worker({
   async init() {
     const db = new PGlite();
     await db.exec(seed);
+    await db.exec('vacuum analyze'); // separate: VACUUM cannot run inside a multi-statement string
     return db;
   },
 });

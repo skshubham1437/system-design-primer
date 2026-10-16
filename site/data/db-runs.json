@@ -1,7 +1,274 @@
 {
  "engine": "PostgreSQL 18.6 (PGlite 0.5.9)",
  "entries": {
-  "22d32c7717ab3d5e": {
+  "00195a4d0f04a6e5": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "089bade90e4ceb43": {
+   "kind": "run",
+   "columns": [
+    "ctid",
+    "xmin",
+    "xmax",
+    "status"
+   ],
+   "rows": [
+    [
+     "(0,1)",
+     "752",
+     "0",
+     "delivered"
+    ]
+   ],
+   "total": 1,
+   "at": "2026-10-14"
+  },
+  "0bc54eb374d8b821": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "1a46ff05da9036b8": {
+   "kind": "run",
+   "columns": [
+    "pending_only",
+    "all_orders"
+   ],
+   "rows": [
+    [
+     "104 kB",
+     "2208 kB"
+    ]
+   ],
+   "total": 1,
+   "at": "2026-10-14"
+  },
+  "28d9ffdc212e18b7": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "2d5ccf152a7a80c0": {
+   "kind": "explain-analyze",
+   "text": "Aggregate  (cost=2393.33..2393.34 rows=1 width=8) (actual time=22.029..22.031 rows=1.00 loops=1)\n  Buffers: shared hit=810\n  ->  Seq Scan on orders  (cost=0.00..2310.00 rows=33333 width=0) (actual time=0.396..21.996 rows=61.00 loops=1)\n        Filter: ((total * 1.18) > '2400'::numeric)\n        Rows Removed by Filter: 99939\n        Buffers: shared hit=810\nPlanning Time: 0.133 ms\nExecution Time: 22.060 ms",
+   "at": "2026-10-14"
+  },
+  "3ff52b585f5c2945": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "50d461ded09c38bd": {
+   "kind": "explain-analyze",
+   "text": "Bitmap Heap Scan on users  (cost=5.06..179.28 rows=100 width=25) (actual time=0.055..0.060 rows=1.00 loops=1)\n  Recheck Cond: (lower(email) = 'user77@example.com'::text)\n  Heap Blocks: exact=1\n  Buffers: shared hit=1 read=2\n  ->  Bitmap Index Scan on users_email_lower_idx  (cost=0.00..5.04 rows=100 width=0) (actual time=0.034..0.035 rows=1.00 loops=1)\n        Index Cond: (lower(email) = 'user77@example.com'::text)\n        Index Searches: 1\n        Buffers: shared read=2\nPlanning:\n  Buffers: shared hit=7 read=1\nPlanning Time: 0.508 ms\nExecution Time: 0.106 ms",
+   "at": "2026-10-14"
+  },
+  "519cfedad4ae838c": {
+   "kind": "explain-analyze",
+   "text": "Limit  (cost=0.28..1.02 rows=20 width=12) (actual time=0.031..0.065 rows=20.00 loops=1)\n  Buffers: shared hit=6 read=2\n  ->  Index Scan using orders_pending_idx on orders  (cost=0.28..148.36 rows=4005 width=12) (actual time=0.028..0.047 rows=20.00 loops=1)\n        Index Searches: 1\n        Buffers: shared hit=6 read=2\nPlanning:\n  Buffers: shared hit=5 read=1\nPlanning Time: 0.419 ms\nExecution Time: 0.090 ms",
+   "at": "2026-10-14"
+  },
+  "59f781f899af7519": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "5a98781472e22114": {
+   "kind": "explain-analyze",
+   "text": "Bitmap Heap Scan on users  (cost=4.88..134.17 rows=58 width=4) (actual time=0.040..0.130 rows=52.00 loops=1)\n  Recheck Cond: ((country = 'DE'::text) AND (status = 'banned'::text))\n  Heap Blocks: exact=50\n  Buffers: shared hit=50 read=2\n  ->  Bitmap Index Scan on users_country_status_idx  (cost=0.00..4.87 rows=58 width=0) (actual time=0.023..0.024 rows=52.00 loops=1)\n        Index Cond: ((country = 'DE'::text) AND (status = 'banned'::text))\n        Index Searches: 1\n        Buffers: shared read=2\nPlanning:\n  Buffers: shared hit=17 read=1\nPlanning Time: 0.218 ms\nExecution Time: 0.186 ms",
+   "at": "2026-10-14"
+  },
+  "670fb0eeea80f29b": {
+   "kind": "run",
+   "columns": [
+    "column_name",
+    "correlation"
+   ],
+   "rows": [
+    [
+     "created_at",
+     "1.000"
+    ],
+    [
+     "id",
+     "1.000"
+    ],
+    [
+     "total",
+     "0.000"
+    ],
+    [
+     "user_id",
+     "-0.003"
+    ]
+   ],
+   "total": 4,
+   "at": "2026-10-14"
+  },
+  "675d5b2e278d9d9e": {
+   "kind": "explain",
+   "text": "Seq Scan on orders  (cost=0.00..2060.00 rows=70011 width=31)\n  Filter: (status = 'delivered'::text)",
+   "at": "2026-10-14"
+  },
+  "6e7296a2323a74e3": {
+   "kind": "explain-analyze",
+   "text": "Limit  (cost=0.29..33.10 rows=10 width=16) (actual time=0.035..0.071 rows=10.00 loops=1)\n  Buffers: shared hit=11 read=1\n  ->  Index Scan using orders_user_id_idx on orders  (cost=0.29..1243.86 rows=379 width=16) (actual time=0.030..0.051 rows=10.00 loops=1)\n        Index Cond: ((user_id >= 100) AND (user_id <= 110))\n        Index Searches: 1\n        Buffers: shared hit=11 read=1\nPlanning:\n  Buffers: shared hit=18 read=1\nPlanning Time: 0.664 ms\nExecution Time: 0.109 ms",
+   "at": "2026-10-14"
+  },
+  "72d778b2ac48a9fe": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "7564bb83f1b883c4": {
+   "kind": "run",
+   "columns": [
+    "ctid",
+    "id",
+    "user_id",
+    "status",
+    "total"
+   ],
+   "rows": [
+    [
+     "(0,1)",
+     "1",
+     "57",
+     "delivered",
+     "749.67"
+    ],
+    [
+     "(0,2)",
+     "2",
+     "10078",
+     "delivered",
+     "1149.80"
+    ],
+    [
+     "(0,3)",
+     "3",
+     "93",
+     "delivered",
+     "163.77"
+    ],
+    [
+     "(0,4)",
+     "4",
+     "2074",
+     "paid",
+     "682.36"
+    ],
+    [
+     "(0,5)",
+     "5",
+     "8276",
+     "delivered",
+     "469.36"
+    ]
+   ],
+   "total": 5,
+   "at": "2026-10-14"
+  },
+  "774d8ad238136e44": {
+   "kind": "explain-analyze",
+   "text": "Index Scan using orders_created_at_idx on orders  (cost=0.29..154.31 rows=4001 width=12) (actual time=0.029..2.711 rows=4001.00 loops=1)\n  Index Cond: (created_at >= '2024-12-01 00:00:00+00'::timestamp with time zone)\n  Index Searches: 1\n  Buffers: shared hit=34 read=13\nPlanning:\n  Buffers: shared hit=8 read=2\nPlanning Time: 0.278 ms\nExecution Time: 4.096 ms",
+   "at": "2026-10-14"
+  },
+  "7fe887e34d997bea": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "8757984627998323": {
+   "kind": "explain-analyze",
+   "text": "Bitmap Heap Scan on orders  (cost=85.97..974.53 rows=5237 width=8) (actual time=0.564..4.459 rows=5213.00 loops=1)\n  Recheck Cond: ((user_id >= 100) AND (user_id <= 300))\n  Heap Blocks: exact=809\n  Buffers: shared hit=810 read=6\n  ->  Bitmap Index Scan on orders_user_id_idx  (cost=0.00..84.66 rows=5237 width=0) (actual time=0.435..0.436 rows=5213.00 loops=1)\n        Index Cond: ((user_id >= 100) AND (user_id <= 300))\n        Index Searches: 1\n        Buffers: shared hit=1 read=6\nPlanning:\n  Buffers: shared hit=4 read=2\nPlanning Time: 0.235 ms\nExecution Time: 6.075 ms",
+   "at": "2026-10-14"
+  },
+  "8e47943ddc7169b0": {
+   "kind": "explain",
+   "text": "Bitmap Heap Scan on orders  (cost=12.19..877.95 rows=1019 width=31)\n  Recheck Cond: (status = 'refunded'::text)\n  ->  Bitmap Index Scan on orders_status_idx  (cost=0.00..11.94 rows=1019 width=0)\n        Index Cond: (status = 'refunded'::text)",
+   "at": "2026-10-14"
+  },
+  "90b4408406a61227": {
+   "kind": "run",
+   "columns": [
+    "ctid",
+    "xmin",
+    "xmax",
+    "status"
+   ],
+   "rows": [
+    [
+     "(809,15)",
+     "812",
+     "0",
+     "shipped"
+    ]
+   ],
+   "total": 1,
+   "at": "2026-10-14"
+  },
+  "a0a5bc0e0349d5d2": {
+   "kind": "explain-analyze",
+   "text": "Seq Scan on orders  (cost=0.00..2060.00 rows=44 width=31) (actual time=0.290..7.843 rows=44.00 loops=1)\n  Filter: (user_id = 42)\n  Rows Removed by Filter: 99956\n  Buffers: shared hit=810\nPlanning:\n  Buffers: shared hit=16\nPlanning Time: 0.233 ms\nExecution Time: 7.973 ms",
+   "at": "2026-10-14"
+  },
+  "a478c29c0c6a690a": {
+   "kind": "run",
+   "columns": [
+    "indexname",
+    "indexdef"
+   ],
+   "rows": [
+    [
+     "users_country_status_idx",
+     "CREATE INDEX users_country_status_idx ON public.users USING btree (country, status)"
+    ],
+    [
+     "users_email_key",
+     "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+    ],
+    [
+     "users_email_lower_idx",
+     "CREATE INDEX users_email_lower_idx ON public.users USING btree (lower(email))"
+    ],
+    [
+     "users_pkey",
+     "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+    ]
+   ],
+   "total": 4,
+   "at": "2026-10-14"
+  },
+  "ae91d4e329d61569": {
+   "kind": "explain-analyze",
+   "text": "Aggregate  (cost=2060.19..2060.20 rows=1 width=8) (actual time=13.933..13.935 rows=1.00 loops=1)\n  Buffers: shared hit=810\n  ->  Seq Scan on orders  (cost=0.00..2060.00 rows=75 width=0) (actual time=0.225..13.902 rows=61.00 loops=1)\n        Filter: (total > 2033.8983050847457627)\n        Rows Removed by Filter: 99939\n        Buffers: shared hit=810\nPlanning Time: 0.514 ms\nExecution Time: 13.972 ms",
+   "at": "2026-10-14"
+  },
+  "b8d6401b55f310fe": {
+   "kind": "explain-analyze",
+   "text": "Sort  (cost=37378.27..38129.15 rows=300350 width=14) (actual time=497.222..654.986 rows=300350.00 loops=1)\n  Sort Key: price DESC, order_id\n  Sort Method: external merge  Disk: 7360kB\n  Buffers: shared hit=1914, temp read=920 written=923\n  ->  Seq Scan on order_items  (cost=0.00..4917.50 rows=300350 width=14) (actual time=0.010..91.926 rows=300350.00 loops=1)\n        Buffers: shared hit=1914\nPlanning Time: 0.075 ms\nExecution Time: 734.816 ms",
+   "at": "2026-10-14"
+  },
+  "d021b721abdec3c0": {
+   "kind": "explain-analyze",
+   "text": "Limit  (cost=0.42..2.41 rows=10 width=14) (actual time=0.178..0.204 rows=10.00 loops=1)\n  Buffers: shared hit=1 read=3\n  ->  Index Only Scan Backward using orders_user_created_idx on orders  (cost=0.42..9.19 rows=44 width=14) (actual time=0.176..0.194 rows=10.00 loops=1)\n        Index Cond: (user_id = 42)\n        Heap Fetches: 0\n        Index Searches: 1\n        Buffers: shared hit=1 read=3\nPlanning:\n  Buffers: shared hit=10 read=1\nPlanning Time: 0.263 ms\nExecution Time: 0.274 ms",
+   "at": "2026-10-14"
+  },
+  "d4df85482663b10f": {
+   "kind": "explain-analyze",
+   "text": "Bitmap Heap Scan on users  (cost=30.35..246.34 rows=559 width=4) (actual time=0.262..0.894 rows=559.00 loops=1)\n  Recheck Cond: (status = 'banned'::text)\n  Heap Blocks: exact=197\n  Buffers: shared hit=217 read=10\n  ->  Bitmap Index Scan on users_country_status_idx  (cost=0.00..30.21 rows=559 width=0) (actual time=0.228..0.229 rows=559.00 loops=1)\n        Index Cond: (status = 'banned'::text)\n        Index Searches: 11\n        Buffers: shared hit=20 read=10\nPlanning Time: 0.085 ms\nExecution Time: 1.541 ms",
+   "at": "2026-10-14"
+  },
+  "d752a427e6e0644a": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "e219a2cf31eb010a": {
+   "kind": "setup",
+   "at": "2026-10-14"
+  },
+  "e3966a22296b8280": {
+   "kind": "explain-analyze",
+   "text": "Aggregate  (cost=2289.78..2289.79 rows=1 width=8) (actual time=53.403..53.405 rows=1.00 loops=1)\n  Buffers: shared hit=810\n  ->  Seq Scan on orders  (cost=0.00..2060.00 rows=91910 width=0) (actual time=0.700..30.028 rows=91910.00 loops=1)\n        Filter: (created_at >= '2023-03-01 00:00:00+00'::timestamp with time zone)\n        Rows Removed by Filter: 8090\n        Buffers: shared hit=810\nPlanning Time: 0.137 ms\nExecution Time: 53.439 ms",
+   "at": "2026-10-14"
+  },
+  "f03c3b718cdf543e": {
    "kind": "run",
    "columns": [
     "table_name",
@@ -34,6 +301,469 @@
     ]
    ],
    "total": 6,
+   "at": "2026-10-14"
+  },
+  "f15ac0b31ae5d52e": {
+   "kind": "explain-analyze",
+   "text": "Aggregate  (cost=154.12..154.13 rows=1 width=8) (actual time=3.631..3.632 rows=1.00 loops=1)\n  Buffers: shared hit=9\n  ->  Index Only Scan using orders_user_id_idx on orders  (cost=0.29..141.03 rows=5237 width=0) (actual time=0.013..2.066 rows=5213.00 loops=1)\n        Index Cond: ((user_id >= 100) AND (user_id <= 300))\n        Heap Fetches: 1\n        Index Searches: 1\n        Buffers: shared hit=9\nPlanning:\n  Buffers: shared hit=6\nPlanning Time: 0.184 ms\nExecution Time: 3.668 ms",
+   "at": "2026-10-14"
+  },
+  "f482fdcb28539139": {
+   "kind": "run",
+   "columns": [
+    "table_name",
+    "pages",
+    "estimated_rows",
+    "size"
+   ],
+   "rows": [
+    [
+     "order_items",
+     "1914",
+     "300350",
+     "15 MB"
+    ],
+    [
+     "orders",
+     "810",
+     "100000",
+     "6480 kB"
+    ],
+    [
+     "users",
+     "209",
+     "20000",
+     "1672 kB"
+    ],
+    [
+     "products",
+     "15",
+     "2000",
+     "120 kB"
+    ]
+   ],
+   "total": 4,
+   "at": "2026-10-14"
+  },
+  "f6c2ea9f66d92f1f": {
+   "kind": "explain-analyze",
+   "text": "Bitmap Heap Scan on orders  (cost=4.63..147.46 rows=44 width=31) (actual time=0.040..0.129 rows=44.00 loops=1)\n  Recheck Cond: (user_id = 42)\n  Heap Blocks: exact=44\n  Buffers: shared hit=44 read=2\n  ->  Bitmap Index Scan on orders_user_id_idx  (cost=0.00..4.62 rows=44 width=0) (actual time=0.024..0.025 rows=44.00 loops=1)\n        Index Cond: (user_id = 42)\n        Index Searches: 1\n        Buffers: shared read=2\nPlanning:\n  Buffers: shared hit=5 read=1\nPlanning Time: 0.192 ms\nExecution Time: 0.182 ms",
+   "at": "2026-10-14"
+  },
+  "faea4c1b3a967d19": {
+   "kind": "explain-analyze",
+   "text": "Seq Scan on orders  (cost=0.00..2060.00 rows=44 width=10) (actual time=0.256..7.479 rows=44.00 loops=1)\n  Filter: (user_id = 42)\n  Rows Removed by Filter: 99956\n  Buffers: shared hit=810\nPlanning Time: 0.113 ms\nExecution Time: 7.523 ms",
+   "at": "2026-10-14"
+  },
+  "fb8f296c1c328140": {
+   "kind": "run",
+   "columns": [
+    "index_size",
+    "table_size"
+   ],
+   "rows": [
+    [
+     "1144 kB",
+     "6480 kB"
+    ]
+   ],
+   "total": 1,
+   "at": "2026-10-14"
+  },
+  "fbd07edb0fa02016": {
+   "kind": "plan-tree",
+   "plan": {
+    "Node Type": "Limit",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 8065.69,
+    "Total Cost": 8065.71,
+    "Plan Rows": 5,
+    "Plan Width": 40,
+    "Actual Startup Time": 266.602,
+    "Actual Total Time": 266.628,
+    "Actual Rows": 5,
+    "Actual Loops": 1,
+    "Disabled": false,
+    "Shared Hit Blocks": 2740,
+    "Shared Read Blocks": 0,
+    "Shared Dirtied Blocks": 0,
+    "Shared Written Blocks": 0,
+    "Local Hit Blocks": 0,
+    "Local Read Blocks": 0,
+    "Local Dirtied Blocks": 0,
+    "Local Written Blocks": 0,
+    "Temp Read Blocks": 0,
+    "Temp Written Blocks": 0,
+    "Plans": [
+     {
+      "Node Type": "Sort",
+      "Parent Relationship": "Outer",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Startup Cost": 8065.69,
+      "Total Cost": 8065.79,
+      "Plan Rows": 40,
+      "Plan Width": 40,
+      "Actual Startup Time": 266.597,
+      "Actual Total Time": 266.616,
+      "Actual Rows": 5,
+      "Actual Loops": 1,
+      "Disabled": false,
+      "Sort Key": [
+       "(sum(((oi.qty)::numeric * oi.price))) DESC"
+      ],
+      "Sort Method": "top-N heapsort",
+      "Sort Space Used": 17,
+      "Sort Space Type": "Memory",
+      "Shared Hit Blocks": 2740,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0,
+      "Plans": [
+       {
+        "Node Type": "Aggregate",
+        "Strategy": "Hashed",
+        "Partial Mode": "Simple",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 8064.53,
+        "Total Cost": 8065.03,
+        "Plan Rows": 40,
+        "Plan Width": 40,
+        "Actual Startup Time": 266.509,
+        "Actual Total Time": 266.554,
+        "Actual Rows": 40,
+        "Actual Loops": 1,
+        "Disabled": false,
+        "Group Key": [
+         "c.name"
+        ],
+        "Planned Partitions": 0,
+        "HashAgg Batches": 1,
+        "Peak Memory Usage": 32,
+        "Disk Usage": 0,
+        "Shared Hit Blocks": 2740,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+         {
+          "Node Type": "Hash Join",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Join Type": "Inner",
+          "Startup Cost": 2171.91,
+          "Total Cost": 7944.36,
+          "Plan Rows": 12017,
+          "Plan Width": 18,
+          "Actual Startup Time": 12.28,
+          "Actual Total Time": 254.25,
+          "Actual Rows": 12028,
+          "Actual Loops": 1,
+          "Disabled": false,
+          "Inner Unique": true,
+          "Hash Cond": "(p.category_id = c.id)",
+          "Shared Hit Blocks": 2740,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0,
+          "Plans": [
+           {
+            "Node Type": "Hash Join",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Join Type": "Inner",
+            "Startup Cost": 2170.01,
+            "Total Cost": 7907.58,
+            "Plan Rows": 12017,
+            "Plan Width": 14,
+            "Actual Startup Time": 12.23,
+            "Actual Total Time": 244.061,
+            "Actual Rows": 12028,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Inner Unique": true,
+            "Hash Cond": "(oi.product_id = p.id)",
+            "Shared Hit Blocks": 2739,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+             {
+              "Node Type": "Hash Join",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Join Type": "Inner",
+              "Startup Cost": 2110.01,
+              "Total Cost": 7815.96,
+              "Plan Rows": 12017,
+              "Plan Width": 14,
+              "Actual Startup Time": 10.969,
+              "Actual Total Time": 233.129,
+              "Actual Rows": 12028,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Inner Unique": true,
+              "Hash Cond": "(oi.order_id = o.id)",
+              "Shared Hit Blocks": 2724,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+               {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Relation Name": "order_items",
+                "Alias": "oi",
+                "Startup Cost": 0,
+                "Total Cost": 4917.5,
+                "Plan Rows": 300350,
+                "Plan Width": 18,
+                "Actual Startup Time": 0.004,
+                "Actual Total Time": 95.734,
+                "Actual Rows": 300350,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Shared Hit Blocks": 1914,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0
+               },
+               {
+                "Node Type": "Hash",
+                "Parent Relationship": "Inner",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 2060,
+                "Total Cost": 2060,
+                "Plan Rows": 4001,
+                "Plan Width": 4,
+                "Actual Startup Time": 10.864,
+                "Actual Total Time": 10.868,
+                "Actual Rows": 4001,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Hash Buckets": 4096,
+                "Original Hash Buckets": 4096,
+                "Hash Batches": 1,
+                "Original Hash Batches": 1,
+                "Peak Memory Usage": 126,
+                "Shared Hit Blocks": 810,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                 {
+                  "Node Type": "Seq Scan",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Relation Name": "orders",
+                  "Alias": "o",
+                  "Startup Cost": 0,
+                  "Total Cost": 2060,
+                  "Plan Rows": 4001,
+                  "Plan Width": 4,
+                  "Actual Startup Time": 7.956,
+                  "Actual Total Time": 9.458,
+                  "Actual Rows": 4001,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Filter": "(created_at >= '2024-12-01 00:00:00+00'::timestamp with time zone)",
+                  "Rows Removed by Filter": 95999,
+                  "Shared Hit Blocks": 810,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "Node Type": "Hash",
+              "Parent Relationship": "Inner",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 35,
+              "Total Cost": 35,
+              "Plan Rows": 2000,
+              "Plan Width": 8,
+              "Actual Startup Time": 1.253,
+              "Actual Total Time": 1.256,
+              "Actual Rows": 2000,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Hash Buckets": 2048,
+              "Original Hash Buckets": 2048,
+              "Hash Batches": 1,
+              "Original Hash Batches": 1,
+              "Peak Memory Usage": 71,
+              "Shared Hit Blocks": 15,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+               {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Relation Name": "products",
+                "Alias": "p",
+                "Startup Cost": 0,
+                "Total Cost": 35,
+                "Plan Rows": 2000,
+                "Plan Width": 8,
+                "Actual Startup Time": 0.004,
+                "Actual Total Time": 0.593,
+                "Actual Rows": 2000,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Shared Hit Blocks": 15,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "Node Type": "Hash",
+            "Parent Relationship": "Inner",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 1.4,
+            "Total Cost": 1.4,
+            "Plan Rows": 40,
+            "Plan Width": 12,
+            "Actual Startup Time": 0.04,
+            "Actual Total Time": 0.042,
+            "Actual Rows": 40,
+            "Actual Loops": 1,
+            "Disabled": false,
+            "Hash Buckets": 1024,
+            "Original Hash Buckets": 1024,
+            "Hash Batches": 1,
+            "Original Hash Batches": 1,
+            "Peak Memory Usage": 6,
+            "Shared Hit Blocks": 1,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+             {
+              "Node Type": "Seq Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Relation Name": "categories",
+              "Alias": "c",
+              "Startup Cost": 0,
+              "Total Cost": 1.4,
+              "Plan Rows": 40,
+              "Plan Width": 12,
+              "Actual Startup Time": 0.01,
+              "Actual Total Time": 0.023,
+              "Actual Rows": 40,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "text": "Limit  (cost=8065.69..8065.71 rows=5 width=40) (actual time=220.359..220.370 rows=5.00 loops=1)\n  Buffers: shared hit=2740\n  ->  Sort  (cost=8065.69..8065.79 rows=40 width=40) (actual time=220.354..220.362 rows=5.00 loops=1)\n        Sort Key: (sum(((oi.qty)::numeric * oi.price))) DESC\n        Sort Method: top-N heapsort  Memory: 17kB\n        Buffers: shared hit=2740\n        ->  HashAggregate  (cost=8064.53..8065.03 rows=40 width=40) (actual time=220.292..220.321 rows=40.00 loops=1)\n              Group Key: c.name\n              Batches: 1  Memory Usage: 32kB\n              Buffers: shared hit=2740\n              ->  Hash Join  (cost=2171.91..7944.36 rows=12017 width=18) (actual time=20.567..211.269 rows=12028.00 loops=1)\n                    Hash Cond: (p.category_id = c.id)\n                    Buffers: shared hit=2740\n                    ->  Hash Join  (cost=2170.01..7907.58 rows=12017 width=14) (actual time=20.475..203.408 rows=12028.00 loops=1)\n                          Hash Cond: (oi.product_id = p.id)\n                          Buffers: shared hit=2739\n                          ->  Hash Join  (cost=2110.01..7815.96 rows=12017 width=14) (actual time=18.717..194.000 rows=12028.00 loops=1)\n                                Hash Cond: (oi.order_id = o.id)\n                                Buffers: shared hit=2724\n                                ->  Seq Scan on order_items oi  (cost=0.00..4917.50 rows=300350 width=18) (actual time=0.034..78.584 rows=300350.00 loops=1)\n                                      Buffers: shared hit=1914\n                                ->  Hash  (cost=2060.00..2060.00 rows=4001 width=4) (actual time=18.612..18.613 rows=4001.00 loops=1)\n                                      Buckets: 4096  Batches: 1  Memory Usage: 126kB\n                                      Buffers: shared hit=810\n                                      ->  Seq Scan on orders o  (cost=0.00..2060.00 rows=4001 width=4) (actual time=13.175..16.045 rows=4001.00 loops=1)\n                                            Filter: (created_at >= '2024-12-01 00:00:00+00'::timestamp with time zone)\n                                            Rows Removed by Filter: 95999\n                                            Buffers: shared hit=810\n                          ->  Hash  (cost=35.00..35.00 rows=2000 width=8) (actual time=1.750..1.751 rows=2000.00 loops=1)\n                                Buckets: 2048  Batches: 1  Memory Usage: 71kB\n                                Buffers: shared hit=15\n                                ->  Seq Scan on products p  (cost=0.00..35.00 rows=2000 width=8) (actual time=0.007..0.825 rows=2000.00 loops=1)\n                                      Buffers: shared hit=15\n                    ->  Hash  (cost=1.40..1.40 rows=40 width=12) (actual time=0.083..0.084 rows=40.00 loops=1)\n                          Buckets: 1024  Batches: 1  Memory Usage: 6kB\n                          Buffers: shared hit=1\n                          ->  Seq Scan on categories c  (cost=0.00..1.40 rows=40 width=12) (actual time=0.032..0.053 rows=40.00 loops=1)\n                                Buffers: shared hit=1\nPlanning:\n  Buffers: shared hit=25\nPlanning Time: 1.703 ms\nExecution Time: 220.485 ms",
    "at": "2026-10-14"
   }
  }

@@ -61,3 +61,49 @@ test.describe('the playground engine', () => {
     }
   });
 });
+
+test.describe('database animations', () => {
+  test('B-tree: inserting past capacity splits a page; a range scan walks the leaves', async ({ page }) => {
+    await page.goto('databases/btree-indexes/');
+    const w = page.locator('.v-btree');
+    const pages = w.locator('#bt-stats div', { hasText: 'Pages' }).locator('dd');
+    const before = Number(await pages.textContent());
+    await w.getByRole('button', { name: 'Insert 8 more in a row' }).click();
+    await w.locator('[data-pl="toggle"]').click();
+    for (let i = 0; i < 12; i++) await w.locator('[data-pl="step"]').click();
+    expect(Number(await pages.textContent())).toBeGreaterThan(before);
+    await w.getByRole('button', { name: 'Range scan' }).click();
+    await w.locator('[data-pl="toggle"]').click();
+    for (let i = 0; i < 12; i++) await w.locator('[data-pl="step"]').click();
+    await expect(w.locator('#bt-note')).toContainText('in order, after one descent');
+  });
+
+  test('scan types: for a common range the bitmap scan reads each page once and the index scan does not', async ({ page }) => {
+    await page.goto('databases/scan-types/');
+    const w = page.locator('.v-scans');
+    await w.getByRole('button', { name: /Common/ }).click();
+    const row = (name: string) => w.locator('#sc-table tbody tr', { hasText: name }).locator('td').nth(1);
+    expect(Number(await row('Index scan').textContent())).toBeGreaterThan(Number(await row('Sequential scan').textContent()));
+    expect(Number(await row('Bitmap scan').textContent())).toBeLessThanOrEqual(Number(await row('Sequential scan').textContent()));
+  });
+
+  test('composite index: the second column alone needs a skip scan', async ({ page }) => {
+    await page.goto('databases/index-design/');
+    const w = page.locator('.v-composite');
+    await w.getByRole('button', { name: /status = banned only/ }).click();
+    await expect(w.locator('#ci-note')).toContainText('skip scan');
+    await w.getByRole('button', { name: 'country = DE', exact: true }).click();
+    await expect(w.locator('#ci-stats')).toContainText('Slices1');
+  });
+
+  test('plan stepper: steps through a real plan and explains the flagged node', async ({ page }) => {
+    await page.goto('databases/reading-plans/');
+    const w = page.locator('.v-plan');
+    await expect(w.locator('#pt-panel')).toContainText('Most of the time went to');
+    await w.locator('[data-pl="step"]').click();
+    await expect(w.locator('.pt-node.on')).toHaveCount(1);
+    await w.locator('.pt-node.flag').first().click();
+    await expect(w.locator('.pt-flags')).toContainText('index');
+    await expect(page.locator('.db-plan-host details.widget-original')).toBeAttached();
+  });
+});

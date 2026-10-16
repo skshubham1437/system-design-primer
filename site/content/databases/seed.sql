@@ -90,4 +90,7 @@ from generate_series(1, 60000) g;
 -- A sample at least as large as each table makes ANALYZE read every row, so the planner's estimates (and the
 -- plans that depend on them) are the same on every machine and every reset. The setting lasts for the session.
 set default_statistics_target = 1100;
-analyze;
+
+-- Whoever loads this file must then run `vacuum analyze` as a separate statement (VACUUM cannot run inside the
+-- implicit transaction of a multi-statement string). It gathers statistics and marks pages all-visible, so the
+-- tables behave like settled production tables: index-only scans need no heap fetches.

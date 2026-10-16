@@ -134,7 +134,7 @@ export const RELATED_LABS = {
   'learn/availability-vs-consistency/': ['labs/cap-theorem/'],
   'learn/consistency-patterns/': ['labs/cap-theorem/'],
   'learn/availability-patterns/': ['labs/cap-theorem/'],
-  'learn/database/': ['labs/replication/', 'labs/sharding/', 'labs/consistent-hashing/', 'labs/estimator/'],
+  'learn/database/': ['labs/replication/', 'labs/sharding/', 'labs/consistent-hashing/', 'labs/estimator/', 'databases/playground/'],
   'learn/performance-vs-scalability/': ['labs/load-curve/', 'labs/estimator/'],
   'learn/latency-vs-throughput/': ['labs/load-curve/', 'labs/estimator/'],
   'interview/approach/': ['labs/estimator/'],
@@ -168,6 +168,11 @@ export const PREREQS = {
   'labs/cdn/': ['learn/cdn/'],
   'labs/tcp-udp/': ['learn/communication/'],
   'labs/estimator/': ['interview/approach/'],
+  'databases/how-rows-are-stored/': ['learn/database/'],
+  'databases/btree-indexes/': ['databases/how-rows-are-stored/'],
+  'databases/index-design/': ['databases/btree-indexes/'],
+  'databases/scan-types/': ['databases/btree-indexes/'],
+  'databases/reading-plans/': ['databases/scan-types/'],
 };
 
 // The Databases section: original pages in site/content/databases/<slug>.md, grouped into modules.
@@ -184,4 +189,9 @@ export const DB_MODULES = [
 
 export const DB_PAGES = [
   { slug: 'playground', module: 'start', title: 'SQL playground', blurb: 'A real PostgreSQL database in your browser, loaded with a sample shop. Run queries and read their plans.', draft: true },
+  { slug: 'how-rows-are-stored', module: 'storage', title: 'How a table is stored', blurb: 'Pages, row addresses, row versions, VACUUM and the write-ahead log: what a table is on disk.', draft: true },
+  { slug: 'btree-indexes', module: 'storage', title: 'B-tree indexes', blurb: 'How the default index finds one row among millions in three or four page reads, and what it costs.', draft: true },
+  { slug: 'index-design', module: 'storage', title: 'Designing indexes', blurb: 'Column order, covering, partial and expression indexes, and when an index is ignored or hurts.', draft: true },
+  { slug: 'scan-types', module: 'storage', title: 'Scan types', blurb: 'Sequential, index, bitmap and index-only scans, and how the planner chooses between them.', draft: true },
+  { slug: 'reading-plans', module: 'plans', title: 'Reading EXPLAIN', blurb: 'Read a query plan line by line, spot the red flags, and use the plan to fix a slow query.', draft: true },
 ];
