@@ -115,3 +115,16 @@ describe('build-time SQL blocks', () => {
     expect(outputHtml({ kind: 'setup' }, 'x')).toBe('');
   });
 });
+
+describe('partition pruning model matches the engine', async () => {
+  const { PRUNE_QUERIES, MONTHS } = await import('../../src/lib/db/partitions');
+  for (const q of PRUNE_QUERIES) {
+    it(`${q.label}: scans exactly the partitions the animation shows`, async () => {
+      const plan = (await db.query<{ 'QUERY PLAN': { Plan: PlanNode }[] }>(`explain (format json) select count(*) from events ${q.sql}`)).rows[0]['QUERY PLAN'][0].Plan;
+      const scanned: number[] = [];
+      const walk = (n: PlanNode) => { const m = /^events_2024_(\d\d)$/.exec(String(n['Relation Name'] ?? '')); if (m) scanned.push(Number(m[1]) - 1); (n.Plans ?? []).forEach(walk); };
+      walk(plan);
+      expect(scanned.sort((a, b) => a - b).map((i) => MONTHS[i])).toEqual(q.scanned.map((i) => MONTHS[i]));
+    });
+  }
+});

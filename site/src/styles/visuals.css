@@ -271,3 +271,12 @@
 .trace-static li { margin: 6px 0; }
 .trace-static li span { color: var(--ink-2); }
 @media (max-width: 700px) { .tx-head, .tx-log, .tx-locks { margin-inline: 16px; } .tx-log code { font-size: 11px; } }
+
+/* partition pruning */
+.pp-months { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 12px 24px 0; }
+.pp-months div { display: grid; gap: 2px; padding: 8px 6px; text-align: center; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg); }
+.pp-months b { font-size: 13px; }
+.pp-months span { font-size: 11px; color: var(--ink-2); }
+.pp-months .scan { border-color: var(--accent); background: var(--accent-soft); }
+.pp-months .skip { border-style: dashed; }
+@media (max-width: 700px) { .pp-months { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-inline: 16px; } }

@@ -182,3 +182,12 @@ test('recorded traces read as a plain list without the replay', async ({ page })
   await page.goto('databases/isolation-and-mvcc/');
   await expect(page.locator('.trace-static').first()).toContainText('Recorded on PostgreSQL 18');
 });
+
+test('partition pruning: a function of the key reads every partition', async ({ page }) => {
+  await page.goto('databases/partitioning/');
+  const w = page.locator('.v-prune');
+  await expect(w.locator('#pp-months .scan')).toHaveCount(1);
+  await w.getByRole('button', { name: 'A function of the key' }).click();
+  await expect(w.locator('#pp-months .scan')).toHaveCount(12);
+  await expect(w.locator('#pp-note')).toContainText('12 of 12 scanned');
+});

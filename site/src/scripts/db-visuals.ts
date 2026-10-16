@@ -8,6 +8,7 @@ import { planSteps, hottest, nodeName, NODE_HELP, type PlanStep } from '../lib/d
 import type { PlanNode } from '../lib/db/checks';
 import { joinSteps, OUTER, INNER, type JoinAlgo, type JoinStep } from '../lib/db/joins';
 import { sessionsAt, locksAt, type Trace, type TraceEvent } from '../lib/db/traces';
+import { PRUNE_QUERIES, MONTHS, pruned } from '../lib/db/partitions';
 
 const fmt = (n: number, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
 
@@ -334,6 +335,27 @@ function mountTrace(host: HTMLElement, t: Trace) {
   draw();
 }
 
+/* ------------------------------------------------------------ partition pruning */
+
+function partitionPrune(host: HTMLElement) {
+  let qid = PRUNE_QUERIES[0].id;
+  const root = shell(host, 'v-prune', 'Partition pruning', { eyebrow: 'Interactive', title: 'Which partitions does the query read?', desc: 'The events table is split into one partition per month of 2024, by range on the column at. Pick a condition and see which partitions the planner can skip before it reads anything. Each answer here was checked against the real engine.' }, `
+    <div class="vis-controls"><div class="seg small" role="group" aria-label="Condition" id="pp-q">${PRUNE_QUERIES.map((q) => `<button type="button" data-pq="${q.id}"><b>${esc(q.label)}</b></button>`).join('')}</div></div>
+    <p class="ci-sql" id="pp-sql"></p>
+    <div class="pp-months" id="pp-months" role="img"></div>
+    <p class="vis-status" id="pp-note" aria-live="polite"></p>`);
+  const draw = () => {
+    const q = PRUNE_QUERIES.find((x) => x.id === qid)!;
+    $$('[data-pq]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pq === qid)));
+    $('#pp-sql', root)!.innerHTML = `<code>select count(*) from events ${esc(q.sql)}</code>`;
+    $('#pp-months', root)!.innerHTML = MONTHS.map((m, i) => `<div class="${q.scanned.includes(i) ? 'scan' : 'skip'}"><b>${m}</b><span>${q.scanned.includes(i) ? 'scanned' : 'skipped'}</span></div>`).join('');
+    $('#pp-months', root)!.setAttribute('aria-label', `${q.scanned.length} of 12 partitions scanned, ${pruned(q).length} skipped.`);
+    $('#pp-note', root)!.textContent = `${q.scanned.length} of 12 scanned. ${q.why}`;
+  };
+  root.addEventListener('click', (e) => { const q = (e.target as HTMLElement).closest<HTMLElement>('[data-pq]')?.dataset.pq; if (q) { qid = q; draw(); } });
+  draw();
+}
+
 export const dbVisualWidgets: Record<string, (host: HTMLElement) => void> = {
   btree,
   'scan-compare': scanCompare,
@@ -341,4 +363,5 @@ export const dbVisualWidgets: Record<string, (host: HTMLElement) => void> = {
   'plan-tree': planTree,
   'join-algos': joinAlgos,
   'tx-trace': txTrace,
+  'partition-prune': partitionPrune,
 };

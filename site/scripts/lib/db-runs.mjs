@@ -61,7 +61,11 @@ export function createDbRunner({ siteDir, warn, force = !!process.env.DB_RERUN }
       const results = await d.exec(sql);
       const last = results[results.length - 1];
       const columns = (last.fields ?? []).map((f) => f.name);
-      const rows = (last.rows ?? []).slice(0, ROW_LIMIT).map((r) => columns.map((c) => (r[c] === null ? 'NULL' : r[c] instanceof Date ? r[c].toISOString().replace('T', ' ').replace(/\.000Z$/, '+00') : String(r[c]))));
+      const isDate = Object.fromEntries((last.fields ?? []).map((f) => [f.name, f.dataTypeID === 1082])); // 1082 = date: no time part
+      const fmt = (v, c) => (v === null ? 'NULL'
+        : v instanceof Date ? (isDate[c] ? v.toISOString().slice(0, 10) : v.toISOString().replace('T', ' ').replace(/\.000Z$/, '+00'))
+        : String(v));
+      const rows = (last.rows ?? []).slice(0, ROW_LIMIT).map((r) => columns.map((c) => fmt(r[c], c)));
       return { kind, columns, rows, total: (last.rows ?? []).length };
     }
     if (kind === 'plan-tree') {
