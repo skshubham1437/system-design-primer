@@ -130,3 +130,22 @@ describe('plan stepper on joins', () => {
     expect(planSteps(plan).map((s) => s.label)).toEqual(['Seq Scan on users', 'Hash', 'Seq Scan on orders', 'Hash Join', 'HashAggregate']);
   });
 });
+
+describe('join algorithms', async () => {
+  const { joinSteps, expectedPairs, OUTER, INNER } = await import('../../src/lib/db/joins');
+  const sortPairs = (p: [number, number][]) => [...p].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  it('all four produce exactly the matching pairs', () => {
+    for (const a of ['nested', 'nested-index', 'hash', 'merge'] as const) expect(sortPairs(joinSteps(a).at(-1)!.matched)).toEqual(sortPairs(expectedPairs()));
+  });
+  it('a plain nested loop compares every pair; an index or a hash table avoids that', () => {
+    const last = (a: 'nested' | 'nested-index' | 'hash' | 'merge') => joinSteps(a).at(-1)!;
+    expect(last('nested').comparisons).toBe(OUTER.length * INNER.length);
+    expect(last('nested-index').comparisons).toBe(OUTER.length);
+    expect(last('hash').comparisons).toBeLessThan(last('nested').comparisons / 2);
+    expect(last('merge').comparisons).toBeLessThanOrEqual(OUTER.length + INNER.length + expectedPairs().length);
+  });
+  it('only the hash join holds the inner side in memory', () => {
+    expect(joinSteps('hash').at(-1)!.memory).toBe(INNER.length);
+    expect(joinSteps('merge').at(-1)!.memory).toBe(0);
+  });
+});

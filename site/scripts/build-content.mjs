@@ -525,7 +525,9 @@ async function main() {
     return `<div class="widget-host sqlx-host" data-widget="sql-exercise" data-id="${escHtml(id)}" data-src="${BASE}data/db/exercises/${escHtml(id)}.json"><div class="sqlx-static"><p class="eyebrow">Exercise</p><p class="sqlx-static-title">${escHtml(x.title)}</p><p>${escHtml(x.scenario)}</p><p><b>Your task.</b> ${escHtml(x.task)}</p><pre class="db-out" tabindex="0" role="region" aria-label="The query">${escHtml(String(x.query).trim())}</pre><p class="sqlx-static-note">This exercise runs a real database in your browser and needs JavaScript.</p></div></div>`;
   };
   try {
-    for (const pg of dbOn ? DB_PAGES : []) {
+    // reading order: by module, then as listed
+    const moduleOrder = (p) => DB_MODULES.findIndex((m) => m.id === p.module);
+    for (const pg of dbOn ? [...DB_PAGES].sort((a, b) => moduleOrder(a) - moduleOrder(b)) : []) {
       const file = path.join(SITE, 'content', 'databases', `${pg.slug}.md`);
       if (!fs.existsSync(file)) { warn(`database page missing: ${file}`, true); continue; }
       const tr = parse(fs.readFileSync(file, 'utf8'));

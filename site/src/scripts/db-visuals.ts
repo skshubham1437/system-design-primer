@@ -6,6 +6,7 @@ import { makeTable, scanSteps, finalCounts, PAGES, PER_PAGE, type ScanKind, type
 import { makeEntries, QUERIES, usage, COUNTRIES } from '../lib/db/composite';
 import { planSteps, hottest, nodeName, NODE_HELP, type PlanStep } from '../lib/db/plan-steps';
 import type { PlanNode } from '../lib/db/checks';
+import { joinSteps, OUTER, INNER, type JoinAlgo, type JoinStep } from '../lib/db/joins';
 
 const fmt = (n: number, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
 
@@ -233,9 +234,59 @@ function planTree(host: HTMLElement) {
   if (fallback) { const d = document.createElement('details'); d.className = 'widget-original'; d.innerHTML = '<summary>The same plan as text</summary>'; d.append(fallback); host.append(d); }
 }
 
+/* ------------------------------------------------------------ join algorithms */
+
+function joinAlgos(host: HTMLElement) {
+  const ALGOS: { id: JoinAlgo; label: string }[] = [
+    { id: 'nested', label: 'Nested loop' }, { id: 'nested-index', label: 'Nested loop + index' }, { id: 'hash', label: 'Hash join' }, { id: 'merge', label: 'Merge join' },
+  ];
+  let algo: JoinAlgo = 'nested';
+  let steps: JoinStep[] = joinSteps(algo);
+  let at = 0;
+  const root = shell(host, 'v-joins', 'Join algorithms', { eyebrow: 'Animation', title: 'Three ways to join two tables', desc: `Join ${OUTER.length} orders to ${INNER.length} users on orders.user_id = users.id. Each algorithm finds the same pairs; count the work it takes.` }, `
+    <div class="vis-controls"><div class="seg small" role="group" aria-label="Algorithm" id="j-algo">${ALGOS.map((a) => `<button type="button" data-j="${a.id}"><b>${a.label}</b></button>`).join('')}</div></div>
+    <div class="vis-actions" id="j-play"></div>
+    <div class="j-stage">
+      <div class="j-col"><b>orders (outer)</b><ol id="j-outer"></ol></div>
+      <div class="j-col"><b>users (inner)</b><ol id="j-inner"></ol></div>
+      <div class="j-col j-buckets" id="j-buckets" hidden><b>hash table</b><div id="j-bk"></div></div>
+    </div>
+    <p class="vis-status" id="j-note"></p>
+    <dl class="vis-stats" id="j-stats"></dl>`);
+  const draw = () => {
+    const s = steps[at];
+    $$('[data-j]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.j === algo)));
+    const oOrd = s.outerOrder ?? OUTER.map((_, i) => i);
+    const iOrd = s.innerOrder ?? INNER.map((_, j) => j);
+    const outDone = new Set(s.matched.map(([i]) => i)), inDone = new Set(s.matched.map(([, j]) => j));
+    const cmp = new Set(s.inner ?? []);
+    $('#j-outer', root)!.innerHTML = oOrd.map((i) => `<li class="${s.outer === i ? 'now' : ''}${outDone.has(i) ? ' hit' : ''}"><span>${OUTER[i].label}</span><code>user ${OUTER[i].key}</code></li>`).join('');
+    $('#j-inner', root)!.innerHTML = iOrd.map((j) => `<li class="${cmp.has(j) ? 'now' : ''}${inDone.has(j) ? ' hit' : ''}"><span>${INNER[j].label}</span><code>id ${INNER[j].key}</code></li>`).join('');
+    const bk = s.buckets;
+    $('#j-buckets', root)!.hidden = !bk;
+    if (bk) $('#j-bk', root)!.innerHTML = bk.map((b, n) => `<div class="j-bucket${s.bucket === n ? ' now' : ''}"><span>bucket ${n}</span>${b.map((j) => `<i>${INNER[j].key}</i>`).join('') || '<em>empty</em>'}</div>`).join('');
+    $('#j-note', root)!.textContent = s.note;
+    $('#j-stats', root)!.innerHTML = [['Comparisons', s.comparisons], ['Inner rows read', s.innerReads], ['Rows held in memory', s.memory], ['Pairs found', s.matched.length]].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  };
+  const pl = player(root, {
+    ms: 900,
+    step: () => { if (at >= steps.length - 1) return false; at++; draw(); return at < steps.length - 1; },
+    reset: () => { at = 0; draw(); },
+    describe: () => steps[at].note,
+  });
+  $('#j-play', root)!.append(pl.el);
+  root.addEventListener('click', (e) => {
+    const j = (e.target as HTMLElement).closest<HTMLElement>('[data-j]')?.dataset.j as JoinAlgo | undefined;
+    if (!j) return;
+    pl.pause(); algo = j; steps = joinSteps(algo); at = 0; draw();
+  });
+  draw();
+}
+
 export const dbVisualWidgets: Record<string, (host: HTMLElement) => void> = {
   btree,
   'scan-compare': scanCompare,
   'composite-index': compositeIndex,
   'plan-tree': planTree,
+  'join-algos': joinAlgos,
 };

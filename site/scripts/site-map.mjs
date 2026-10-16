@@ -173,6 +173,11 @@ export const PREREQS = {
   'databases/index-design/': ['databases/btree-indexes/'],
   'databases/scan-types/': ['databases/btree-indexes/'],
   'databases/reading-plans/': ['databases/scan-types/'],
+  'databases/joins/': ['databases/reading-plans/'],
+  'databases/statistics/': ['databases/reading-plans/'],
+  'databases/pagination-and-n-plus-one/': ['databases/btree-indexes/'],
+  'databases/query-checklist/': ['databases/reading-plans/'],
+  'databases/tuning-exercises/': ['databases/reading-plans/'],
 };
 
 // The Databases section: original pages in site/content/databases/<slug>.md, grouped into modules.
@@ -193,6 +198,10 @@ export const DB_PAGES = [
   { slug: 'btree-indexes', module: 'storage', title: 'B-tree indexes', blurb: 'How the default index finds one row among millions in three or four page reads, and what it costs.', draft: true },
   { slug: 'index-design', module: 'storage', title: 'Designing indexes', blurb: 'Column order, covering, partial and expression indexes, and when an index is ignored or hurts.', draft: true },
   { slug: 'scan-types', module: 'storage', title: 'Scan types', blurb: 'Sequential, index, bitmap and index-only scans, and how the planner chooses between them.', draft: true },
-  { slug: 'tuning-exercises', module: 'practice', title: 'Query-tuning exercises', blurb: 'Twelve slow queries from a real-looking shop. Fix each one; the database checks your plan.', draft: true },
   { slug: 'reading-plans', module: 'plans', title: 'Reading EXPLAIN', blurb: 'Read a query plan line by line, spot the red flags, and use the plan to fix a slow query.', draft: true },
+  { slug: 'joins', module: 'plans', title: 'Join algorithms', blurb: 'Nested loop, hash and merge joins: how each works, what it costs, and when the planner picks it.', draft: true },
+  { slug: 'statistics', module: 'plans', title: 'Planner statistics', blurb: 'What ANALYZE records, how estimates are made, and why they go wrong.', draft: true },
+  { slug: 'pagination-and-n-plus-one', module: 'sql', title: 'Pagination and N+1', blurb: 'Why OFFSET gets slower every page, keyset pagination, and replacing many small queries with one.', draft: true },
+  { slug: 'query-checklist', module: 'practice', title: 'Slow query checklist', blurb: 'A method for any slow query, and a table from what the plan shows to the likely fix.', draft: true },
+  { slug: 'tuning-exercises', module: 'practice', title: 'Query-tuning exercises', blurb: 'Twelve slow queries from a real-looking shop. Fix each one; the database checks your plan.', draft: true },
 ];

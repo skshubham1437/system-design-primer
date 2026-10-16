@@ -46,6 +46,10 @@ const states: { name: string; path: string; act: (page: Page) => Promise<void> }
     for (let i = 0; i < 4; i++) await p.locator('.v-scans [data-pl="step"]').click();
   } },
   { name: 'composite index skip scan', path: 'databases/index-design/', act: async (p) => { await p.getByRole('button', { name: /status = banned only/ }).click(); } },
+  { name: 'join animation building a hash table', path: 'databases/joins/', act: async (p) => {
+    await p.getByRole('button', { name: 'Hash join', exact: true }).click();
+    for (let i = 0; i < 4; i++) await p.locator('.v-joins [data-pl="step"]').click();
+  } },
   { name: 'plan stepper on a flagged node', path: 'databases/reading-plans/', act: async (p) => { await p.locator('.pt-node.flag').first().click(); } },
   { name: 'scaling story in predict mode', path: 'labs/scaling-story/', act: async (p) => {
     await p.getByRole('button', { name: /Stage 5/ }).click();

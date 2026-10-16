@@ -230,3 +230,18 @@
   .pt-body { grid-template-columns: 1fr; padding-inline: 16px; }
   .pt-panel { position: static; }
 }
+
+/* join algorithms */
+.j-stage { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 14px 24px 0; }
+.j-col > b { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+.j-col ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.j-col li { display: flex; justify-content: space-between; gap: 8px; padding: 5px 9px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 13px; }
+.j-col li code { font-size: 12px; background: none; border: 0; padding: 0; color: var(--ink-2); }
+.j-col li.hit { background: var(--surface-2); }
+.j-col li.now { border-color: var(--accent); background: var(--accent-soft); }
+.j-bucket { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 9px; margin-bottom: 4px; border: 1.5px dashed var(--line-strong); border-radius: 8px; font-size: 12.5px; }
+.j-bucket span { color: var(--ink-2); margin-right: 4px; }
+.j-bucket i { font-style: normal; font-family: var(--font-mono); padding: 1px 6px; border-radius: 4px; background: var(--surface-2); }
+.j-bucket em { color: var(--ink-2); font-size: 12px; }
+.j-bucket.now { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 700px) { .j-stage { margin-inline: 16px; } }

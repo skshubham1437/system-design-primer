@@ -149,3 +149,18 @@ test.describe('query-tuning exercises', () => {
     await expect(page.locator('.prog-h', { hasText: 'Query-tuning exercises' })).toContainText('1 of 12 solved');
   });
 });
+
+test('join animation: a hash join compares far fewer pairs than a plain nested loop', async ({ page }) => {
+  await page.goto('databases/joins/');
+  const w = page.locator('.v-joins');
+  const comparisons = w.locator('#j-stats div', { hasText: 'Comparisons' }).locator('dd');
+  const finish = async () => { for (let i = 0; i < 20; i++) await w.locator('[data-pl="step"]').click(); return Number(await comparisons.textContent()); };
+  const nested = await finish();
+  await w.getByRole('button', { name: 'Hash join', exact: true }).click();
+  const hash = await finish();
+  expect(hash).toBeLessThan(nested / 2);
+  await expect(w.locator('#j-buckets')).toBeVisible();
+  await w.getByRole('button', { name: 'Merge join' }).click();
+  await finish();
+  await expect(w.locator('#j-note')).toContainText('one pass over each side');
+});
