@@ -107,3 +107,45 @@ test.describe('database animations', () => {
     await expect(page.locator('.db-plan-host details.widget-original')).toBeAttached();
   });
 });
+
+test.describe('query-tuning exercises', () => {
+  test.setTimeout(150_000);
+
+  test('the static version is readable before the script loads', async ({ page }) => {
+    await page.goto('databases/tuning-exercises/');
+    await expect(page.locator('.sqlx-host')).toHaveCount(12);
+  });
+
+  test('explain the original, take the answer, pass every check, and see it on the progress page', async ({ page }) => {
+    await page.goto('databases/btree-indexes/');
+    const x = page.locator('.sqlx').first();
+    await expect(x.getByRole('heading', { name: "One customer's orders" })).toBeVisible();
+    await x.getByRole('button', { name: /Show a hint/ }).click();
+    await expect(x.locator('.sqlx-hints li')).toHaveCount(1);
+
+    await x.getByRole('button', { name: 'Explain the original' }).click();
+    await expect(x.locator('.sqlx-verdict')).toContainText('starting point', { timeout: 90_000 });
+    await expect(x.locator('.sqlx-checks li.no').first()).toBeVisible();
+
+    // a wrong answer: fast but returns different rows
+    await x.locator('textarea').last().fill('select id, status, created_at, total from orders where user_id = 43 order by created_at desc');
+    await x.getByRole('button', { name: 'Check my answer' }).click();
+    await expect(x.locator('.sqlx-checks')).toContainText('Returns the same rows');
+    await expect(x.locator('.sqlx-verdict')).toContainText('Not yet');
+
+    await x.getByRole('button', { name: 'Show the answer' }).click();
+    await x.getByRole('button', { name: 'Check my answer' }).click();
+    await expect(x.locator('.sqlx-verdict')).toContainText('Solved', { timeout: 60_000 });
+    await expect(x.locator('.sqlx-why')).toContainText('Why it was slow');
+    await expect(x.locator('.sqlx-solved')).toBeVisible();
+
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+      const axe = await new AxeBuilder({ page }).include('.sqlx').analyze();
+      expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${theme} ${v.id}: ${v.nodes[0]?.target}`)).toEqual([]);
+    }
+
+    await page.goto('progress/');
+    await expect(page.locator('.prog-h', { hasText: 'Query-tuning exercises' })).toContainText('1 of 12 solved');
+  });
+});

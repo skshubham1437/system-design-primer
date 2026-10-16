@@ -1,16 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
 import cards from '../generated/flashcards.json';
-import { features, groups, pagesInGroup, solutions, quizzes, choosers, href, withBase } from '../lib/site';
+import { features, groups, pagesInGroup, solutions, quizzes, choosers, dbExercises, href, withBase } from '../lib/site';
 
 // The reading trail is the core learning groups; practice and reference pages are not "read in order".
-const core = groups.filter((g) => ['start', 'fundamentals', 'network', 'application', 'data'].includes(g.id));
+const core = groups.filter((g) => ['start', 'fundamentals', 'network', 'application', 'data', 'databases'].includes(g.id));
 const data = {
   cardsTotal: cards.length,
   groups: core.map((g) => ({ id: g.id, label: g.label, pages: pagesInGroup(g.id).map((p) => ({ path: p.path, title: p.title })) })),
   solutions: solutions.map((p) => ({ path: p.path, title: p.short ?? p.title })),
   choosers: choosers.map((c) => ({ id: c.id, title: c.title, topic: c.topic, scenarios: c.scenarios })),
   quizzes: quizzes.map((q) => ({ slug: q.slug, topic: q.topic, title: q.title, ids: q.ids, count: q.count })),
+  exercises: dbExercises.map((x) => ({ id: x.id, title: x.title, difficulty: x.difficulty, page: x.page ?? 'databases/tuning-exercises/' })),
 };
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
 ---

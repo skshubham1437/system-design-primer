@@ -1,0 +1,28 @@
+id: subquery-per-row
+title: An order count per user
+difficulty: 2
+reviewed: false
+page: databases/reading-plans/
+scenario: >-
+  A page shows twenty users with how many orders each has placed. The count is a subquery in the select list, and
+  the page takes seconds.
+task: Make it at least twenty times cheaper. Either change the schema or the query; both can work.
+query: |
+  select u.id, (select count(*) from orders o where o.user_id = u.id) as orders
+  from users u
+  where u.id <= 20
+allowChanges: true
+checks:
+  - max_buffers: 1000
+  - max_rows_removed: 0
+hints:
+  - "Explain it and look at loops: the subquery runs once per user, and each run scans every order."
+  - "Either give the subquery a fast way to find one user's orders, or compute all twenty counts in one pass with a join and GROUP BY."
+  - "create index orders_user_id_idx on orders (user_id); or: select u.id, count(o.id) from users u left join orders o on o.user_id = u.id where u.id <= 20 group by u.id"
+solution:
+  changes: create index orders_user_id_idx on orders (user_id);
+why: >-
+  A subquery in the select list runs once for every row of the outer query, the same pattern as the N+1 problem in
+  application code. Twenty users meant twenty full scans of orders. An index turns each run into a lookup of a few
+  entries; rewriting it as a join with GROUP BY reads orders once for all twenty users. Both are fine; the index
+  helps every other query that looks orders up by user as well.

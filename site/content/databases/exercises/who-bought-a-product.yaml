@@ -1,0 +1,28 @@
+id: who-bought-a-product
+title: Who bought this product?
+difficulty: 1
+reviewed: false
+page: databases/scan-types/
+scenario: >-
+  The product page lists the orders that included it. order_items has a foreign key to products, so it seems as if
+  it ought to be indexed, but the query reads well over a thousand pages.
+task: Cut the pages read to a few hundred.
+query: |
+  select o.id, o.created_at
+  from order_items oi
+  join orders o on o.id = oi.order_id
+  where oi.product_id = 77
+allowChanges: true
+checks:
+  - max_buffers: 600
+hints:
+  - "Explain it. The primary key of order_items is (order_id, product_id). PostgreSQL 18 can skip-scan it for product_id, but that means one descent per order."
+  - PostgreSQL does not create an index for a foreign key. The referenced side (products.id) is indexed as a primary key; the referencing column is not.
+  - "create index order_items_product_id_idx on order_items (product_id);"
+solution:
+  changes: create index order_items_product_id_idx on order_items (product_id);
+why: >-
+  A foreign key only guarantees that each product_id exists in products; it does not index order_items.product_id.
+  The primary key leads with order_id, so finding one product means searching it once per order. An index that
+  leads with product_id puts every line for product 77 together. Index the referencing column of a foreign key
+  whenever you look rows up by it, or delete rows from the referenced table.

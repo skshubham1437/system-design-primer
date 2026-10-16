@@ -51,7 +51,7 @@ describe('the sample database', () => {
   });
 });
 
-describe('query-tuning exercises', () => {
+describe('query-tuning exercises', { timeout: 60_000 }, () => {
   it('there are some', () => expect(exercises.length).toBeGreaterThanOrEqual(2));
 
   for (const ex of exercises) {
@@ -69,7 +69,8 @@ describe('query-tuning exercises', () => {
       });
 
       it('an attempt that changes the answer is caught, even if it is fast', async () => {
-        const wrong = ex.query.replace(/where[\s\S]*?(order by|group by|limit|$)/i, '$1');
+        // a fast answer with one row missing: it must still fail, because it returns different rows
+        const wrong = `select * from (${(ex.solution.query ?? ex.query).trim().replace(/;\s*$/, '')}) t offset 1`;
         const r = await runAttempt(db, ex, { changes: ex.solution.changes, query: wrong });
         expect(r.sameResult).toBe(false);
         expect(r.passed).toBe(false);

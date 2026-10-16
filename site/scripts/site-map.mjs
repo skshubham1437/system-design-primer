@@ -193,5 +193,6 @@ export const DB_PAGES = [
   { slug: 'btree-indexes', module: 'storage', title: 'B-tree indexes', blurb: 'How the default index finds one row among millions in three or four page reads, and what it costs.', draft: true },
   { slug: 'index-design', module: 'storage', title: 'Designing indexes', blurb: 'Column order, covering, partial and expression indexes, and when an index is ignored or hurts.', draft: true },
   { slug: 'scan-types', module: 'storage', title: 'Scan types', blurb: 'Sequential, index, bitmap and index-only scans, and how the planner chooses between them.', draft: true },
+  { slug: 'tuning-exercises', module: 'practice', title: 'Query-tuning exercises', blurb: 'Twelve slow queries from a real-looking shop. Fix each one; the database checks your plan.', draft: true },
   { slug: 'reading-plans', module: 'plans', title: 'Reading EXPLAIN', blurb: 'Read a query plan line by line, spot the red flags, and use the plan to fix a slow query.', draft: true },
 ];

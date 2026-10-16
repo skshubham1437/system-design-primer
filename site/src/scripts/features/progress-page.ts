@@ -9,6 +9,7 @@ interface Data {
   solutions: { path: string; title: string }[];
   quizzes: { slug: string; topic: string; title: string; ids: string[]; count: number }[];
   choosers?: { id: string; title: string; topic: string; scenarios: number }[];
+  exercises?: { id: string; title: string; difficulty: number; page: string }[];
 }
 
 const base = document.documentElement.dataset.base || '/';
@@ -85,6 +86,13 @@ export function mount(host: HTMLElement) {
         const r = doc.choosers[c.id];
         const best = r?.attempts.length ? Math.max(...r.attempts.map((a) => a.score)) : null;
         return `<li><a href="${url(c.topic)}">${esc(c.title)}</a><span>${best !== null ? `best <b>${best} of ${c.scenarios}</b> on the scenarios` : `${c.scenarios} scenarios, not tried`}${r?.guided ? ` · guided ${r.guided} time${r.guided === 1 ? '' : 's'}` : ''}</span></li>`;
+      }).join('')}</ul>` : ''}
+
+      ${(data.exercises ?? []).length ? `<h2 class="prog-h">Query-tuning exercises <small>${(data.exercises ?? []).filter((x) => doc.exercises[x.id]?.solved).length} of ${(data.exercises ?? []).length} solved</small></h2>
+      <ul class="prog-list">${(data.exercises ?? []).map((x) => {
+        const s = doc.exercises[x.id];
+        const st = s?.solved ? 'done' : s?.attempts ? 'attempted' : 'none';
+        return `<li><a href="${url(x.page)}">${esc(x.title)}</a>${s?.attempts ? `<span>${s.attempts} attempt${s.attempts === 1 ? '' : 's'}${s.hints ? `, ${s.hints} hint${s.hints === 1 ? '' : 's'}` : ''}${s.revealed ? ', answer shown' : ''}</span>` : ''}<span class="chip ${st}">${st === 'done' ? 'Solved' : st === 'attempted' ? 'Tried' : 'Not started'}</span></li>`;
       }).join('')}</ul>` : ''}
 
       <h2 class="prog-h">Solutions</h2>

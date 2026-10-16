@@ -514,6 +514,16 @@ async function main() {
   // explain-analyze / setup are executed against the sample database and their real output is placed after them.
   const dbOn = readFeatures(SITE).advancedDb === true;
   const dbRunner = dbOn ? createDbRunner({ siteDir: SITE, warn }) : null;
+  const dbExercises = dbOn ? loadDbExercises(SITE) : [];
+  const exerciseById = new Map(dbExercises.filter((x) => x.data?.id).map((x) => [x.data.id, x.data]));
+  // <div data-widget="sql-exercise" data-id="x"></div> becomes a readable static version that the widget replaces:
+  // without JavaScript, and for search, the page still shows the scenario, the task and the query.
+  const escHtml = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const exerciseHtml = (id) => {
+    const x = exerciseById.get(id);
+    if (!x) return `<div data-widget="sql-exercise" data-id="${escHtml(id)}"></div>`;
+    return `<div class="widget-host sqlx-host" data-widget="sql-exercise" data-id="${escHtml(id)}" data-src="${BASE}data/db/exercises/${escHtml(id)}.json"><div class="sqlx-static"><p class="eyebrow">Exercise</p><p class="sqlx-static-title">${escHtml(x.title)}</p><p>${escHtml(x.scenario)}</p><p><b>Your task.</b> ${escHtml(x.task)}</p><pre class="db-out" tabindex="0" role="region" aria-label="The query">${escHtml(String(x.query).trim())}</pre><p class="sqlx-static-note">This exercise runs a real database in your browser and needs JavaScript.</p></div></div>`;
+  };
   try {
     for (const pg of dbOn ? DB_PAGES : []) {
       const file = path.join(SITE, 'content', 'databases', `${pg.slug}.md`);
@@ -522,6 +532,10 @@ async function main() {
       const slugger = new GithubSlugger();
       for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
       const pagePath = `databases/${pg.slug}/`;
+      for (const n of tr.children) {
+        const m = n.type === 'html' && n.value.match(/^<div data-widget="sql-exercise" data-id="([^"]+)"><\/div>$/);
+        if (m) n.value = exerciseHtml(m[1]);
+      }
       const runnable = tr.children.map((n, i) => ({ n, i, m: n.type === 'code' ? parseRunMeta(n.lang, n.meta) : null })).filter((x) => x.m);
       if (runnable.length) {
         const outs = await dbRunner.runPage(pagePath, runnable.map((x) => ({ kind: x.m.kind, sql: x.n.value })));
@@ -551,7 +565,6 @@ async function main() {
   const quizzes = loadQuizzes(SITE);
   const practice = loadPractice(SITE);
   const choosers = loadChoosers(SITE);
-  const dbExercises = dbOn ? loadDbExercises(SITE) : [];
   runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises }, warn);
   const dbExerciseIndex = dbOn ? emitDbExercises(dbExercises, SITE) : [];
   const chooserIndex = features.choosers ? emitChoosers(choosers, SITE, out, BASE) : [];
@@ -561,7 +574,7 @@ async function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'flashcards.json'), JSON.stringify(cards));
-  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, choosers: chooserIndex, groups: GROUPS.filter((g) => g.id !== 'databases' || dbOn), dbModules: dbOn ? DB_MODULES : [], solutions, ood, pages: out }));
+  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, choosers: chooserIndex, groups: GROUPS.filter((g) => g.id !== 'databases' || dbOn), dbModules: dbOn ? DB_MODULES : [], dbExercises: dbExerciseIndex, solutions, ood, pages: out }));
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
   console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${practiceCount} practice sets, ${chooserIndex.length} choosers, ${dbExerciseIndex.length} database exercises, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));

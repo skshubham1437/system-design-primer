@@ -1,0 +1,25 @@
+id: events-in-a-month
+title: One month of events
+difficulty: 2
+reviewed: false
+page: databases/scan-types/
+scenario: >-
+  The events table is partitioned by month, so a query for one month should only touch that month's partition.
+  This one reads all twelve.
+task: Make the query read only November's partition.
+query: |
+  select count(*) from events where date_trunc('month', at) = '2024-11-01'
+checks:
+  - max_buffers: 50
+hints:
+  - "Explain it: an Append over a scan of every partition. The planner can only skip partitions when it can compare the partition key itself with values."
+  - "Write the month as a half-open range on at, the column the table is partitioned by."
+  - "where at >= '2024-11-01' and at < '2024-12-01'"
+solution:
+  query: |
+    select count(*) from events where at >= '2024-11-01' and at < '2024-12-01'
+why: >-
+  Partition pruning works by comparing the condition with each partition's bounds, which are ranges of the
+  partition key. date_trunc('month', at) is a different value, so the planner cannot tell which partitions can be
+  skipped and scans all of them. A range on the bare column matches the bounds directly, and only one partition is
+  read.

@@ -59,6 +59,12 @@ select pg_size_pretty(pg_relation_size('orders_user_id_idx')) as index_size,
 - **Writes.** Every `INSERT` adds an entry to every index on the table, and an `UPDATE` that changes an indexed column (or cannot be done as a [HOT update](site:databases/how-rows-are-stored/)) must touch the indexes too. A table with ten indexes pays for ten extra writes per insert.
 - **Choice.** The planner may still decide a full scan is cheaper, for example when a large share of the rows match. See [designing indexes](site:databases/index-design/).
 
+## Try it yourself
+
+Each exercise runs on the same sample database. Your changes are made inside a transaction and undone after every check, so you cannot break anything.
+
+<div data-widget="sql-exercise" data-id="orders-for-one-user"></div>
+
 ## In MySQL
 
 *Not run here; from the MySQL reference manual.* InnoDB indexes are also B+trees. Because an InnoDB table is itself the primary-key B-tree, a secondary index entry holds the primary key rather than a row address, so a lookup through a secondary index is followed by a search of the primary key. Keeping the primary key short keeps every secondary index small.

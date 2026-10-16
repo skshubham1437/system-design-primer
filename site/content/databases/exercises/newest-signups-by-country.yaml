@@ -1,0 +1,32 @@
+id: newest-signups-by-country
+title: The newest sign-ups in one country
+difficulty: 3
+reviewed: false
+page: databases/index-design/
+scenario: >-
+  The growth dashboard shows the ten newest users in a chosen country. Many users sign up on the same day, so ties
+  are broken by id.
+task: Find an index that returns exactly these ten rows without sorting and without reading rows it then discards.
+query: |
+  select id, email, created_at
+  from users
+  where country = 'IN'
+  order by created_at desc, id desc
+  limit 10
+ordered: true
+allowChanges: true
+checks:
+  - avoid: { node: [Sort, Incremental Sort] }
+  - max_rows_removed: 0
+  - max_buffers: 15
+hints:
+  - "Try an index on created_at alone: no full sort, but rows from other countries are read and thrown away (Rows Removed by Filter), and ties still need sorting."
+  - Put the column compared with = first, then the columns of the ORDER BY, in the same order.
+  - "create index users_country_newest_idx on users (country, created_at, id);"
+solution:
+  changes: create index users_country_newest_idx on users (country, created_at, id);
+why: >-
+  With (country, created_at, id), all of India's users sit together in the index, already ordered by created_at
+  and then id. The database reads that slice backwards and stops after ten entries: no sort, nothing discarded.
+  Leading with created_at would walk users of every country in date order and filter out the others, and leaving
+  out id would still need an incremental sort to break ties.

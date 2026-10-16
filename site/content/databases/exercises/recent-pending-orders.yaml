@@ -1,6 +1,7 @@
 id: recent-pending-orders
 title: The oldest pending orders
 difficulty: 2
+page: databases/index-design/
 reviewed: false
 scenario: >-
   The warehouse screen shows the 50 oldest orders that are still pending, so staff can deal with them first.

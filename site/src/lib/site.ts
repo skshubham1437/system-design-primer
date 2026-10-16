@@ -39,6 +39,8 @@ export interface QuizInfo { slug: string; topic: string; title: string; count: n
 export const quizzes = (data.quizzes ?? []) as QuizInfo[];
 export interface ChooserInfo { id: string; title: string; topic: string; scenarios: number }
 export const choosers = (data.choosers ?? []) as ChooserInfo[];
+export interface DbExerciseInfo { id: string; title: string; difficulty: number; page: string | null; reviewed: boolean }
+export const dbExercises = ((data as { dbExercises?: DbExerciseInfo[] }).dbExercises ?? []) as DbExerciseInfo[];
 export const groups = data.groups as Group[];
 export const dbModules = ((data as { dbModules?: Group[] }).dbModules ?? []) as Group[];
 export const pages = data.pages as Page[];

@@ -59,6 +59,16 @@ select count(*) from orders where created_at >= '2023-03-01';
 - The same index can lead to an index scan, a bitmap scan or no use at all, depending on **how many rows** match and **where they live**.
 - The planner works from estimates. When a plan looks wrong, compare its estimated rows with the actual rows before anything else; that is the first step in [reading a plan](site:databases/reading-plans/).
 
+## Try it yourself
+
+Each exercise runs on the same sample database. Your changes are made inside a transaction and undone after every check, so you cannot break anything.
+
+<div data-widget="sql-exercise" data-id="who-bought-a-product"></div>
+
+<div data-widget="sql-exercise" data-id="deep-pagination"></div>
+
+<div data-widget="sql-exercise" data-id="events-in-a-month"></div>
+
 ## In MySQL
 
 *Not run here; from the MySQL reference manual.* InnoDB's equivalents are a full table scan (`type: ALL` in `EXPLAIN`), range and ref lookups through an index, and covering index reads (`Using index`). Because rows are stored in primary key order, a range on the primary key is naturally a sequential read. MySQL has no bitmap heap scan; Multi-Range Read (`Using MRR`) plays a similar role by sorting row lookups before reading them.

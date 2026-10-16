@@ -103,6 +103,16 @@ Practise on the [playground](site:databases/playground/), where **Explain analyz
 
 `EXPLAIN` alone (without `ANALYZE`) shows the plan without running the query, which is safe on anything. `VERBOSE` adds output columns and schema-qualified names. `SETTINGS` lists planner settings that differ from the defaults. `FORMAT JSON` gives a machine-readable tree, which is what the stepper on this page uses. PostgreSQL 17 added `SERIALIZE` (the cost of converting the result for the client) and `MEMORY` (the planner's memory use).
 
+## Try it yourself
+
+Each exercise runs on the same sample database. Your changes are made inside a transaction and undone after every check, so you cannot break anything.
+
+<div data-widget="sql-exercise" data-id="subquery-per-row"></div>
+
+<div data-widget="sql-exercise" data-id="stale-statistics"></div>
+
+<div data-widget="sql-exercise" data-id="sort-spills"></div>
+
 ## In MySQL
 
 *Not run here; from the MySQL reference manual.* `EXPLAIN` in MySQL prints one row per table by default, with columns such as `type` (`ALL` means a full scan), `key`, `rows` and `Extra`. `EXPLAIN FORMAT=TREE` prints a tree closer to PostgreSQL's, and `EXPLAIN ANALYZE` (since 8.0.18) runs the query and adds actual times, rows and loops to each node.

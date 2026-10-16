@@ -1,6 +1,7 @@
 id: orders-for-one-user
 title: One customer's orders
 difficulty: 1
+page: databases/btree-indexes/
 reviewed: false
 scenario: >-
   The "Your orders" page lists one customer's orders, newest first. Every visit reads the whole orders table,

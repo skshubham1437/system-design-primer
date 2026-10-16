@@ -289,6 +289,7 @@ const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement)
   chooser: () => import('./features/chooser'),
   'progress-page': () => import('./features/progress-page'),
   'sql-playground': () => import('./features/sql-playground'),
+  'sql-exercise': () => import('./features/sql-exercise'),
 };
 const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve', 'scale-story'];
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];

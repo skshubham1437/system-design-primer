@@ -215,3 +215,11 @@ describe('migration from the old keys', () => {
     expect(store.get().plan.last).toBeUndefined();
   });
 });
+
+describe('exercise progress', () => {
+  it('keeps well-formed exercise records and drops broken ones', async () => {
+    const { normalize } = await import('../../src/lib/progress');
+    const d = normalize({ exercises: { a: { attempts: 3, hints: 1, solved: 5, revealed: true }, b: { attempts: 'x' }, c: { attempts: 1.6 } } });
+    expect(d.exercises).toEqual({ a: { attempts: 3, hints: 1, solved: 5, revealed: true }, c: { attempts: 2, hints: 0 } });
+  });
+});

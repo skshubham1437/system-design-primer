@@ -184,3 +184,34 @@
 .db-null { color: var(--ink-2); font-style: italic; }
 .db-error { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--warn-soft); border-left: 3px solid var(--warn); font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; }
 @media (max-width: 700px) { .sqlp-start, .sqlp-body { padding-inline: 16px; } .sqlp-status, .sqlp-out { padding-inline: 16px; } }
+
+/* query-tuning exercises */
+.sqlx-body { padding: 18px 24px 4px; }
+.sqlx-body .sqlp-sql { min-height: 0; }
+.sqlx-changes { margin-bottom: 12px; }
+.sqlx-task { color: var(--ink); }
+.sqlx-diff { letter-spacing: 1px; margin-left: 6px; }
+.sqlx-draft, .sqlx-solved { margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 11px; letter-spacing: 0.04em; }
+.sqlx-draft { border: 1px solid var(--warn); color: var(--ink); }
+.sqlx-solved { background: var(--accent); color: var(--accent-ink); }
+.sqlx-hints { margin: 12px 0 0; padding-left: 20px; font-size: 14px; }
+.sqlx-hints li { margin: 6px 0; }
+.sqlx-out { padding: 6px 24px 22px; }
+.sqlx-verdict { padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border-left: 3px solid var(--line-strong); font-size: 14.5px; }
+.sqlx-verdict.ok { background: var(--accent-soft); border-left-color: var(--accent); }
+.sqlx-checks { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.sqlx-checks li { display: grid; grid-template-columns: 1.6em 1fr; gap: 6px; align-items: baseline; }
+.sqlx-mark { font-weight: 800; text-align: center; border-radius: 6px; }
+.sqlx-checks li.ok .sqlx-mark { background: var(--accent-soft); color: var(--ink); }
+.sqlx-checks li.no .sqlx-mark { background: var(--warn-soft); color: var(--ink); }
+.sqlx-why { margin: 12px 0; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.sqlx-why h4 { margin: 0 0 6px; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.sqlx-why p { margin: 0 0 8px; font-size: 14px; }
+.sqlx-plan summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ink-2); padding: 6px 0; }
+.sqlx-plan .db-out { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.sqlx-static { padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); margin: 1.4em 0; }
+.sqlx-static-title { font-family: var(--font-serif); font-size: 1.2rem; font-weight: 600; margin: 0 0 6px; }
+.sqlx-static-note { font-size: 13px; color: var(--ink-2); }
+.sqlx-host + .sqlx-host { margin-top: 18px; }
+.prog-h small { font-size: 0.7em; font-weight: 500; color: var(--ink-2); margin-left: 8px; }
+@media (max-width: 700px) { .sqlx-body, .sqlx-out { padding-inline: 16px; } }

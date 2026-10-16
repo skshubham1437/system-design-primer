@@ -125,6 +125,20 @@ select * from orders where status = 'delivered';
 4. Consider `INCLUDE` for a hot query, a partial index for a hot subset, an expression index for a hot expression.
 5. Check the plan again. Then check that writes are still fast enough.
 
+## Try it yourself
+
+Each exercise runs on the same sample database. Your changes are made inside a transaction and undone after every check, so you cannot break anything.
+
+<div data-widget="sql-exercise" data-id="login-by-email"></div>
+
+<div data-widget="sql-exercise" data-id="signups-on-a-day"></div>
+
+<div data-widget="sql-exercise" data-id="recent-pending-orders"></div>
+
+<div data-widget="sql-exercise" data-id="order-history-covering"></div>
+
+<div data-widget="sql-exercise" data-id="newest-signups-by-country"></div>
+
 ## In MySQL
 
 *Not run here; from the MySQL reference manual.* MySQL has composite, covering and unique indexes, functional (expression) indexes since 8.0.13, and a skip scan access method since 8.0.13. It has **no partial indexes**. Every InnoDB secondary index implicitly contains the primary key columns, which is why queries that only need the primary key are often covered for free.

@@ -15,6 +15,8 @@ export interface ReadMark { at: number; pct: number }
 export interface QuizAttempt { id: string; score: number; of: number; at: number }
 export interface SolutionState { status: 'attempted' | 'done'; step?: string; notes?: Record<string, string>; rubric?: Record<string, string[]> }
 export interface Session { id: string; question: string; minutes: number; notes: Record<string, string>; at: number }
+/** A query-tuning exercise: how many checked attempts, hints seen, when it was first solved, and whether the answer was revealed. */
+export interface ExerciseState { attempts: number; hints: number; solved?: number; revealed?: boolean }
 
 export interface ProgressDoc {
   version: number;
@@ -26,6 +28,7 @@ export interface ProgressDoc {
   paths: Record<string, { stage: number }>;
   choosers: Record<string, { guided: number; attempts: { score: number; of: number; at: number }[] }>;
   sessions: Session[];
+  exercises: Record<string, ExerciseState>;
   settings: { newCardsPerDay: number };
   /** New flashcards introduced on `day` (local midnight), to enforce the daily limit. */
   daily: { day: number; newCards: number };
@@ -43,6 +46,7 @@ export const emptyDoc = (): ProgressDoc => ({
   paths: {},
   choosers: {},
   sessions: [],
+  exercises: {},
   settings: { newCardsPerDay: 10 },
   daily: { day: 0, newCards: 0 },
 });
@@ -80,6 +84,9 @@ export function normalize(raw: unknown): ProgressDoc {
   d.paths = mapOf(raw.paths, (x) => (isObj(x) && isNum(x.stage) ? { stage: x.stage } : undefined));
   d.choosers = mapOf(raw.choosers, (x) => (isObj(x)
     ? { guided: isNum(x.guided) ? x.guided : 0, attempts: Array.isArray(x.attempts) ? x.attempts.filter((a): a is { score: number; of: number; at: number } => isObj(a) && isNum(a.score) && isNum(a.of) && isNum(a.at)).slice(-50) : [] }
+    : undefined));
+  d.exercises = mapOf(raw.exercises, (x) => (isObj(x) && isNum(x.attempts)
+    ? { attempts: Math.max(0, Math.round(x.attempts)), hints: isNum(x.hints) ? Math.max(0, Math.round(x.hints)) : 0, ...(isNum(x.solved) ? { solved: x.solved } : {}), ...(x.revealed === true ? { revealed: true } : {}) }
     : undefined));
   if (Array.isArray(raw.sessions)) d.sessions = raw.sessions.filter((s): s is Session => isObj(s) && typeof s.id === 'string');
   if (isObj(raw.settings) && isNum(raw.settings.newCardsPerDay)) d.settings.newCardsPerDay = Math.min(100, Math.max(0, Math.round(raw.settings.newCardsPerDay)));
