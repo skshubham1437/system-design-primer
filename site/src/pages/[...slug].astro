@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import Toc from '../components/Toc.astro';
 import cards from '../generated/flashcards.json';
 import { features, pages, href, neighbours, groupLabel, sourceUrl, withBase, pageByPath, type Page } from '../lib/site';
+import { reportUrl } from '../lib/report';
 
 export function getStaticPaths() {
   return pages.map((page) => ({ params: { slug: page.path.replace(/\/$/, '') }, props: { page } }));
@@ -44,7 +45,7 @@ const rel = (p: Page) => (p.kind === 'topic' ? p.title : p.title);
     </div>
 
     {page.draft && (
-      <p class="draft-note" data-pagefind-ignore><b>Draft.</b> This page is new and has not yet been reviewed by a second person. {page.engine ? <>Every query output on it was produced by a real run on {page.engine}.</> : null}</p>
+      <p class="draft-note" data-pagefind-ignore><b>Draft.</b> This page is new and has not yet been reviewed by a second person. {page.engine ? <>Every query output on it was produced by a real run on {page.engine}.</> : null} If something looks wrong, <a href={reportUrl(`Page: ${page.title}`)} target="_blank" rel="noopener noreferrer">report it</a>.</p>
     )}
 
     {page.practice && features.practiceMode && (

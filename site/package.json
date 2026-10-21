@@ -10,7 +10,8 @@
     "preview": "astro preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:check": "npm run build && vitest run tests/unit/db-claims.test.ts tests/unit/db-engine.test.ts tests/unit/db-traces.test.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

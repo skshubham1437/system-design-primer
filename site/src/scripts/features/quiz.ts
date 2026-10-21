@@ -3,13 +3,13 @@
 // Question logic lives in lib/quiz.ts, scheduling in lib/srs.ts, storage in lib/progress.ts.
 
 import { getProgress } from '../../lib/progress';
+import { REPORT_URL as REPORT } from '../../lib/report';
 import { pickQuestions, scoreRun, seededShuffle, shuffleChoices, type Question, type TopicQuestion } from '../../lib/quiz';
 import { grade, isDue, newItem } from '../../lib/srs';
 import { isRead } from '../../lib/next-up';
 
 const base = document.documentElement.dataset.base || '/';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const REPORT = 'https://github.com/skshubham1437/system-design-primer/issues/new?template=content-problem.yml';
 
 interface QuizFile { slug: string; topic: string; title: string; reviewed: boolean; questions: Question[] }
 interface Run { id: string; title: string; topicPath?: string; questions: Question[]; reviewed: boolean; label: (q: Question) => string | undefined }

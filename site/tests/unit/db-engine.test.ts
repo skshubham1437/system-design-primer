@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { load as loadYaml } from 'js-yaml';
-import { runAttempt, type Exercise } from '../../src/lib/db/exercise';
+import { prepareChanges, runAttempt, type Exercise } from '../../src/lib/db/exercise';
 import { evaluate, rowsRemoved, buffers, type PlanNode } from '../../src/lib/db/checks';
 import { parseRunMeta, outputHtml } from '../../scripts/lib/db-runs.mjs';
 
@@ -83,6 +83,44 @@ describe('query-tuning exercises', { timeout: 60_000 }, () => {
       });
     });
   }
+});
+
+describe('the exercise sandbox', { timeout: 60_000 }, () => {
+  const secondaryIndexes = async () => (await db.query(`select indexname from pg_indexes where schemaname = 'public' and indexname not like '%_pkey' and indexname not like '%_key' and tablename not like 'events%'`)).rows;
+  const indexEx = () => exercises.find((e) => e.allowChanges && /create\s+index/i.test(e.solution.changes ?? ''))!;
+
+  it('refuses statements that would end the transaction, wherever they appear', () => {
+    for (const bad of ['commit', 'create index i on orders (status); COMMIT;', 'begin', 'end;', 'abort', 'start transaction', 'rollback', 'vacuum orders', '/* x */ commit']) {
+      expect(() => prepareChanges(bad), bad).toThrow(/not allowed here/);
+    }
+  });
+
+  it('ignores those words inside comments, strings and dollar-quoted bodies', () => {
+    for (const ok of ["create index i on orders (status); -- then commit", "comment on table orders is 'commit; vacuum'", 'create function f() returns int language sql as $$ select 1 $$', 'savepoint a; rollback to savepoint a', 'analyze orders']) {
+      expect(prepareChanges(ok), ok).toEqual({ sql: ok, notes: [] });
+    }
+  });
+
+  it('runs CONCURRENTLY as a plain build, with a note, and only touches the keyword', () => {
+    const r = prepareChanges('create index concurrently "concurrently_idx" on orders (status); create unique index CONCURRENTLY u on users (email)');
+    expect(r.sql).toBe('create index "concurrently_idx" on orders (status); create unique index u on users (email)');
+    expect(r.notes).toHaveLength(1);
+  });
+
+  it('an index exercise solved with CONCURRENTLY passes and says what it changed', async () => {
+    const ex = indexEx();
+    const changes = ex.solution.changes!.replace(/create\s+index/i, 'create index concurrently');
+    const r = await runAttempt(db, ex, { changes, query: ex.solution.query ?? ex.query });
+    expect(r.passed).toBe(true);
+    expect(r.notes?.[0]).toMatch(/without CONCURRENTLY/);
+    expect(await secondaryIndexes()).toEqual([]);
+  });
+
+  it('a COMMIT cannot keep an index for later attempts', async () => {
+    const ex = indexEx();
+    await expect(runAttempt(db, ex, { changes: `${ex.solution.changes!.trim().replace(/;?$/, ';')} commit;`, query: ex.query })).rejects.toThrow(/COMMIT is not allowed/);
+    expect(await secondaryIndexes()).toEqual([]);
+  });
 });
 
 describe('plan checks', () => {

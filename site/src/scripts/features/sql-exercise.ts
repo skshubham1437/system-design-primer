@@ -65,6 +65,7 @@ export async function mount(host: HTMLElement) {
     <div class="sqlx-verdict ${r.passed ? 'ok' : ''}">${r.passed
       ? '<b>Solved.</b> Every check passes.'
       : original ? '<b>This is the starting point.</b> Each check below says what is wrong with it.' : '<b>Not yet.</b> The failing checks say why.'}</div>
+    ${(r.notes ?? []).map((n) => `<p class="sqlx-note">${esc(n)}</p>`).join('')}
     <ul class="sqlx-checks">${r.checks.map((c) => `<li class="${c.ok ? 'ok' : 'no'}"><span class="sqlx-mark" aria-hidden="true">${c.ok ? '✓' : '✗'}</span><span><b>${esc(c.label)}</b> <span class="sr-only">${c.ok ? 'passed' : 'failed'}.</span> ${esc(c.detail)}</span></li>`).join('')}</ul>
     ${r.passed && !original ? `<div class="sqlx-why"><h4>Why it was slow</h4><p>${esc(ex.why)}</p></div>` : ''}
     <details class="sqlx-plan" ${r.passed ? '' : 'open'}><summary>The plan the database chose</summary>${planTextHtml(r.planText, 'Query plan')}</details>`;
