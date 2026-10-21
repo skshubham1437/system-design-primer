@@ -24,6 +24,16 @@ select * from orders where user_id = 42;
 
 The plan now starts from the index. The number of pages read drops by more than an order of magnitude, and nothing is read just to be discarded. (Why a *bitmap* scan here rather than a plain index scan is the subject of [scan types](site:databases/scan-types/).)
 
+### At production scale
+
+With 100,000 orders even the slow plan above takes milliseconds, so the difference is easy to shrug off. Here is the same query on the same shop generated 100 times larger, recorded on a real PostgreSQL server:
+
+<div data-widget="db-scale" data-id="btree-at-scale"></div>
+
+Without the index the server read every one of the table's 80,906 pages to return 525 rows. That took 214 ms even though it split the scan across three processes (`Gather` and `Parallel Seq Scan`: a server runs big scans in parallel, which the in-browser engine cannot). With the index it read 526 pages and finished in under a millisecond. The gap grows with the table, because a full scan reads every page and the index reads only the pages that hold matching rows.
+
+Two more things differ from the small database. The estimate (`rows=18`) is well below the 525 rows found, because on a table this size `ANALYZE` reads a sample (30,000 rows by default) instead of every row. And the `JIT` lines show the server compiling parts of an expensive query to machine code; the in-browser engine has no JIT.
+
 ## How it stays fast
 
 - **Sorted pages.** Each page holds keys in order. Inner pages hold boundaries and point down to the page that covers a range of keys; leaf pages hold every key, each with the address of its row.
@@ -71,6 +81,6 @@ Each exercise runs on the same sample database. Your changes are made inside a t
 
 ## Sources
 
-- PostgreSQL documentation: *Indexes* (Introduction, Index Types, Indexes and ORDER BY), *B-Tree Indexes* (implementation), *Operator Classes and Operator Families*, *Using EXPLAIN*.
-- *Use The Index, Luke* by Markus Winand, chapter "Anatomy of an Index".
-- MySQL reference manual: *Clustered and Secondary Indexes*.
+- PostgreSQL documentation: [*Indexes*](https://www.postgresql.org/docs/18/indexes.html) (Introduction, Index Types, Indexes and ORDER BY), [*B-Tree Indexes*](https://www.postgresql.org/docs/18/btree.html) (implementation), [*Operator Classes and Operator Families*](https://www.postgresql.org/docs/18/indexes-opclass.html), [*Using EXPLAIN*](https://www.postgresql.org/docs/18/using-explain.html).
+- [*Use The Index, Luke*](https://use-the-index-luke.com/) by Markus Winand, chapter "[Anatomy of an Index](https://use-the-index-luke.com/sql/anatomy)".
+- MySQL reference manual: [*Clustered and Secondary Indexes*](https://dev.mysql.com/doc/refman/8.4/en/innodb-index-types.html).

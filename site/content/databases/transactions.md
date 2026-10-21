@@ -66,5 +66,5 @@ An open transaction holds its locks and keeps old row versions alive for [VACUUM
 
 ## Sources
 
-- PostgreSQL documentation: *Transactions* (tutorial), *BEGIN*, *COMMIT*, *SAVEPOINT*, *ROLLBACK TO SAVEPOINT*, *SELECT … FOR UPDATE* (The Locking Clause), *Client Connection Defaults* (`idle_in_transaction_session_timeout`).
-- MySQL reference manual: *START TRANSACTION, COMMIT, and ROLLBACK*, *Statements That Cause an Implicit Commit*.
+- PostgreSQL documentation: [*Transactions*](https://www.postgresql.org/docs/18/tutorial-transactions.html) (tutorial), [*BEGIN*](https://www.postgresql.org/docs/18/sql-begin.html), [*COMMIT*](https://www.postgresql.org/docs/18/sql-commit.html), [*SAVEPOINT*](https://www.postgresql.org/docs/18/sql-savepoint.html), [*ROLLBACK TO SAVEPOINT*](https://www.postgresql.org/docs/18/sql-rollback-to.html), [*SELECT … FOR UPDATE*](https://www.postgresql.org/docs/18/sql-select.html#SQL-FOR-UPDATE-SHARE) (The Locking Clause), [*Client Connection Defaults*](https://www.postgresql.org/docs/18/runtime-config-client.html) (`idle_in_transaction_session_timeout`).
+- MySQL reference manual: [*START TRANSACTION, COMMIT, and ROLLBACK*](https://dev.mysql.com/doc/refman/8.4/en/commit.html), [*Statements That Cause an Implicit Commit*](https://dev.mysql.com/doc/refman/8.4/en/implicit-commit.html).

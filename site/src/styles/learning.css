@@ -167,6 +167,15 @@
 .db-none { margin: 0; padding: 10px 14px; font-size: 13.5px; color: var(--ink-2); }
 .code-block:has(+ .db-run) { margin-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
 .code-block + .db-run { margin-top: 0; }
+/* the same queries recorded at 100x scale on a real server */
+.db-scale { margin: 18px 0 26px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.db-scale figcaption { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.db-scale figcaption b { color: var(--ink); }
+.db-scale figcaption span { display: block; font-size: 12.5px; }
+.db-scale-step { margin: 0; padding: 10px 14px 0; font-size: 13.5px; }
+.db-scale-sql { margin: 6px 14px 0; padding: 8px 10px; overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; white-space: pre; background: var(--surface-2); border: 0; border-radius: 8px; }
+.db-scale .db-out { border-bottom: 1px solid var(--line); }
+.db-scale .db-out:last-child { border-bottom: 0; }
 
 /* SQL playground */
 .sqlp-start, .sqlp-body { padding: 18px 24px 4px; }

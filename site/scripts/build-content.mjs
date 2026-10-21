@@ -22,6 +22,7 @@ import { loadPractice, emitPractice } from './lib/practice.mjs';
 import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
 import { loadDbExercises, emitDbExercises } from './lib/db-exercises.mjs';
 import { loadTraces, emitTraces } from './lib/db-traces.mjs';
+import { loadScaleRuns, scaleHtml } from './lib/db-scale.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
@@ -68,7 +69,22 @@ function imageSize(buf) {
 
 // ---------------------------------------------------------------- images
 
-const imgMap = new Map(); // original src -> { src, width, height }
+const imgMap = new Map(); // original src -> { src, width, height, alt? }
+
+// Written descriptions of the diagrams (content/alt-text.yaml), keyed by file under public/img/. An image with the
+// same bytes as a described one (the flashcard decks carry copies of the README diagrams) gets the same description.
+const altText = (() => {
+  const file = path.join(SITE, 'content', 'alt-text.yaml');
+  const byPath = fs.existsSync(file) ? loadYaml(fs.readFileSync(file, 'utf8')) ?? {} : {};
+  const md5 = (p) => crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex');
+  const byHash = new Map();
+  for (const [rel, text] of Object.entries(byPath)) {
+    const p = path.join(SITE, 'public', 'img', rel);
+    if (fs.existsSync(p)) byHash.set(md5(p), text);
+    else warn(`content/alt-text.yaml: no image public/img/${rel}`, true);
+  }
+  return (rel, abs) => byPath[rel] ?? byHash.get(md5(abs));
+})();
 
 async function prepareImages(sources) {
   fs.mkdirSync(IMG_LOCAL, { recursive: true });
@@ -85,7 +101,7 @@ async function prepareImages(sources) {
     if (!fs.existsSync(file)) { warn(`missing local image: ${url}`); continue; }
     const name = path.basename(file);
     fs.copyFileSync(file, path.join(IMG_LOCAL, name));
-    imgMap.set(url, { src: `${BASE}img/local/${name}`, ...imageSize(fs.readFileSync(file)) });
+    imgMap.set(url, { src: `${BASE}img/local/${name}`, alt: altText(`local/${name}`, file), ...imageSize(fs.readFileSync(file)) });
   }
   const fetchOne = async (url) => {
     // GitHub's camo proxy URLs embed the original URL as hex; fetch the original.
@@ -110,7 +126,7 @@ async function prepareImages(sources) {
         return;
       }
     }
-    imgMap.set(url, { src: `${BASE}img/remote/${name}`, ...imageSize(fs.readFileSync(file)) });
+    imgMap.set(url, { src: `${BASE}img/remote/${name}`, alt: altText(`remote/${name}`, file), ...imageSize(fs.readFileSync(file)) });
   };
   for (let i = 0; i < remote.length; i += 6) await Promise.all(remote.slice(i, i + 6).map(fetchOne));
 }
@@ -185,7 +201,8 @@ function primer(ctx) {
         if (info.width) { node.properties.width = info.width; node.properties.height = info.height; }
       }
       const alt = node.properties.alt;
-      if (!alt || alt === 'Imgur') node.properties.alt = `Diagram: ${ctx.title}`;
+      if (info?.alt) node.properties.alt = info.alt;
+      else if (!alt || alt === 'Imgur') node.properties.alt = `Diagram: ${ctx.title}`;
       node.properties.loading = 'lazy';
       node.properties.decoding = 'async';
     });
@@ -518,6 +535,8 @@ async function main() {
   const dbRunner = dbOn ? createDbRunner({ siteDir: SITE, warn }) : null;
   const dbExercises = dbOn ? loadDbExercises(SITE) : [];
   const traceById = new Map((dbOn ? loadTraces(SITE) : []).filter((t) => t.trace).map((t) => [t.id, t.trace]));
+  const dbScale = dbOn ? loadScaleRuns(SITE) : [];
+  const scaleById = new Map(dbScale.filter((s) => s.run).map((s) => [s.id, s.run]));
   // <div data-widget="tx-trace" data-id="x"></div> becomes the recorded steps as a list, which the replay widget replaces.
   const traceHtml = (id) => {
     const t = traceById.get(id);
@@ -549,6 +568,9 @@ async function main() {
         if (m) n.value = exerciseHtml(m[1]);
         const tm = n.type === 'html' && n.value.match(/^<div data-widget="tx-trace" data-id="([^"]+)"><\/div>$/);
         if (tm) n.value = traceHtml(tm[1]);
+        // <div data-widget="db-scale" data-id="x"></div> becomes the plans recorded at 100x scale (static, no JavaScript)
+        const sm = n.type === 'html' && n.value.match(/^<div data-widget="db-scale" data-id="([^"]+)"><\/div>$/);
+        if (sm && scaleById.has(sm[1])) n.value = scaleHtml(scaleById.get(sm[1]));
       }
       const runnable = tr.children.map((n, i) => ({ n, i, m: n.type === 'code' ? parseRunMeta(n.lang, n.meta) : null })).filter((x) => x.m);
       if (runnable.length) {
@@ -604,7 +626,7 @@ async function main() {
   const practice = loadPractice(SITE);
   const choosers = loadChoosers(SITE);
   const dbTraces = dbOn ? loadTraces(SITE) : [];
-  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises, dbTraces }, warn);
+  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises, dbTraces, dbScale }, warn);
   if (dbOn) emitTraces(dbTraces, SITE);
   const dbExerciseIndex = dbOn ? emitDbExercises(dbExercises, SITE) : [];
   const chooserIndex = features.choosers ? emitChoosers(choosers, SITE, out, BASE) : [];

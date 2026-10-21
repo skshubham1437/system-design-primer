@@ -145,6 +145,6 @@ Each exercise runs on the same sample database. Your changes are made inside a t
 
 ## Sources
 
-- PostgreSQL documentation: *Multicolumn Indexes*, *Index-Only Scans and Covering Indexes*, *Partial Indexes*, *Indexes on Expressions*, *Unique Indexes*, *Examining Index Usage*, *CREATE INDEX*; PostgreSQL 18 release notes (B-tree skip scan).
-- *Use The Index, Luke*: "Concatenated Indexes", "Partial Indexes", "Functions".
-- MySQL reference manual: *Multiple-Column Indexes*, *Functional Key Parts*, *Skip Scan Range Access Method*.
+- PostgreSQL documentation: [*Multicolumn Indexes*](https://www.postgresql.org/docs/18/indexes-multicolumn.html), [*Index-Only Scans and Covering Indexes*](https://www.postgresql.org/docs/18/indexes-index-only-scans.html), [*Partial Indexes*](https://www.postgresql.org/docs/18/indexes-partial.html), [*Indexes on Expressions*](https://www.postgresql.org/docs/18/indexes-expressional.html), [*Unique Indexes*](https://www.postgresql.org/docs/18/indexes-unique.html), [*Examining Index Usage*](https://www.postgresql.org/docs/18/indexes-examine.html), [*CREATE INDEX*](https://www.postgresql.org/docs/18/sql-createindex.html); [PostgreSQL 18 release notes](https://www.postgresql.org/docs/18/release-18.html) (B-tree skip scan).
+- [*Use The Index, Luke*](https://use-the-index-luke.com/): "[Concatenated Indexes](https://use-the-index-luke.com/sql/where-clause/the-equals-operator/concatenated-keys)", "[Partial Indexes](https://use-the-index-luke.com/sql/where-clause/null/partial-index)", "[Functions](https://use-the-index-luke.com/sql/where-clause/functions)".
+- MySQL reference manual: [*Multiple-Column Indexes*](https://dev.mysql.com/doc/refman/8.4/en/multiple-column-indexes.html), [*Functional Key Parts*](https://dev.mysql.com/doc/refman/8.4/en/create-index.html#create-index-functional-key-parts), [*Skip Scan Range Access Method*](https://dev.mysql.com/doc/refman/8.4/en/range-optimization.html#range-access-skip-scan).

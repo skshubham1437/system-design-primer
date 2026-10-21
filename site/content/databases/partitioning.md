@@ -80,5 +80,5 @@ select count(*) as events_still_visible from events;
 
 ## Sources
 
-- PostgreSQL documentation: *Table Partitioning* (declarative partitioning, partition pruning, partition maintenance, best practices), *CREATE TABLE* (`PARTITION BY`, `FOR VALUES WITH`), *ALTER TABLE* (`DETACH PARTITION`).
-- MySQL reference manual: *Partitioning*, *Partition Pruning*, *Partitioning Keys, Primary Keys, and Unique Keys*.
+- PostgreSQL documentation: [*Table Partitioning*](https://www.postgresql.org/docs/18/ddl-partitioning.html) (declarative partitioning, partition pruning, partition maintenance, best practices), [*CREATE TABLE*](https://www.postgresql.org/docs/18/sql-createtable.html) (`PARTITION BY`, `FOR VALUES WITH`), [*ALTER TABLE*](https://www.postgresql.org/docs/18/sql-altertable.html) (`DETACH PARTITION`).
+- MySQL reference manual: [*Partitioning*](https://dev.mysql.com/doc/refman/8.4/en/partitioning.html), [*Partition Pruning*](https://dev.mysql.com/doc/refman/8.4/en/partitioning-pruning.html), [*Partitioning Keys, Primary Keys, and Unique Keys*](https://dev.mysql.com/doc/refman/8.4/en/partitioning-limitations-partitioning-keys-unique-keys.html).

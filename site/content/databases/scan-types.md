@@ -75,5 +75,5 @@ Each exercise runs on the same sample database. Your changes are made inside a t
 
 ## Sources
 
-- PostgreSQL documentation: *Using EXPLAIN*, *Planner Cost Constants* (`seq_page_cost`, `random_page_cost`), *Statistics Used by the Planner*, *pg_stats* (correlation), *Index-Only Scans and Covering Indexes*.
-- MySQL reference manual: *EXPLAIN Output Format*, *Multi-Range Read Optimization*.
+- PostgreSQL documentation: [*Using EXPLAIN*](https://www.postgresql.org/docs/18/using-explain.html), [*Planner Cost Constants*](https://www.postgresql.org/docs/18/runtime-config-query.html#RUNTIME-CONFIG-QUERY-CONSTANTS) (`seq_page_cost`, `random_page_cost`), [*Statistics Used by the Planner*](https://www.postgresql.org/docs/18/planner-stats.html), [*pg_stats*](https://www.postgresql.org/docs/18/view-pg-stats.html) (correlation), [*Index-Only Scans and Covering Indexes*](https://www.postgresql.org/docs/18/indexes-index-only-scans.html).
+- MySQL reference manual: [*EXPLAIN Output Format*](https://dev.mysql.com/doc/refman/8.4/en/explain-output.html), [*Multi-Range Read Optimization*](https://dev.mysql.com/doc/refman/8.4/en/mrr-optimization.html).

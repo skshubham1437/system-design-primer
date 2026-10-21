@@ -41,7 +41,7 @@ The [load curve lab](site:labs/load-curve/) shows why: past a certain utilisatio
 
 ## Sources
 
-- PostgreSQL documentation: *Connections and Authentication* (`max_connections`), *Resource Consumption* (`work_mem`), *Architectural Fundamentals* (one process per connection).
-- PgBouncer documentation: *Pooling modes*, *max_prepared_statements*.
-- HikariCP wiki: *About Pool Sizing*.
-- MySQL reference manual: *Server System Variables* (`max_connections`).
+- PostgreSQL documentation: [*Connections and Authentication*](https://www.postgresql.org/docs/18/runtime-config-connection.html) (`max_connections`), [*Resource Consumption*](https://www.postgresql.org/docs/18/runtime-config-resource.html) (`work_mem`), [*Architectural Fundamentals*](https://www.postgresql.org/docs/18/tutorial-arch.html) (one process per connection).
+- PgBouncer documentation: [*Pooling modes*](https://www.pgbouncer.org/features.html), [*max_prepared_statements*](https://www.pgbouncer.org/config.html#max_prepared_statements).
+- HikariCP wiki: [*About Pool Sizing*](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing).
+- MySQL reference manual: [*Server System Variables*](https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html) (`max_connections`).

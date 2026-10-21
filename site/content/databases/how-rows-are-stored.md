@@ -80,5 +80,5 @@ Neither is better in general. LSM trees trade read work and compaction for cheap
 
 ## Sources
 
-- PostgreSQL documentation: *Database Page Layout*, *Introduction to MVCC* (Concurrency Control), *Routine Vacuuming*, *Heap-Only Tuples (HOT)*, *Write-Ahead Logging (WAL)*, *System Columns*.
-- MySQL reference manual: *Clustered and Secondary Indexes*, *InnoDB Multi-Versioning*.
+- PostgreSQL documentation: [*Database Page Layout*](https://www.postgresql.org/docs/18/storage-page-layout.html), [*Introduction to MVCC*](https://www.postgresql.org/docs/18/mvcc-intro.html) (Concurrency Control), [*Routine Vacuuming*](https://www.postgresql.org/docs/18/routine-vacuuming.html), [*Heap-Only Tuples (HOT)*](https://www.postgresql.org/docs/18/storage-hot.html), [*Write-Ahead Logging (WAL)*](https://www.postgresql.org/docs/18/wal-intro.html), [*System Columns*](https://www.postgresql.org/docs/18/ddl-system-columns.html).
+- MySQL reference manual: [*Clustered and Secondary Indexes*](https://dev.mysql.com/doc/refman/8.4/en/innodb-index-types.html), [*InnoDB Multi-Versioning*](https://dev.mysql.com/doc/refman/8.4/en/innodb-multi-versioning.html).

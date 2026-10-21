@@ -31,6 +31,6 @@ The [scaling story](site:labs/scaling-story/) walks through the usual sequence: 
 
 ## Sources
 
-- PostgreSQL documentation: *High Availability, Load Balancing, and Replication*, *Table Partitioning*.
-- Citus documentation: *Choosing the Distribution Column*. Vitess documentation: *Sharding*.
-- The System Design Primer sections on replication, federation and sharding.
+- PostgreSQL documentation: [*High Availability, Load Balancing, and Replication*](https://www.postgresql.org/docs/18/high-availability.html), [*Table Partitioning*](https://www.postgresql.org/docs/18/ddl-partitioning.html).
+- Citus documentation: [*Choosing the Distribution Column*](https://docs.citusdata.com/en/stable/sharding/data_modeling.html). Vitess documentation: [*Sharding*](https://vitess.io/docs/reference/features/sharding/).
+- The System Design Primer sections on [replication, federation and sharding](site:learn/database/).

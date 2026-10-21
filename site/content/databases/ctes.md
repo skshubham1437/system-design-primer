@@ -93,5 +93,5 @@ The whole statement runs as one unit: either every row is moved, or nothing chan
 
 ## Sources
 
-- PostgreSQL documentation: *WITH Queries (Common Table Expressions)*, including *Recursive Queries*, *CTE Materialization*, *Search Order and Cycle Detection* and *Data-Modifying Statements in WITH*; PostgreSQL 12 release notes (CTE inlining).
-- MySQL reference manual: *WITH (Common Table Expressions)*.
+- PostgreSQL documentation: [*WITH Queries (Common Table Expressions)*](https://www.postgresql.org/docs/18/queries-with.html), including [*Recursive Queries*](https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-RECURSIVE), [*CTE Materialization*](https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION), [*Search Order and Cycle Detection*](https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-SEARCH) and [*Data-Modifying Statements in WITH*](https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-MODIFYING); [PostgreSQL 12 release notes](https://www.postgresql.org/docs/release/12.0/) (CTE inlining).
+- MySQL reference manual: [*WITH (Common Table Expressions)*](https://dev.mysql.com/doc/refman/8.4/en/with.html).

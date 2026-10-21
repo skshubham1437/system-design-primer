@@ -25,7 +25,18 @@ const pageHtml = (slug: string) => {
   claimed.add(slug);
   return page.html;
 };
-const outs = (slug: string) => [...pageHtml(slug).matchAll(/<pre class="db-out"[^>]*>([\s\S]*?)<\/pre>/g)].map((m) => dec(m[1]));
+const SCALE = /<figure class="db-scale" data-scale="([^"]+)">([\s\S]*?)<\/figure>/g;
+/** The page's own outputs, in order. Plans recorded at production scale are left out; see `scale` below. */
+const outs = (slug: string) => [...pageHtml(slug).replace(SCALE, '').matchAll(/<pre class="db-out"[^>]*>([\s\S]*?)<\/pre>/g)].map((m) => dec(m[1]));
+/** The plans of the "at production scale" recording `id` shown on a page, in order. */
+const scale = (slug: string, id: string) => {
+  const fig = [...pageHtml(slug).matchAll(SCALE)].find((m) => m[1] === id);
+  if (!fig) throw new Error(`databases/${slug}/ does not show scale run ${id}`);
+  return [...fig[2].matchAll(/<pre class="db-out"[^>]*>([\s\S]*?)<\/pre>/g)].map((m) => dec(m[1]));
+};
+const prose = (slug: string) => dec(pageHtml(slug).replace(SCALE, '').replace(/<pre[\s\S]*?<\/pre>/g, ''));
+const ms = (plan: string) => num(plan, /Execution Time: ([\d.]+) ms/);
+const hits = (line: string) => num(line, /shared hit=(\d+)/) + (num(line, /read=(\d+)/) || 0);
 const cells = (row: string, tag: string) => [...row.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g'))].map((c) => dec(c[1]));
 /** The result tables of a page's `sql run` blocks, in page order, as rows of column -> printed value. */
 const tables = (slug: string) => [...pageHtml(slug).matchAll(/<figure class="db-run" data-kind="run">([\s\S]*?)<\/figure>/g)].map((m) => {
@@ -151,6 +162,51 @@ describe.skipIf(!built || !site?.features.advancedDb)('claims the Databases page
     // the playground's "Ready" message states these counts by hand (src/scripts/features/sql-playground.ts)
     const ready = fs.readFileSync(path.resolve(__dirname, '../../src/scripts/features/sql-playground.ts'), 'utf8');
     for (const t of ['users', 'products', 'orders']) expect(ready).toContain(`${n(t).toLocaleString('en-US')} ${t}`);
+  });
+
+  it('at production scale: one user\'s orders', () => {
+    const [seq, idx] = scale('btree-indexes', 'btree-at-scale');
+    const text = prose('btree-indexes');
+    expect(seq).toMatch(/Parallel Seq Scan on orders/);
+    expect(seq).toMatch(/Workers Launched: 2/);                            // "three processes"
+    const pages = num(seq, /Buffers: shared hit=(\d+)/);
+    expect(text).toContain(`${pages.toLocaleString('en-US')} pages to return 525 rows`); // "read every one of the table's pages"
+    expect(seq).toMatch(/rows=525\.00/);
+    expect(text).toContain(`${Math.round(ms(seq))} ms`);
+    expect(idx).toMatch(/^Index Scan using orders_user_id_idx/);
+    expect(text).toContain(`read ${num(idx, /Buffers: shared hit=(\d+)/)} pages`);
+    expect(ms(idx)).toBeLessThan(1);                                     // "under a millisecond"
+    expect(idx).toMatch(/rows=18 /);                                     // "the estimate (rows=18)"
+    expect(seq).toMatch(/^JIT:/m);
+  });
+
+  it('at production scale: OFFSET and keyset', () => {
+    const [offset, keyset] = scale('pagination-and-n-plus-one', 'offset-at-scale');
+    const text = prose('pagination-and-n-plus-one');
+    expect(text).toContain(`walked ${num(offset, /rows=(\d+)\.00 loops=1\)\n\s+Index Searches/).toLocaleString('en-US')} index entries`);
+    expect(text).toContain(`over ${num(offset, /Buffers: shared hit=(\d+)/).toLocaleString('en-US')} pages`);
+    expect(Math.abs(ms(offset) - 1000)).toBeLessThan(150);              // "about a second"
+    expect(text).toContain(`read ${num(keyset, /Buffers: shared hit=(\d+)/)} pages`);
+    expect(ms(keyset)).toBeLessThan(0.1);                                // "less than a tenth of a millisecond"
+  });
+
+  it('at production scale: stale statistics', () => {
+    const [before, after] = scale('statistics', 'stale-statistics-at-scale');
+    const text = prose('statistics');
+    expect(before).toMatch(/^Gather .*rows=49 .*rows=3000000\.00/);    // "expected 49 ... found 3,000,000"
+    expect(before).toMatch(/Nested Loop/);
+    expect(before).toMatch(/loops=3000000\)/);                           // "looked up a user three million times"
+    const bad = hits(before.split('\n')[3]);
+    expect(text).toContain(`touching ${num(before, /Buffers: shared hit=(\d+)/).toLocaleString('en-US')} buffers`);
+    expect(after).toMatch(/Parallel Hash Join/);
+    expect(after).toMatch(/Batches: (\d+)/);                             // "spilling the hash to disk in batches"
+    expect(num(after, /Batches: (\d+)/)).toBeGreaterThan(1);
+    const good = hits(after.split('\n')[3]);
+    expect(Math.abs(good - 125000)).toBeLessThan(5000);                  // "about 125,000 buffers"
+    expect(bad / good).toBeGreaterThan(90);                              // "nearly a hundred times more page reads"
+    expect(bad / good).toBeLessThan(100);
+    expect(3000000 / num(after, /^Gather .*rows=(\d+) /)).toBeLessThan(4); // "within a factor of four"
+    expect(text).toContain(`from ${(ms(before) / 1000).toFixed(1)} to ${(ms(after) / 1000).toFixed(1)} seconds`);
   });
 
   it('every page that shows real outputs has its claims checked above', () => {

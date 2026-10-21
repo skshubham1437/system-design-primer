@@ -24,12 +24,14 @@ The plan is [ADVANCED_DB_PLAN.md](ADVANCED_DB_PLAN.md). Phases 0 to 8 are built 
 1. **A review by a second person.** Every Databases page, quiz, exercise and flashcard is marked Draft or `reviewed: false`. After review, remove `draft: true` in `DB_PAGES` and set `reviewed: true` (for flashcards, at the top of `content/flashcards/databases.yaml`).
 2. **Lab improvements from the review are done.** They added a quorum lab, semi-synchronous replication with read-your-writes, DNS TTL, CDN counters, estimator headroom and overhead, a shared-queue curve, consistent-hashing copies, sharding traffic drift, a QUIC lane, 2Q eviction, a predict-mode self-check, and 70 lab quiz questions. All of it awaits the same second-person review.
 3. **Premortem:** [ADVANCED_DB_PREMORTEM.md](ADVANCED_DB_PREMORTEM.md). Fixed: claims on every page with outputs, the exercise sandbox, `db:check`, a report link on Draft pages. Open: a named reviewer and date, the flag (the plan said off until reviewed), timing a start on two real phones, and whether to add production-scale recorded plans.
-4. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
+4. **Data premortem:** [DATA_PREMORTEM.md](DATA_PREMORTEM.md). Done: PostgreSQL notes on the Database page, the latency table dated, every Databases source linked (and checked weekly), descriptions for every diagram in `content/alt-text.yaml`, production-scale recordings on three pages. Decided: `advancedDb` ships on, labelled Draft.
+5. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
 
 ## Rules for working on the Databases section
 
 - **Outputs:** never type an output by hand.
   - `sql run / explain / explain-analyze / plan-tree / setup` blocks run at build time; outputs are cached in `data/db-runs.json`. `DB_RERUN=1` re-runs them.
+  - "At production scale" plans: the same queries on a 100x seed (`content/databases/seed-scale.sql`), listed in `content/databases/scale-runs.yaml` and recorded with `node scripts/record-scale.mjs` (Docker; `PGIMAGE=postgres:latest` uses the local image; loading takes about 90 s). The build refuses a recording older than its scenario or the seed.
   - Concurrency scenarios live in `content/databases/concurrency-scenarios.yaml`. Re-record with `node scripts/record-traces.mjs`, which needs Docker; `PGIMAGE=postgres:latest` uses the local image.
 - **Tests:**
   - `tests/unit/db-claims.test.ts` re-checks every claim a page makes about its outputs. It reads the build, so run it after `npm run build`; in CI it fails if there is no build. It also fails if a page that shows real outputs has no test of what its prose says about them. `npm run db:check` builds and runs all three database suites in the right order.

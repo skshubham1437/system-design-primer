@@ -119,5 +119,5 @@ Each exercise runs on the same sample database. Your changes are made inside a t
 
 ## Sources
 
-- PostgreSQL documentation: *Using EXPLAIN* (including *EXPLAIN ANALYZE* and *Caveats*), *EXPLAIN* (command reference), *Statistics Used by the Planner*, *Resource Consumption* (`work_mem`), *CREATE STATISTICS*; PostgreSQL 17 and 18 release notes.
-- MySQL reference manual: *EXPLAIN Statement*, *Obtaining Information with EXPLAIN ANALYZE*.
+- PostgreSQL documentation: [*Using EXPLAIN*](https://www.postgresql.org/docs/18/using-explain.html) (including [*EXPLAIN ANALYZE*](https://www.postgresql.org/docs/18/using-explain.html#USING-EXPLAIN-ANALYZE) and [*Caveats*](https://www.postgresql.org/docs/18/using-explain.html#USING-EXPLAIN-CAVEATS)), [*EXPLAIN*](https://www.postgresql.org/docs/18/sql-explain.html) (command reference), [*Statistics Used by the Planner*](https://www.postgresql.org/docs/18/planner-stats.html), [*Resource Consumption*](https://www.postgresql.org/docs/18/runtime-config-resource.html) (`work_mem`), [*CREATE STATISTICS*](https://www.postgresql.org/docs/18/sql-createstatistics.html); PostgreSQL [17](https://www.postgresql.org/docs/release/17.0/) and [18](https://www.postgresql.org/docs/18/release-18.html) release notes.
+- MySQL reference manual: [*EXPLAIN Statement*](https://dev.mysql.com/doc/refman/8.4/en/explain.html), [*Obtaining Information with EXPLAIN ANALYZE*](https://dev.mysql.com/doc/refman/8.4/en/explain.html#explain-analyze).

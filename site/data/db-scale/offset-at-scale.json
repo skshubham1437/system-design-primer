@@ -1,0 +1,30 @@
+{
+ "id": "offset-at-scale",
+ "scenario": "25cea4a8626f0d2d",
+ "seed": "fa054216c6fe497a",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-21",
+ "sizes": {
+  "users": 2000000,
+  "orders": 10000000
+ },
+ "title": "Half way through ten million orders, by OFFSET and by keyset",
+ "steps": [
+  {
+   "kind": "setup",
+   "sql": "create index orders_created_at_idx on orders (created_at);"
+  },
+  {
+   "kind": "explain-analyze",
+   "label": "OFFSET 5,000,000",
+   "sql": "select id, created_at, total from orders\norder by created_at desc\nlimit 20 offset 5000000;",
+   "text": "Limit  (cost=170298.93..170299.62 rows=20 width=18) (actual time=987.701..987.707 rows=20.00 loops=1)\n  Buffers: shared hit=54118\n  ->  Index Scan Backward using orders_created_at_idx on orders  (cost=0.43..340597.43 rows=10000000 width=18) (actual time=0.044..828.924 rows=5000020.00 loops=1)\n        Index Searches: 1\n        Buffers: shared hit=54118\nPlanning Time: 0.081 ms\nJIT:\n  Functions: 4\n  Options: Inlining false, Optimization false, Expressions true, Deforming true\n  Timing: Generation 0.219 ms (Deform 0.079 ms), Inlining 0.000 ms, Optimization 0.155 ms, Emission 1.928 ms, Total 2.302 ms\nExecution Time: 988.022 ms"
+  },
+  {
+   "kind": "explain-analyze",
+   "label": "The same page by keyset",
+   "sql": "select id, created_at, total from orders\nwhere created_at < '2023-12-31 14:00:10.3+00'\norder by created_at desc\nlimit 20;",
+   "text": "Limit  (cost=0.43..1.17 rows=20 width=18) (actual time=0.034..0.044 rows=20.00 loops=1)\n  Buffers: shared hit=4\n  ->  Index Scan Backward using orders_created_at_idx on orders  (cost=0.43..182597.33 rows=4994394 width=18) (actual time=0.032..0.039 rows=20.00 loops=1)\n        Index Cond: (created_at < '2023-12-31 14:00:10.3+00'::timestamp with time zone)\n        Index Searches: 1\n        Buffers: shared hit=4\nPlanning Time: 0.151 ms\nExecution Time: 0.068 ms"
+  }
+ ]
+}

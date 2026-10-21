@@ -25,6 +25,12 @@ order by created_at desc
 limit 20;
 ```
 
+### At production scale
+
+<div data-widget="db-scale" data-id="offset-at-scale"></div>
+
+Half way through ten million orders, `OFFSET` walked 5,000,020 index entries over 54,118 pages to return 20 rows, which took about a second. The keyset query read 4 pages in less than a tenth of a millisecond, exactly what it costs on the first page. OFFSET's cost keeps growing with the page number; keyset's does not.
+
 Rules for keyset pagination:
 
 - **The sort key must be unique.** If it is not, add the primary key to it and compare both: `where (created_at, id) < ($1, $2) order by created_at desc, id desc`. PostgreSQL compares such row values element by element, and an index on `(created_at, id)` serves it directly.
@@ -77,6 +83,6 @@ The same thing happens inside SQL when a subquery in the select list runs once p
 
 ## Sources
 
-- PostgreSQL documentation: *LIMIT and OFFSET* (including the note that skipped rows are still computed), *Row Constructor Comparison*, *Array Comparisons* (`ANY`).
-- *Use The Index, Luke*: "Paging Through Results" (the seek method).
-- MySQL reference manual: *LIMIT Query Optimization*.
+- PostgreSQL documentation: [*LIMIT and OFFSET*](https://www.postgresql.org/docs/18/queries-limit.html) (including the note that skipped rows are still computed), [*Row Constructor Comparison*](https://www.postgresql.org/docs/18/functions-comparisons.html#ROW-WISE-COMPARISON), [*Array Comparisons*](https://www.postgresql.org/docs/18/functions-comparisons.html) (`ANY`).
+- [*Use The Index, Luke*](https://use-the-index-luke.com/): "[Paging Through Results](https://use-the-index-luke.com/sql/partial-results/fetch-next-page)" (the seek method).
+- MySQL reference manual: [*LIMIT Query Optimization*](https://dev.mysql.com/doc/refman/8.4/en/limit-optimization.html).

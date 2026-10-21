@@ -105,5 +105,5 @@ Use these settings to compare costs and buffers while investigating, never in ap
 
 ## Sources
 
-- PostgreSQL documentation: *Using EXPLAIN*, *Planner/Optimizer* (internals: planner, join strategies), *Planner Method Configuration* (`enable_hashjoin`, `enable_mergejoin`, `enable_nestloop`), *Resource Consumption* (`work_mem`, `hash_mem_multiplier`).
-- MySQL reference manual: *Nested-Loop Join Algorithms*, *Hash Join Optimization*.
+- PostgreSQL documentation: [*Using EXPLAIN*](https://www.postgresql.org/docs/18/using-explain.html), [*Planner/Optimizer*](https://www.postgresql.org/docs/18/planner-optimizer.html) (internals: planner, join strategies), [*Planner Method Configuration*](https://www.postgresql.org/docs/18/runtime-config-query.html#RUNTIME-CONFIG-QUERY-ENABLE) (`enable_hashjoin`, `enable_mergejoin`, `enable_nestloop`), [*Resource Consumption*](https://www.postgresql.org/docs/18/runtime-config-resource.html) (`work_mem`, `hash_mem_multiplier`).
+- MySQL reference manual: [*Nested-Loop Join Algorithms*](https://dev.mysql.com/doc/refman/8.4/en/nested-loop-joins.html), [*Hash Join Optimization*](https://dev.mysql.com/doc/refman/8.4/en/hash-joins.html).

@@ -101,5 +101,5 @@ Reading it touches a few pages instead of the whole orders table. The cost is st
 
 ## Sources
 
-- PostgreSQL documentation: *Window Functions* (tutorial), *Window Function Calls* (syntax and frames), *Window Functions* (function list), *Materialized Views*, *REFRESH MATERIALIZED VIEW*.
-- MySQL reference manual: *Window Functions*.
+- PostgreSQL documentation: [*Window Functions*](https://www.postgresql.org/docs/18/tutorial-window.html) (tutorial), [*Window Function Calls*](https://www.postgresql.org/docs/18/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS) (syntax and frames), [*Window Functions*](https://www.postgresql.org/docs/18/functions-window.html) (function list), [*Materialized Views*](https://www.postgresql.org/docs/18/rules-materializedviews.html), [*REFRESH MATERIALIZED VIEW*](https://www.postgresql.org/docs/18/sql-refreshmaterializedview.html).
+- MySQL reference manual: [*Window Functions*](https://dev.mysql.com/doc/refman/8.4/en/window-functions.html).

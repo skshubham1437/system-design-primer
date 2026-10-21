@@ -55,6 +55,6 @@ Serializable is the easiest level to reason about: if every transaction is corre
 
 ## Sources
 
-- PostgreSQL documentation: *Concurrency Control* (Introduction, Transaction Isolation, Read Committed, Repeatable Read, Serializable Isolation Level), *SET TRANSACTION*, *PostgreSQL Error Codes* (40001).
-- Ports and Grittner, *Serializable Snapshot Isolation in PostgreSQL* (VLDB 2012).
-- MySQL reference manual: *Transaction Isolation Levels*, *Consistent Nonlocking Reads*, *Phantom Rows*.
+- PostgreSQL documentation: [*Concurrency Control*](https://www.postgresql.org/docs/18/mvcc.html) (Introduction, Transaction Isolation, Read Committed, Repeatable Read, Serializable Isolation Level), [*SET TRANSACTION*](https://www.postgresql.org/docs/18/sql-set-transaction.html), [*PostgreSQL Error Codes*](https://www.postgresql.org/docs/18/errcodes-appendix.html) (40001).
+- Ports and Grittner, [*Serializable Snapshot Isolation in PostgreSQL*](https://arxiv.org/abs/1208.4179) (VLDB 2012).
+- MySQL reference manual: [*Transaction Isolation Levels*](https://dev.mysql.com/doc/refman/8.4/en/innodb-transaction-isolation-levels.html), [*Consistent Nonlocking Reads*](https://dev.mysql.com/doc/refman/8.4/en/innodb-consistent-read.html), [*Phantom Rows*](https://dev.mysql.com/doc/refman/8.4/en/innodb-next-key-locking.html).

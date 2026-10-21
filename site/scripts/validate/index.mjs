@@ -9,12 +9,13 @@ import { validateChoosers } from './choosers.mjs';
 import { validatePrereqs } from './prereqs.mjs';
 import { validateDbExercises } from './db-exercises.mjs';
 import { validateTraces } from '../lib/db-traces.mjs';
+import { validateScaleRuns } from '../lib/db-scale.mjs';
 import { rules } from './rules.mjs';
 
 export { rules };
 
 /** Validators run on every build. Add new ones to this list as content types arrive. */
-export const validators = [validateFeatures, validateQuizzes, validatePractice, validateChoosers, validatePrereqs, validateDbExercises, validateTraces];
+export const validators = [validateFeatures, validateQuizzes, validatePractice, validateChoosers, validatePrereqs, validateDbExercises, validateTraces, validateScaleRuns];
 
 export function runValidators(ctx, warn) {
   for (const v of validators) for (const problem of v(ctx)) warn(`${v.name}: ${problem}`, true);

@@ -39,5 +39,5 @@ Sometimes the plan is fine and the time goes elsewhere: too many round trips, fe
 
 ## Sources
 
-- PostgreSQL documentation: *Using EXPLAIN*, *Performance Tips*, *Statistics Used by the Planner*, *Examining Index Usage*, *Resource Consumption*.
-- *Use The Index, Luke*, Markus Winand.
+- PostgreSQL documentation: [*Using EXPLAIN*](https://www.postgresql.org/docs/18/using-explain.html), [*Performance Tips*](https://www.postgresql.org/docs/18/performance-tips.html), [*Statistics Used by the Planner*](https://www.postgresql.org/docs/18/planner-stats.html), [*Examining Index Usage*](https://www.postgresql.org/docs/18/indexes-examine.html), [*Resource Consumption*](https://www.postgresql.org/docs/18/runtime-config-resource.html).
+- [*Use The Index, Luke*](https://use-the-index-luke.com/), Markus Winand.

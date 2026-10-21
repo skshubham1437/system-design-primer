@@ -91,5 +91,5 @@ Good uses: constraints the data must never violate, audit trails, keeping a deno
 
 ## Sources
 
-- PostgreSQL documentation: *Views* (tutorial and *CREATE VIEW*), *User-Defined Functions*, *PL/pgSQL*, *Function Volatility Categories*, *Inlining of SQL Functions* (wiki), *CREATE PROCEDURE*, *Transaction Management* (in procedures), *Triggers*, *CREATE TRIGGER*.
-- MySQL reference manual: *Stored Objects* (stored routines, triggers, views).
+- PostgreSQL documentation: [*Views*](https://www.postgresql.org/docs/18/tutorial-views.html) (tutorial and [*CREATE VIEW*](https://www.postgresql.org/docs/18/sql-createview.html)), [*User-Defined Functions*](https://www.postgresql.org/docs/18/xfunc.html), [*PL/pgSQL*](https://www.postgresql.org/docs/18/plpgsql.html), [*Function Volatility Categories*](https://www.postgresql.org/docs/18/xfunc-volatility.html), [*Inlining of SQL Functions*](https://wiki.postgresql.org/wiki/Inlining_of_SQL_functions) (wiki), [*CREATE PROCEDURE*](https://www.postgresql.org/docs/18/sql-createprocedure.html), [*Transaction Management*](https://www.postgresql.org/docs/18/plpgsql-transactions.html) (in procedures), [*Triggers*](https://www.postgresql.org/docs/18/triggers.html), [*CREATE TRIGGER*](https://www.postgresql.org/docs/18/sql-createtrigger.html).
+- MySQL reference manual: [*Stored Objects*](https://dev.mysql.com/doc/refman/8.4/en/stored-objects.html) (stored routines, triggers, views).
