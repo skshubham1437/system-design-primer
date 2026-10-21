@@ -161,7 +161,7 @@ describe('TCP and UDP', () => {
     const t = simulate('tcp', 12, 0, 80), u = simulate('udp', 12, 0, 80);
     expect(t.delivered).toBe(12); expect(u.delivered).toBe(12);
     expect(t.retransmits).toBe(0);
-    expect(t.handshakeMs).toBe(120);
+    expect(t.handshakeMs).toBe(80); // one round trip before data can be sent
     expect(u.handshakeMs).toBe(0);
     expect(t.doneAt).toBeGreaterThan(u.doneAt);
   });
@@ -342,5 +342,67 @@ describe('load curve', () => {
   it('produces a monotonic curve', () => {
     const c = curve(10);
     for (let i = 1; i < c.length; i++) expect(c[i].ms).toBeGreaterThan(c[i - 1].ms);
+  });
+});
+
+describe('semi-synchronous replication', async () => {
+  const repl = await import('../../src/lib/replication');
+  const ticks = (s: ReturnType<typeof repl.create>, n: number) => { for (let i = 0; i < n; i++) s = repl.advance(s); return s; };
+  it('acknowledges once one replica has the write: sooner than sync when a replica is far away', () => {
+    let semi = repl.write({ ...repl.create('semi', 2), far: true });
+    let sync = repl.write({ ...repl.create('sync', 2), far: true });
+    semi = ticks(semi, 2); sync = ticks(sync, 2);
+    expect(semi.acked).toBe(1);
+    expect(sync.acked).toBe(0);
+    sync = ticks(sync, 2);
+    expect(sync.acked).toBe(1);
+  });
+  it('loses nothing acknowledged when the primary crashes, because the closest replica has every acknowledged write', () => {
+    let s = repl.write({ ...repl.create('semi', 2), far: true });
+    s = ticks(s, 2);
+    s = repl.crashPrimary(s);
+    const { lost } = repl.promote(s);
+    expect(lost).toBe(0);
+  });
+});
+
+describe('shared queue (M/M/c)', async () => {
+  const { responseMs, responseMsShared } = await import('../../src/lib/load-curve');
+  it('with one server it is the same as M/M/1', () => {
+    for (const u of [0.1, 0.5, 0.9]) expect(responseMsShared(u, 1, 20)).toBeCloseTo(responseMs(u, 20), 6);
+  });
+  it('a shared queue beats separate queues at the same utilisation, more so with more servers', () => {
+    expect(responseMsShared(0.75, 8, 20)).toBeLessThan(responseMs(0.75, 20));
+    expect(responseMsShared(0.9, 16, 20)).toBeLessThan(responseMsShared(0.9, 2, 20));
+  });
+  it('is close to the bare service time when servers are idle', () => {
+    expect(responseMsShared(0.05, 8, 20)).toBeCloseTo(20, 1);
+  });
+});
+
+describe('sharding after traffic changes', async () => {
+  const { makeUsers, assign, load, imbalance, laterTraffic } = await import('../../src/lib/sharding');
+  const users = makeUsers(600, true);
+  it('a lookup table placed by yesterday\'s traffic is no longer balanced when popularity moves', () => {
+    const a = assign('directory', users, 4);
+    expect(imbalance(load(users, a, 4).traffic)).toBeCloseTo(1, 2);
+    expect(imbalance(load(laterTraffic(users, { shift: true }), a, 4).traffic)).toBeGreaterThan(1.05);
+  });
+  it('one celebrity overloads a shard whatever the strategy', () => {
+    for (const s of ['range', 'hash', 'directory'] as const) {
+      const a = assign(s, users, 4);
+      expect(imbalance(load(laterTraffic(users, { celebrity: true }), a, 4).traffic), s).toBeGreaterThan(1.5);
+    }
+  });
+});
+
+describe('QUIC', async () => {
+  const { simulate } = await import('../../src/lib/transport');
+  it('is reliable like TCP, but a loss stalls only its own stream, so data reaches the application sooner', () => {
+    const t = simulate('tcp', 40, 20, 80), q = simulate('quic', 40, 20, 80);
+    expect(q.delivered).toBe(40);
+    expect(q.retransmits).toBe(t.retransmits); // the same packets were lost and resent
+    const waiting = (r: typeof t) => r.packets.reduce((n, p) => n + (p.deliveredAt! - p.arrivedAt!), 0);
+    expect(waiting(q)).toBeLessThan(waiting(t));
   });
 });

@@ -16,6 +16,14 @@ Before a browser can load `www.example.com` it needs an IP address. The [Domain 
 - **DNS can do more than translate.** Managed DNS services can route traffic by weight, latency or geography, which is another way to spread load across [servers or regions](#load-balancer).
 - Records come in kinds: an **A record** points a name at an address, a **CNAME** points a name at another name, an **NS record** names the servers for a domain, and an **MX record** names the mail servers.
 
+## Changing a record
+
+The walk above is about speed. TTL is about change. Move a site to a new server and every resolver that cached the old answer keeps sending users there until its copy expires.
+
+<div data-widget="dns-ttl"></div>
+
+Try it with a one-day TTL: look the name up, point it at the new server, then let an hour pass and look again. Users still reach the old server. Now reset, choose the one-day TTL, look it up, switch the TTL to 5 minutes and change the record straight away: it does not help, because the cached answer keeps the one-day TTL it was given. The working recipe is to lower the TTL at least one old TTL *before* the move, so that by moving day every cache holds a short-lived answer. Keep the old server running until the old TTL has passed.
+
 ## About the numbers
 
 The times (20 ms to the resolver, 30 ms to a root server, and so on) are illustrative, not measurements. Real values depend on where you are, and many steps overlap or are skipped. Use them to compare cases, not to predict a real lookup.

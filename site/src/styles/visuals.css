@@ -280,3 +280,7 @@
 .pp-months .scan { border-color: var(--accent); background: var(--accent-soft); }
 .pp-months .skip { border-style: dashed; }
 @media (max-width: 700px) { .pp-months { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-inline: 16px; } }
+.q-rule { margin: 12px 24px 0; font-size: 14px; }
+@media (max-width: 700px) { .q-rule { margin-inline: 16px; } }
+.story-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; }
+.story-check small { color: var(--ink-2); flex-basis: 100%; }

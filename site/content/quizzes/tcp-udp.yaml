@@ -1,0 +1,54 @@
+# Questions about the TCP, UDP and QUIC lab. reviewed: true only after a second person checks.
+topic: labs/tcp-udp/
+reviewed: false
+questions:
+  - id: tcp-hol
+    q: What is head-of-line blocking in TCP?
+    choices:
+      - A packet that arrived is held back until every earlier packet has arrived
+      - The first packet is always lost
+      - The handshake blocks all traffic
+      - Packets are sent one at a time
+    answer: 0
+    why: TCP delivers one ordered stream, so one lost packet holds back everything behind it until it is resent.
+    difficulty: 1
+  - id: tcp-udp-voice
+    q: Why do voice and video calls usually use UDP?
+    choices:
+      - UDP is encrypted
+      - UDP guarantees delivery
+      - TCP cannot carry audio
+      - A late packet is useless, so waiting for retransmission is the wrong trade
+    answer: 3
+    why: The deciding question is what you do with a late packet. In a call it arrives too late to play, so skipping it is better than waiting.
+    difficulty: 1
+  - id: tcp-no-loss
+    q: With no packet loss, why does TCP still finish later than UDP in the lab?
+    choices:
+      - It sends packets more slowly
+      - It spends a round trip on the handshake before data flows
+      - It resends every packet
+      - UDP compresses the data
+    answer: 1
+    why: Connection set-up costs one round trip before the client can send data.
+    difficulty: 1
+  - id: tcp-quic-streams
+    q: How does QUIC reduce head-of-line blocking compared with TCP?
+    choices:
+      - It never resends lost packets
+      - It sends every packet twice
+      - Each stream is ordered separately, so a loss only holds back its own stream
+      - It has no handshake
+    answer: 2
+    why: QUIC is reliable like TCP, but several independent streams share one connection; a loss stalls one of them, not all.
+    difficulty: 2
+  - id: tcp-quic-tls
+    q: Besides independent streams, what does QUIC save compared with TCP plus TLS?
+    choices:
+      - All retransmissions
+      - Round trips at set-up, because encryption is negotiated in the same handshake
+      - The need for IP addresses
+      - Congestion control
+    answer: 1
+    why: QUIC's one-round-trip handshake includes TLS, which TCP needs extra round trips for.
+    difficulty: 2

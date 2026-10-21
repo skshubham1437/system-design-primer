@@ -1,0 +1,54 @@
+# Questions about the capacity estimator lab. reviewed: true only after a second person checks.
+topic: labs/estimator/
+reviewed: false
+questions:
+  - id: est-qps
+    q: How do you turn daily requests into an average rate per second?
+    choices:
+      - Divide by 3,600
+      - Divide by 86,400, the seconds in a day (about 100,000 is close enough when rounding)
+      - Divide by 1,440
+      - Multiply by the peak factor
+    answer: 1
+    why: A day has 86,400 seconds. Rounding aggressively is fine as long as you say so.
+    difficulty: 1
+  - id: est-peak
+    q: Why size the system for peak rather than average traffic?
+    choices:
+      - Averages are hard to compute
+      - Peak is always ten times the average
+      - Storage depends on peak traffic
+      - Traffic is never flat; the busiest moments are what the system must survive
+    answer: 3
+    why: The peak factor multiplies the average to estimate the busiest second.
+    difficulty: 1
+  - id: est-headroom
+    q: Why does the estimator size servers at 70% busy instead of 100%?
+    choices:
+      - Latency climbs steeply near full load, so the last stretch of capacity is not usable
+      - Servers cannot run above 70%
+      - It saves storage
+      - It is required by cloud providers
+    answer: 0
+    why: As the load curve lab shows, a server at 90% busy answers about ten times slower than an idle one.
+    difficulty: 2
+  - id: est-storage
+    q: Which factors multiply into total storage in the estimator?
+    choices:
+      - Reads per day × read size
+      - Peak writes × write size
+      - Writes per day × write size × 365 × years × replicas × overhead
+      - Users × replicas
+    answer: 2
+    why: Storage grows with what is written, kept for the retention period, copied for durability, and inflated by indexes and metadata.
+    difficulty: 2
+  - id: est-ratio
+    q: What does a read-to-write ratio of 100 to 1 suggest first?
+    choices:
+      - Caching and read replicas will pay off before anything else
+      - Sharding the writes immediately
+      - A write-optimised store
+      - Nothing; the ratio does not matter
+    answer: 0
+    why: When reads dominate, serving them from caches and replicas removes most of the load.
+    difficulty: 1

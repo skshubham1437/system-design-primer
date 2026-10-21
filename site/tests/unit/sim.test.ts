@@ -152,3 +152,16 @@ describe('simulateLb', () => {
     expect(r.frames.every((f) => f.length === 4)).toBe(true);
   });
 });
+
+describe('2Q cache policy', () => {
+  it('survives scans that flush LRU: hot keys seen twice stay while one-off keys pass through', () => {
+    const seq: string[] = [];
+    for (let round = 0; round < 6; round++) { seq.push('A', 'B', 'C', 'A', 'B', 'C'); for (let i = 0; i < 6; i++) seq.push(`s${round}-${i}`); }
+    const rate = (p: 'lru' | '2q') => simulateCache(p, seq, 4).filter((s) => s.hit).length;
+    expect(rate('2q')).toBeGreaterThan(rate('lru'));
+  });
+  it('never holds more than its capacity', () => {
+    const steps = simulateCache('2q', 'A B C D E F A B G H A B C'.split(' '), 4);
+    expect(steps.every((s) => s.cache.length <= 4)).toBe(true);
+  });
+});

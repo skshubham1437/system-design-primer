@@ -1,0 +1,54 @@
+# Questions about the sharding lab. reviewed: true only after a second person checks.
+topic: labs/sharding/
+reviewed: false
+questions:
+  - id: sh-range-lopsided
+    q: Why did sharding users by surname leave one shard almost empty with six shards?
+    choices:
+      - The hash function was poor
+      - Six is not a power of two
+      - Surnames are not spread evenly across the alphabet
+      - Range sharding always fills the last shard first
+    answer: 2
+    why: Range sharding is only as even as the data. With six slices of the alphabet, the last shard held only a handful of users.
+    difficulty: 1
+  - id: sh-hash-hot
+    q: Hash sharding evens out the number of users per shard. What can still make one shard hot?
+    choices:
+      - Too many shards
+      - A few very busy users landing on it
+      - Range queries
+      - The lookup table
+    answer: 1
+    why: Even counts are not even traffic. Power users with many times the traffic can overload whichever shard they land on.
+    difficulty: 1
+  - id: sh-scatter
+    q: Which query must ask every shard, whatever the strategy?
+    choices:
+      - Looking up one user by id
+      - Finding users by surname with range sharding
+      - Counting users on one shard
+      - Finding all users in one city, when the shard key is the user
+    answer: 3
+    why: Only conditions on the shard key can be routed. Anything else is scatter-gather across all shards.
+    difficulty: 2
+  - id: sh-directory-drift
+    q: A lookup table placed users by load. Why does it become unbalanced later?
+    choices:
+      - Popularity moves to different users, and the table still reflects old traffic
+      - Lookup tables lose entries
+      - Hashing changes over time
+      - New shards are added automatically
+    answer: 0
+    why: Placement by load is only as good as the load it was based on. Keeping it balanced means moving users as traffic shifts.
+    difficulty: 2
+  - id: sh-celebrity
+    q: One user suddenly gets 400 times the usual traffic. Which strategy keeps the shards balanced?
+    choices:
+      - Range sharding
+      - Hash sharding
+      - None; one key cannot be split by any placement
+      - A lookup table
+    answer: 2
+    why: Hot keys need separate treatment, such as caching, read replicas for that data, or splitting the key itself.
+    difficulty: 2

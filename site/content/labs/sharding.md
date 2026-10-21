@@ -9,6 +9,9 @@
 3. **Switch to "Lookup table".** Users are placed deliberately by load, so traffic comes out level. The cost is that the table itself must be stored, kept in sync and never become the bottleneck.
 4. **Look at the queries.** Finding one user by the shard key touches one shard under every strategy. Finding everyone whose surname starts with M is cheap only under range sharding. Finding everyone in one city has to ask *every* shard and merge the answers, which is called scatter-gather.
 
+5. **Choose "Lookup table", then tick "popularity moves".** The table was balanced for yesterday's traffic. When different users become busy, it is lopsided again until someone moves users around, which is the operational cost of a lookup table.
+6. **Tick "one user becomes a celebrity".** Whatever the strategy, the shard holding that user is overloaded: one key cannot be split by any placement. Real systems handle hot keys separately, by caching that user's data, replicating it for reads, or splitting the key itself (for example by appending a suffix and spreading writes).
+
 ## What this shows
 
 - **Why sharding reduces load**: each shard sees less read and write traffic, holds a smaller index, and fails independently, as the [sharding](#sharding) section explains. It also lists the costs: application logic must know about shards, data can become lopsided, joins across shards are hard, and rebalancing is complex.

@@ -20,10 +20,38 @@ export function hash32(str: string): number {
 }
 
 
-export type Policy = 'lru' | 'lfu' | 'fifo' | 'random' | 'opt';
+export type Policy = 'lru' | 'lfu' | 'fifo' | 'random' | 'opt' | '2q';
 export interface Step { key: string; hit: boolean; evicted?: string; cache: string[] }
 
+/**
+ * 2Q (Johnson and Shasha, 1994): a small first-in-first-out area for keys seen once, an LRU area for keys seen again,
+ * and a "ghost" list remembering the names (not the data) of keys recently pushed out of the first area.
+ * A key that comes back while still remembered goes straight into the LRU area. A one-off scan only churns the
+ * small area, so the keys that are really hot survive it.
+ */
+function simulate2q(seq: string[], cap: number): Step[] {
+  const inSize = Math.max(1, Math.floor(cap / 4));
+  const ghostSize = Math.max(1, Math.floor(cap / 2));
+  let a1: string[] = [], am: string[] = [], ghost: string[] = [];
+  return seq.map((key) => {
+    let evicted: string | undefined;
+    const hit = a1.includes(key) || am.includes(key);
+    if (am.includes(key)) am = [...am.filter((k) => k !== key), key];
+    else if (a1.includes(key)) { /* a second look while still on probation: 2Q leaves it in place */ }
+    else if (ghost.includes(key)) {
+      ghost = ghost.filter((k) => k !== key);
+      if (am.length >= cap - inSize) { evicted = am[0]; am = am.slice(1); }
+      am = [...am, key];
+    } else {
+      if (a1.length >= inSize) { evicted = a1[0]; a1 = a1.slice(1); ghost = [...ghost, evicted].slice(-ghostSize); }
+      a1 = [...a1, key];
+    }
+    return { key, hit, evicted, cache: [...a1, ...am] };
+  });
+}
+
 export function simulateCache(policy: Policy, seq: string[], cap: number): Step[] {
+  if (policy === '2q') return simulate2q(seq, cap);
   const rnd = mulberry32(7);
   const steps: Step[] = [];
   let cache: string[] = []; // order depends on policy: LRU/FIFO keep oldest first

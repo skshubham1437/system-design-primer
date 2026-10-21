@@ -40,7 +40,7 @@ function shell(host: HTMLElement, cls: string, label: string, head: { eyebrow: s
 
 /* ------------------------------------------------------------ capacity estimator */
 
-interface EstInputs { dau: number; reads: number; writes: number; rkb: number; wkb: number; peak: number; years: number; repl: number; hot: number; perServer: number }
+interface EstInputs { dau: number; reads: number; writes: number; rkb: number; wkb: number; peak: number; years: number; repl: number; overhead: number; hot: number; perServer: number; target: number }
 
 function estimator(host: HTMLElement) {
   const fields: { id: keyof EstInputs; label: string; unit: string; help: string; step?: number }[] = [
@@ -52,15 +52,17 @@ function estimator(host: HTMLElement) {
     { id: 'peak', label: 'Peak factor', unit: '× average', help: 'Busiest second versus the daily average', step: 0.5 },
     { id: 'years', label: 'Retention', unit: 'years', help: 'How long you keep the data', step: 0.5 },
     { id: 'repl', label: 'Replication factor', unit: 'copies', help: 'Copies kept for durability' },
+    { id: 'overhead', label: 'Storage overhead', unit: '× raw data', help: 'Indexes and metadata; often 1.5 to 2', step: 0.1 },
     { id: 'hot', label: 'Hot data to cache', unit: '% of daily reads', help: 'Share of a day\'s read data worth holding in memory' },
-    { id: 'perServer', label: 'Capacity of one app server', unit: 'req/s', help: 'What a single server comfortably handles' },
+    { id: 'perServer', label: 'Capacity of one app server', unit: 'req/s', help: 'What a single server handles at full load' },
+    { id: 'target', label: 'Run servers at', unit: '% busy', help: 'Headroom: latency climbs steeply near 100%', step: 5 },
   ];
   const presets: Record<string, { label: string; v: EstInputs }> = {
-    pastebin: { label: 'Pastebin', v: { dau: 333_333, reads: 10, writes: 1, rkb: 1, wkb: 1, peak: 3, years: 3, repl: 3, hot: 20, perServer: 1000 } },
-    shortener: { label: 'URL shortener', v: { dau: 2_000_000, reads: 50, writes: 1, rkb: 0.5, wkb: 0.5, peak: 3, years: 5, repl: 3, hot: 20, perServer: 2000 } },
-    twitter: { label: 'Twitter-like', v: { dau: 100_000_000, reads: 100, writes: 5, rkb: 2, wkb: 10, peak: 3, years: 3, repl: 3, hot: 10, perServer: 2000 } },
-    chat: { label: 'Chat app', v: { dau: 50_000_000, reads: 60, writes: 40, rkb: 0.2, wkb: 0.2, peak: 4, years: 2, repl: 3, hot: 5, perServer: 5000 } },
-    photos: { label: 'Photo sharing', v: { dau: 20_000_000, reads: 80, writes: 0.5, rkb: 300, wkb: 2000, peak: 3, years: 5, repl: 3, hot: 5, perServer: 1000 } },
+    pastebin: { label: 'Pastebin', v: { dau: 333_333, reads: 10, writes: 1, rkb: 1, wkb: 1, peak: 3, years: 3, repl: 3, overhead: 1, hot: 20, perServer: 1000, target: 70 } },
+    shortener: { label: 'URL shortener', v: { dau: 2_000_000, reads: 50, writes: 1, rkb: 0.5, wkb: 0.5, peak: 3, years: 5, repl: 3, overhead: 1, hot: 20, perServer: 2000, target: 70 } },
+    twitter: { label: 'Twitter-like', v: { dau: 100_000_000, reads: 100, writes: 5, rkb: 2, wkb: 10, peak: 3, years: 3, repl: 3, overhead: 1, hot: 10, perServer: 2000, target: 70 } },
+    chat: { label: 'Chat app', v: { dau: 50_000_000, reads: 60, writes: 40, rkb: 0.2, wkb: 0.2, peak: 4, years: 2, repl: 3, overhead: 1, hot: 5, perServer: 5000, target: 70 } },
+    photos: { label: 'Photo sharing', v: { dau: 20_000_000, reads: 80, writes: 0.5, rkb: 300, wkb: 2000, peak: 3, years: 5, repl: 3, overhead: 1, hot: 5, perServer: 1000, target: 70 } },
   };
 
   const root = shell(host, 'estimator', 'Capacity estimator', { eyebrow: 'Calculator', title: 'Size a system on the back of an envelope', desc: 'Pick a starting point, then change any assumption. Results update as you type.' }, `
@@ -87,11 +89,12 @@ function estimator(host: HTMLElement) {
     const pr = rps * v.peak;
     const dayBytes = v.dau * v.writes * v.wkb * 1024;
     const yearBytes = dayBytes * 365;
-    const total = yearBytes * v.years * v.repl;
+    const total = yearBytes * v.years * v.repl * (v.overhead || 1);
     const ingress = pw * v.wkb * 1024;
     const egress = pr * v.rkb * 1024;
     const cache = v.dau * v.reads * v.rkb * 1024 * (v.hot / 100);
-    const servers = v.perServer ? Math.max(1, Math.ceil((pr + pw) / v.perServer)) : 0;
+    const usable = v.perServer * Math.min(100, Math.max(1, v.target || 100)) / 100; // capacity at the chosen utilisation
+    const servers = usable ? Math.max(1, Math.ceil((pr + pw) / usable)) : 0;
     const ratio = wps > 0 ? rps / wps : Infinity;
 
     const card = (label: string, value: string, how: string, tone = '') => `<div class="est-card ${tone}"><span class="est-label">${label}</span><b>${value}</b><small>${how}</small></div>`;
@@ -111,11 +114,11 @@ function estimator(host: HTMLElement) {
         ${card('Read : write', isFinite(ratio) ? `${human(ratio)} : 1` : 'no writes', 'reads ÷ writes')}
         ${card('New data per day', bytes(dayBytes), `writes/day × ${v.wkb} KB`)}
         ${card('Storage per year', bytes(yearBytes), 'per day × 365')}
-        ${card(`Storage, ${v.years} yr × ${v.repl} copies`, bytes(total), 'per year × years × replicas', 'strong')}
+        ${card(`Storage, ${v.years} yr × ${v.repl} copies`, bytes(total), `per year × years × replicas${v.overhead && v.overhead !== 1 ? ` × ${v.overhead} overhead` : ''}`, 'strong')}
         ${card('Ingress, peak', `${bytes(ingress)}/s`, 'peak writes × write size')}
-        ${card('Egress, peak', `${bytes(egress)}/s`, 'peak reads × read size')}
+        ${card('Egress, peak', `${bytes(egress)}/s`, `peak reads × read size, about ${human((egress * 8) / 1e9)} Gbit/s`)}
         ${card('Cache to hold hot data', bytes(cache), `${v.hot}% of a day's read data`)}
-        ${card('App servers (peak)', human(servers), `(peak reads + writes) ÷ ${human(v.perServer)} req/s`, 'strong')}
+        ${card('App servers (peak)', human(servers), `(peak reads + writes) ÷ (${human(v.perServer)} req/s × ${v.target}%)`, 'strong')}
       </div>
       <div class="est-hints"><h4>What this suggests</h4><ul>${hints.map((h) => `<li>${h}</li>`).join('')}</ul><p class="est-note">Rules of thumb, not a verdict. State your assumptions out loud and let the interviewer adjust them.</p></div>`;
   };
@@ -148,6 +151,7 @@ function consistentHash(host: HTMLElement) {
   let prevOwners: string[] | null = null;
   let moved: { label: string; ch: number; mod: number } | null = null;
   let lookup = 'user:42';
+  let rf = 1;
 
   const root = shell(host, 'chash', 'Consistent hashing', { eyebrow: 'Simulation', title: 'The hash ring', desc: 'Nodes and keys are hashed onto the same circle. A key belongs to the next node clockwise.' }, `
     <div class="ch-controls">
@@ -160,6 +164,7 @@ function consistentHash(host: HTMLElement) {
         <div class="ch-moved" id="ch-moved" aria-live="polite"></div>
         <h4>Share of ${num(KEYS)} keys</h4>
         <div class="ch-bars" id="ch-bars"></div>
+        <label class="lab-range"><span>Copies of each key <b id="ch-rf">1</b></span><input type="range" min="1" max="3" value="1" id="ch-rfs" aria-label="Copies of each key" /></label>
         <label class="lab-field inline"><span>Look up a key</span><div class="lab-input"><input type="text" id="ch-key" value="user:42" spellcheck="false" autocomplete="off" /></div></label>
         <p class="ch-lookup" id="ch-lookup"></p>
       </div>
@@ -226,7 +231,12 @@ function consistentHash(host: HTMLElement) {
     $('#ch-moved', root)!.innerHTML = moved
       ? `<h4>${esc(moved.label)}</h4><div class="ch-compare"><div><b>${(moved.ch * 100).toFixed(1)}%</b><span>keys moved with consistent hashing</span></div><div class="bad"><b>${(moved.mod * 100).toFixed(1)}%</b><span>would move with <code>hash mod N</code></span></div></div>`
       : '<h4>Change something</h4><p class="ch-note">Add or remove a server and compare how many keys have to move.</p>';
-    $('#ch-lookup', root)!.innerHTML = `<code>${esc(lookup)}</code> hashes to <b>${((lh / 4294967296) * 360).toFixed(0)}°</b>, so the next point clockwise belongs to <b class="ch-node" style="--c:${color(lo.node)}">server ${lo.node}</b>.`;
+    // replicas: keep walking clockwise and take the next distinct servers
+    const copyOwners: string[] = [];
+    const start = ring.indexOf(lo);
+    for (let k = 0; k < ring.length && copyOwners.length < Math.min(rf, nodes.length); k++) { const nd = ring[(start + k) % ring.length].node; if (!copyOwners.includes(nd)) copyOwners.push(nd); }
+    $('#ch-lookup', root)!.innerHTML = `<code>${esc(lookup)}</code> hashes to <b>${((lh / 4294967296) * 360).toFixed(0)}°</b>, so the next point clockwise belongs to <b class="ch-node" style="--c:${color(lo.node)}">server ${lo.node}</b>.${copyOwners.length > 1 ? ` With ${copyOwners.length} copies, walk on clockwise past points of servers already chosen: the copies live on ${copyOwners.map((o) => `<b class="ch-node" style="--c:${color(o)}">server ${o}</b>`).join(', ')}.` : ''}`;
+    $('#ch-rf', root)!.textContent = String(rf);
     $('#ch-v', root)!.textContent = String(vnodes);
   };
 
@@ -254,6 +264,7 @@ function consistentHash(host: HTMLElement) {
     moved = moved && { ...moved, mod: 0 };
     $('#ch-moved', root)!.innerHTML = `<h4>Changed to ${v} virtual node${v > 1 ? 's' : ''} per server</h4><p class="ch-note">Watch the bars: more points on the ring means arcs of more even length.</p>`;
   });
+  $('#ch-rfs', root)!.addEventListener('input', (e) => { rf = Number((e.target as HTMLInputElement).value); draw(); });
   $('#ch-key', root)!.addEventListener('input', (e) => { lookup = (e.target as HTMLInputElement).value; const ring = ringOf(); void ring; draw(); });
   draw();
 }
@@ -272,6 +283,7 @@ function cacheEviction(host: HTMLElement) {
     { id: 'lfu', label: 'LFU', short: 'least frequently used' },
     { id: 'fifo', label: 'FIFO', short: 'first in, first out' },
     { id: 'random', label: 'Random', short: 'random victim' },
+    { id: '2q', label: '2Q', short: 'scan-resistant' },
     { id: 'opt', label: 'Optimal', short: 'knows the future' },
   ];
   const patterns: Record<string, { label: string; make: (cap: number) => string[] }> = {

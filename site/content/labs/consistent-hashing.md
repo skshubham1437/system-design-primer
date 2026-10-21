@@ -16,6 +16,12 @@ Adding a node only takes over the arc between it and its predecessor, so on aver
 - **Compare the "keys moved" figures.** Modulo hashing reshuffles most keys on every change, which in a cache means a flood of misses hitting the database at once.
 - **Removing a node** spreads its load across many neighbours when each node has many virtual nodes, rather than dumping it all on one.
 
+## Copies and hot keys
+
+Stores built on a ring usually keep each key on several servers. Set **Copies of each key** to 3 and look up a key: the copies go to the next distinct servers clockwise, skipping extra points of a server already chosen, so two copies never land on the same machine. When a server fails, its keys are still on the next ones, which is also where the ring sends their traffic.
+
+What the ring cannot fix is a **hot key**. Spreading keys evenly says nothing about how often each one is asked for; a single very popular key still lands on one server (and its replicas). Caching it, or splitting the key itself, is the usual answer. The [sharding lab](site:labs/sharding/) shows the same problem with a celebrity user.
+
 ## Where it shows up
 
 [Sharding](#sharding), distributed [caches](#cache) such as Memcached clients, and Dynamo-style [wide-column and key-value stores](#nosql) all use some form of it. It is also the usual answer to "how do you add a cache server without a stampede?".

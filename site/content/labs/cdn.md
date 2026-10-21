@@ -17,6 +17,12 @@ Distance costs time. A user in Asia reaching a server in the United States waits
 - **[Pull CDNs](#pull-cdns)** suit busy sites, where only recently requested content stays on the CDN. They can create redundant traffic when files expire before they have actually changed.
 - **Staleness is the cost.** Content may be out of date if it changes before its TTL expires. See [the disadvantages of CDNs](#disadvantages-cdn).
 
+## Watch the hit ratio
+
+The counters under the map are what a CDN is judged by. Request each region a few times with a pull CDN: the hit ratio climbs as the edges fill, the origin sees only the first request per region per TTL, and the average time falls towards the 15 ms of a nearby edge. Shorten the TTL and the ratio drops, because copies expire before they are reused.
+
+Purging is the blunt way to publish a new version of a file. The usual alternative is **versioned URLs**: put a hash of the content in the file name (`app.3f9a1c.js`), give it a very long TTL, and change the name when the content changes. Nothing ever has to be purged, and a cached old version can never be served for the new name.
+
 ## About the numbers
 
 The milliseconds are illustrative round trips (15 ms to a nearby edge, 40 to 190 ms to the origin depending on where you are). They show the shape of the benefit, which grows with distance.

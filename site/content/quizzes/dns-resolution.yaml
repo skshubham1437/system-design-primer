@@ -1,0 +1,54 @@
+# Questions about the DNS lab. reviewed: true only after a second person checks.
+topic: labs/dns-resolution/
+reviewed: false
+questions:
+  - id: dns-common-case
+    q: What is the most common way a lookup is answered quickly?
+    choices:
+      - By the root servers
+      - By the authoritative server every time
+      - By the TLD servers
+      - From a cache, often the resolver's, which serves many users and keeps popular names warm
+    answer: 3
+    why: Caching is what makes DNS fast; a full walk from the root is rare.
+    difficulty: 1
+  - id: dns-ttl-change
+    q: You move a site to a new server. Why do some users keep reaching the old one?
+    choices:
+      - Resolvers cached the old answer and keep serving it until its TTL expires
+      - DNS updates take exactly one day everywhere
+      - Browsers never refresh DNS
+      - The authoritative server keeps both addresses
+    answer: 0
+    why: Caches do not hear about the change; they hold the answer for the TTL it came with.
+    difficulty: 1
+  - id: dns-lower-early
+    q: When should you lower a record's TTL before a move?
+    choices:
+      - At the moment of the move
+      - After the move
+      - At least one old TTL ahead, so caches already hold short-lived answers on moving day
+      - It makes no difference
+    answer: 2
+    why: An answer already cached keeps the TTL it was given; lowering the TTL at the last minute does not shorten it.
+    difficulty: 2
+  - id: dns-skip-root
+    q: Why can a resolver often skip the root servers?
+    choices:
+      - It remembers where the top-level domain servers are
+      - The root servers are always offline
+      - Browsers ask the TLD servers directly
+      - Root servers only answer for .com
+    answer: 0
+    why: Resolvers cache the servers for each top-level domain, so even a name nobody asked about recently usually skips the first hop.
+    difficulty: 2
+  - id: dns-record-types
+    q: Which record points one name at another name?
+    choices:
+      - A
+      - MX
+      - NS
+      - CNAME
+    answer: 3
+    why: An A record holds an address, a CNAME an alias to another name, an MX the mail servers, and an NS the name servers for a domain.
+    difficulty: 1

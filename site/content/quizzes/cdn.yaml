@@ -1,0 +1,54 @@
+# Questions about the CDN lab. reviewed: true only after a second person checks.
+topic: labs/cdn/
+reviewed: false
+questions:
+  - id: cdn-first-pull
+    q: With a pull CDN, why is the first request in a region slower than having no CDN at all?
+    choices:
+      - The CDN encrypts the file first
+      - Edges are farther away than the origin
+      - The edge has to fetch the file from the origin before it can answer
+      - Pull CDNs throttle the first request
+    answer: 2
+    why: The first request pays the trip to the edge plus the trip from the edge to the origin. Later requests are served from the edge.
+    difficulty: 1
+  - id: cdn-push-when
+    q: When does a push CDN suit better than a pull CDN?
+    choices:
+      - Little traffic, or content that rarely changes, so you can upload it once
+      - Very busy sites with constantly changing content
+      - When you cannot upload files yourself
+      - Only for video
+    answer: 0
+    why: Push places content on the edges up front, so you take on uploading it; pull only keeps recently requested content.
+    difficulty: 1
+  - id: cdn-hit-ratio
+    q: What does the hit ratio measure?
+    choices:
+      - The share of users in each region
+      - How often files change
+      - The share of requests that failed
+      - The share of requests served by an edge without going to the origin
+    answer: 3
+    why: 'It is the number that justifies a CDN: every hit is a request your servers never see, served from nearby.'
+    difficulty: 1
+  - id: cdn-short-ttl
+    q: What does a very short TTL on a pull CDN cost?
+    choices:
+      - Content becomes stale for longer
+      - Copies expire before they are reused, so more requests go to the origin
+      - The edges run out of disk
+      - Nothing
+    answer: 1
+    why: A short TTL keeps content fresh but lowers the hit ratio; a long one does the opposite.
+    difficulty: 2
+  - id: cdn-versioned
+    q: What is the usual alternative to purging edges when a file changes?
+    choices:
+      - Setting the TTL to zero
+      - Turning the CDN off during deploys
+      - Versioned URLs, such as a content hash in the file name, with a long TTL
+      - Asking users to clear their cache
+    answer: 2
+    why: A new version gets a new name, so nothing has to be purged and an old cached copy can never be served for the new name.
+    difficulty: 2

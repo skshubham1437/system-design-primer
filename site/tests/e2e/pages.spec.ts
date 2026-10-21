@@ -17,7 +17,7 @@ for (const theme of ['light', 'dark'] as const) test.describe(`every page (${the
   });
 
   test('load cleanly, fit the screen, and pass axe including contrast', async ({ page }, info) => {
-    test.setTimeout(300_000);
+    test.setTimeout(600_000); // every page, with axe on each: grows with the site
     await page.addInitScript((t) => localStorage.setItem('theme', t), theme);
     const problems: string[] = [];
     page.on('pageerror', (e) => problems.push(`pageerror ${e.message}`));

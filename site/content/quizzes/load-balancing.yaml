@@ -1,0 +1,54 @@
+# Questions about the load balancing lab. reviewed: true only after a second person checks.
+topic: labs/load-balancing/
+reviewed: false
+questions:
+  - id: lb-least-tail
+    q: Over 20 runs with identical servers, which algorithm gave the lowest and most predictable tail latency?
+    choices:
+      - Least connections
+      - Round robin
+      - Random
+      - IP hash
+    answer: 0
+    why: Least connections notices a server stuck behind a slow request and sends work elsewhere. Its p95 stayed in a narrow band while round robin's varied a lot from run to run.
+    difficulty: 1
+  - id: lb-one-run
+    q: Why does the lab report the median of 20 runs instead of one run?
+    choices:
+      - Twenty runs are faster to compute
+      - Each run uses a different algorithm
+      - The first run is always wrong
+      - One run can make the same algorithm look good or bad by luck
+    answer: 3
+    why: Round robin's p95 ranged from about 19 to 48 over the runs. A single run, like a single benchmark, can mislead.
+    difficulty: 1
+  - id: lb-ip-hash
+    q: What is the main weakness of IP hash?
+    choices:
+      - It cannot keep a client on the same server
+      - It follows whatever skew the clients have; one heavy client overloads its server
+      - It needs to know each server's speed
+      - It only works at layer 7
+    answer: 1
+    why: Each client is pinned to one server, which keeps sessions sticky, but a hot client sends a large share of all requests to a single server.
+    difficulty: 1
+  - id: lb-dead-server
+    q: A server dies but still accepts connections, and there are no health checks. Which algorithm loses the fewest requests?
+    choices:
+      - Round robin
+      - IP hash
+      - Least connections, because the dead server's queue grows and it stops being chosen
+      - Random
+    answer: 2
+    why: Round robin, random and IP hash keep sending the dead server its share. Least connections loses far fewer by accident, though health checks are the real fix.
+    difficulty: 2
+  - id: lb-health-checks-tail
+    q: Why does turning on health checks make p95 latency slightly worse even though failures almost stop?
+    choices:
+      - Health checks use a lot of CPU
+      - The remaining servers carry the work of the dead one, so they are busier
+      - The balancer slows every request to probe servers
+      - Failed requests are now counted in the latency
+    answer: 1
+    why: Removing a dead server stops the losses, but three servers now do the work of four. Detecting failure is half the job; spare capacity is the other half.
+    difficulty: 2

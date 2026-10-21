@@ -16,12 +16,23 @@ export interface Result { packets: Packet[]; handshakeMs: number; doneAt: number
 
 const GAP = 10;
 
-export function simulate(protocol: 'tcp' | 'udp', count: number, lossPct: number, rttMs: number, seed = 5): Result {
+export type Protocol = 'tcp' | 'udp' | 'quic';
+export const QUIC_STREAMS = 4;
+
+/**
+ * TCP: reliable, one ordered byte stream, so a loss holds back everything behind it.
+ * UDP: no set-up, no retransmission, no order.
+ * QUIC (the transport under HTTP/3): reliable like TCP, but each stream is ordered separately, so a loss only holds
+ * back its own stream. Packet n belongs to stream n % QUIC_STREAMS here.
+ */
+export function simulate(protocol: Protocol, count: number, lossPct: number, rttMs: number, seed = 5): Result {
   const rnd = mulberry32(seed);
   const loss = lossPct / 100;
   const oneWay = rttMs / 2;
   const rto = rttMs * 2; // retransmission timeout
-  const handshakeMs = protocol === 'tcp' ? rttMs * 1.5 : 0; // SYN, SYN-ACK, ACK before data flows
+  // One round trip (SYN, SYN-ACK) before the client may send data along with its ACK. QUIC's handshake is also one
+  // round trip, but that already includes TLS, which TCP needs extra round trips for (not modelled here).
+  const handshakeMs = protocol === 'udp' ? 0 : rttMs;
   const packets: Packet[] = [];
 
   for (let n = 0; n < count; n++) {
@@ -42,10 +53,14 @@ export function simulate(protocol: 'tcp' | 'udp', count: number, lossPct: number
 
   if (protocol === 'udp') {
     for (const p of packets) p.deliveredAt = p.arrivedAt; // the application takes whatever arrives
-  } else {
+  } else if (protocol === 'tcp') {
     // in-order delivery: a packet is handed to the application only after every earlier one has arrived
     let high = 0;
     for (const p of packets) { high = Math.max(high, p.arrivedAt!); p.deliveredAt = high; }
+  } else {
+    // QUIC: in order within each stream only
+    const high = new Array(QUIC_STREAMS).fill(0);
+    for (const p of packets) { const st = p.n % QUIC_STREAMS; high[st] = Math.max(high[st], p.arrivedAt!); p.deliveredAt = high[st]; }
   }
 
   const delivered = packets.filter((p) => p.deliveredAt !== null).length;

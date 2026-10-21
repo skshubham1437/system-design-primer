@@ -17,20 +17,12 @@ The plan is [ADVANCED_DB_PLAN.md](ADVANCED_DB_PLAN.md). Phases 0 to 8 are built 
 | 6 | Concurrency: 10 traces recorded on real PostgreSQL 18.3; transactions, isolation, locks, pooling |
 | 7 | CTEs, window functions, views/functions/triggers, partitioning (pruning widget), replicas and sharding |
 | 8 | 7 quizzes, 23 flashcards, interview questions, build checks for every claim the pages make |
+| Labs | Deferred review items and a quiz on every lab (see below) |
 
 ## What is left
 
 1. **A review by a second person.** Every Databases page, quiz and exercise is marked Draft or `reviewed: false`. After review, remove `draft: true` in `DB_PAGES` and set `reviewed: true`.
-2. **Deferred lab improvements from Part A** (medium and low priority):
-   - DNS: TTL expiry.
-   - CDN: a hit-ratio counter.
-   - Estimator: headroom and overhead factors.
-   - Replication: read-your-writes and semi-synchronous mode.
-   - A quorum (N, R, W) lab.
-   - QUIC in the TCP lab.
-   - Replicas and hot keys in the consistent-hashing lab.
-   - Traffic drift in the sharding lab.
-   - Quizzes on the labs.
+2. **Lab improvements from the review are done.** They added a quorum lab, semi-synchronous replication with read-your-writes, DNS TTL, CDN counters, estimator headroom and overhead, a shared-queue curve, consistent-hashing copies, sharding traffic drift, a QUIC lane, 2Q eviction, a predict-mode self-check, and 70 lab quiz questions. All of it awaits the same second-person review.
 3. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
 
 ## Rules for working on the Databases section

@@ -176,3 +176,40 @@ test('topic pages link to their interactive visuals', async ({ page }) => {
     await expect(page.locator(`.try-it a[href$="${lab}"]`), `${path} -> ${lab}`).toBeVisible();
   }
 });
+
+test.describe('lab additions', () => {
+  test('quorum: W = 1, R = 1 reads stale data; W = 2, R = 2 does not', async ({ page }) => {
+    await page.goto('labs/quorum/');
+    const w = page.locator('.v-quorum');
+    await w.getByRole('button', { name: 'Write' }).click();
+    await w.getByRole('button', { name: 'Read', exact: true }).click();
+    await expect(w.locator('#q-msg')).toContainText('current');
+    await w.locator('#q-w-in').fill('1');
+    await w.locator('#q-r-in').fill('1');
+    await w.getByRole('button', { name: 'Write' }).click();
+    await w.getByRole('button', { name: 'Read', exact: true }).click();
+    await expect(w.locator('#q-msg')).toContainText('STALE');
+  });
+
+  test('DNS TTL: a cached answer outlives a record change until it expires', async ({ page }) => {
+    await page.goto('labs/dns-resolution/');
+    const w = page.locator('.v-ttl');
+    await w.getByRole('button', { name: 'A user looks it up' }).click();
+    await w.getByRole('button', { name: 'Point it at the new server' }).click();
+    await w.getByRole('button', { name: '1 hour passes' }).click();
+    await w.getByRole('button', { name: 'A user looks it up' }).click();
+    await expect(w.locator('#t-log li').first()).toContainText('no longer the right one');
+    await w.getByRole('button', { name: '1 day passes' }).click();
+    await w.getByRole('button', { name: 'A user looks it up' }).click();
+    await expect(w.locator('#t-log li').first()).toContainText('new server');
+  });
+
+  test('replication: read-your-writes sends a writer\'s read to the primary', async ({ page }) => {
+    await page.goto('labs/replication/');
+    const w = page.locator('.v-repl');
+    await w.getByLabel(/Read your own writes/).check();
+    await w.getByRole('button', { name: 'Write', exact: true }).click();
+    await w.getByRole('button', { name: 'Read through the load balancer' }).click();
+    await expect(w.locator('#r-status')).toContainText('sent this read to the primary');
+  });
+});

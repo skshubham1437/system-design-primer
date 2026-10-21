@@ -119,6 +119,7 @@ export const LABS = [
   { slug: 'dns-resolution', title: 'DNS lookup', blurb: 'Walk a lookup from browser to authoritative server and see how caches skip the walk.' },
   { slug: 'cdn', title: 'CDN edge caching', blurb: 'Request a file from three continents with no CDN, a pull CDN and a push CDN.' },
   { slug: 'tcp-udp', title: 'TCP vs UDP', blurb: 'Send the same packets over a lossy link and compare what arrives, and when.' },
+  { slug: 'quorum', title: 'Quorum reads and writes', blurb: 'Choose N, W and R and see when a read is guaranteed to see the latest write, and how many failures each survives.' },
   { slug: 'cap-theorem', title: 'CAP in practice', blurb: 'Partition a three-node store and watch it choose between consistency and availability.' },
 ];
 
@@ -132,7 +133,7 @@ export const RELATED_LABS = {
   'learn/communication/': ['labs/tcp-udp/'],
   'learn/load-balancer/': ['labs/load-balancing/', 'labs/load-curve/'],
   'learn/availability-vs-consistency/': ['labs/cap-theorem/'],
-  'learn/consistency-patterns/': ['labs/cap-theorem/'],
+  'learn/consistency-patterns/': ['labs/cap-theorem/', 'labs/quorum/'],
   'learn/availability-patterns/': ['labs/cap-theorem/'],
   'learn/database/': ['labs/replication/', 'labs/sharding/', 'labs/consistent-hashing/', 'labs/estimator/', 'databases/playground/'],
   'learn/performance-vs-scalability/': ['labs/load-curve/', 'labs/estimator/'],
@@ -159,6 +160,7 @@ export const PREREQS = {
   'labs/replication/': ['learn/database/'],
   'labs/sharding/': ['learn/database/'],
   'labs/cap-theorem/': ['learn/availability-vs-consistency/'],
+  'labs/quorum/': ['labs/replication/'],
   'labs/message-queue/': ['learn/asynchronism/'],
   'labs/cache-eviction/': ['learn/cache/'],
   'labs/consistent-hashing/': ['learn/database/'],

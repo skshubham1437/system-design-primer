@@ -1,0 +1,54 @@
+# Questions about the consistent hashing lab. reviewed: true only after a second person checks.
+topic: labs/consistent-hashing/
+reviewed: false
+questions:
+  - id: ch-mod-n
+    q: Why is hash(key) mod N a poor way to place keys on servers that come and go?
+    choices:
+      - It cannot spread keys evenly
+      - It is too slow to compute
+      - Changing N moves almost every key, which in a cache means a flood of misses
+      - It needs a lookup table
+    answer: 2
+    why: Almost every key's remainder changes when N changes. Consistent hashing moves only about 1/N of the keys.
+    difficulty: 1
+  - id: ch-vnodes
+    q: What do virtual nodes fix?
+    choices:
+      - They make lookups faster
+      - With one point per server, arcs have random lengths and one server can own far more than its share
+      - They let servers have different names
+      - They replicate keys
+    answer: 1
+    why: Many points per server average out the arc lengths, so the bars level out.
+    difficulty: 1
+  - id: ch-remove
+    q: A server is removed. Where do its keys go?
+    choices:
+      - All to one random server
+      - They are lost
+      - They are rehashed with mod N
+      - To the next point clockwise, which with many virtual nodes spreads them over many servers
+    answer: 3
+    why: Each arc is taken over by the next point clockwise. With virtual nodes those points belong to many different servers.
+    difficulty: 2
+  - id: ch-copies
+    q: With three copies of each key, how are the copies placed?
+    choices:
+      - On the next distinct servers clockwise, skipping extra points of a server already chosen
+      - On three random servers
+      - All on the owning server
+      - On the three servers with the least data
+    answer: 0
+    why: Walking on until three different servers are found guarantees two copies never share a machine.
+    difficulty: 2
+  - id: ch-hot-key
+    q: What can consistent hashing NOT fix?
+    choices:
+      - Uneven arc lengths
+      - Keys moving when servers change
+      - A single very popular key, which still lands on one server
+      - Finding the owner of a key
+    answer: 2
+    why: Spreading keys evenly says nothing about how often each is requested. Hot keys need caching or splitting.
+    difficulty: 1

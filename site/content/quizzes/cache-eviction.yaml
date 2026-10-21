@@ -1,0 +1,54 @@
+# Questions about the cache eviction lab. reviewed: true only after a second person checks.
+topic: labs/cache-eviction/
+reviewed: false
+questions:
+  - id: ce-loop
+    q: Requests loop over one key more than the cache holds. What happens to LRU?
+    choices:
+      - It hits about half the time
+      - It hits every time after the first loop
+      - It behaves like the optimal policy
+      - It misses every time, because it always evicts the key that is needed next
+    answer: 3
+    why: The least recently used key is exactly the one the loop asks for next. LRU, FIFO and LFU all hit 0% on the loop pattern; random eviction does far better.
+    difficulty: 2
+  - id: ce-scan
+    q: Why does LFU beat LRU on "hot keys plus scans"?
+    choices:
+      - LFU uses more memory
+      - A scan of one-off keys pushes the hot keys out of LRU, but LFU keeps keys that were used many times
+      - LFU knows the future
+      - Scans make LRU slower to compute
+    answer: 1
+    why: LRU treats a key seen once a moment ago as more valuable than a hot key seen a little earlier, so a scan flushes the hot set. Counting uses protects it.
+    difficulty: 2
+  - id: ce-2q
+    q: How does 2Q resist scans?
+    choices:
+      - It refuses to cache keys it has not seen before
+      - It evicts keys at random
+      - New keys wait in a small first-in-first-out area and are only promoted when asked for again soon
+      - It keeps a count of every request ever made
+    answer: 2
+    why: One pass over cold keys only churns the small probation area. The price is that a newly popular key must prove itself twice, so 2Q did slightly worse on plain hot keys.
+    difficulty: 3
+  - id: ce-optimal
+    q: Why is the "optimal" policy shown if no real cache can use it?
+    choices:
+      - It is what Redis uses
+      - It is the ceiling to compare real policies against; it needs to know future requests
+      - It is the fastest to compute
+      - It works only with small caches
+    answer: 1
+    why: Evicting the key needed furthest in the future is provably best, but requires knowing the future. It shows how much room for improvement is left.
+    difficulty: 1
+  - id: ce-uniform
+    q: On uniformly random traffic, how do the real policies compare?
+    choices:
+      - LRU is far better than the others
+      - Random eviction always wins
+      - They all reach 100%
+      - They land within about ten points of each other and well below optimal
+    answer: 3
+    why: Requests with no pattern give no policy anything to predict, so they all do about the same.
+    difficulty: 1

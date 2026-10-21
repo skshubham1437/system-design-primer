@@ -1,0 +1,54 @@
+# Questions about the message queue lab. reviewed: true only after a second person checks.
+topic: labs/message-queue/
+reviewed: false
+questions:
+  - id: mq-mismatch
+    q: The producer sends 6 messages per tick and consumers handle 4. What happens without back pressure?
+    choices:
+      - The queue stays short
+      - The queue fills to its limit and then messages are dropped
+      - Consumers speed up
+      - The producer slows down automatically
+    answer: 1
+    why: A queue absorbs bursts, not a permanent mismatch. More buffer only delays the drops.
+    difficulty: 1
+  - id: mq-backpressure
+    q: With back pressure on and the producer still faster than the consumers, where does the extra work go?
+    choices:
+      - It is dropped
+      - It is processed by extra consumers
+      - It disappears
+      - It waits at the producer, and that backlog keeps growing
+    answer: 3
+    why: Back pressure moves the queue upstream rather than creating capacity. Only more consumers, or less input, fix a permanent mismatch.
+    difficulty: 2
+  - id: mq-burst
+    q: When is a queue the right tool?
+    choices:
+      - To absorb short bursts when consumers keep up on average
+      - To fix a producer that is always faster than consumers
+      - To make each message process faster
+      - To avoid running consumers
+    answer: 0
+    why: A mostly empty queue swallows a spike and drains afterwards. A permanent mismatch only grows it.
+    difficulty: 1
+  - id: mq-wait
+    q: What does the "wait for a new message" figure measure?
+    choices:
+      - The time to process one message
+      - The network delay
+      - How long a new message waits behind everything already queued, including the producer's backlog
+      - How long until the queue is empty
+    answer: 2
+    why: A queue converts a speed mismatch into waiting time, and this figure is that waiting time.
+    difficulty: 2
+  - id: mq-web
+    q: In a web system, what does back pressure usually look like to a client?
+    choices:
+      - A server-busy response (such as 503) and a retry later, ideally with exponential backoff
+      - A slower page that always succeeds
+      - A dropped connection with no response
+      - A cached answer
+    answer: 0
+    why: When the queue is full the server refuses new work, pushing the pressure back to the caller, who should retry with backoff.
+    difficulty: 1

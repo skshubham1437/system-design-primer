@@ -2,7 +2,8 @@
 // Time moves in ticks. Replication is asynchronous (the client is told "done" straight away) or
 // synchronous (the client is told "done" only once every live replica has the write).
 
-export type Mode = 'async' | 'sync';
+/** async: reply first, copy later. semi: wait for one replica. sync: wait for every live replica. */
+export type Mode = 'async' | 'semi' | 'sync';
 
 export interface Node { id: number; up: boolean; version: number; primary: boolean }
 export interface Pending { to: number; version: number; deliverAt: number }
@@ -11,6 +12,7 @@ export interface State {
   tick: number;
   mode: Mode;
   lag: number;            // ticks a write takes to reach a replica
+  far?: boolean;          // the last replica is in another region: copies take twice as long to reach it
   nodes: Node[];
   pending: Pending[];     // replication messages still travelling
   acked: number;          // highest version the client has been told succeeded
@@ -33,9 +35,10 @@ export function write(prev: State): State {
   const p = primary(s);
   if (!p) { say(s, 'Write failed: there is no primary. Promote a replica first.'); return s; }
   p.version += 1;
-  for (const n of s.nodes) if (!n.primary && n.up) s.pending.push({ to: n.id, version: p.version, deliverAt: s.tick + s.lag });
+  const lastReplica = Math.max(...s.nodes.filter((n) => !n.primary).map((n) => n.id));
+  for (const n of s.nodes) if (!n.primary && n.up) s.pending.push({ to: n.id, version: p.version, deliverAt: s.tick + s.lag * (s.far && n.id === lastReplica ? 2 : 1) });
   if (s.mode === 'async') { s.acked = p.version; say(s, `Write v${p.version} acknowledged immediately; replicas will catch up.`); }
-  else if (s.pending.some((m) => m.version === p.version)) { s.awaiting.push(p.version); say(s, `Write v${p.version} waits for every replica before it is acknowledged.`); }
+  else if (s.pending.some((m) => m.version === p.version)) { s.awaiting.push(p.version); say(s, `Write v${p.version} waits for ${s.mode === 'semi' ? 'one replica' : 'every replica'} before it is acknowledged.`); }
   else { s.acked = p.version; say(s, `Write v${p.version} acknowledged (no replicas to wait for).`); }
   return s;
 }
@@ -48,10 +51,13 @@ export function advance(prev: State): State {
   s.pending = s.pending.filter((m) => m.deliverAt > s.tick);
   for (const m of due) { const n = s.nodes[m.to]; if (n.up) n.version = Math.max(n.version, m.version); }
   for (const v of [...s.awaiting]) {
-    if (!s.pending.some((m) => m.version === v)) {
+    const done = s.mode === 'semi'
+      ? s.nodes.some((n) => !n.primary && n.up && n.version >= v)  // one replica has it
+      : !s.pending.some((m) => m.version === v);                   // every live replica has it
+    if (done) {
       s.awaiting = s.awaiting.filter((x) => x !== v);
       s.acked = Math.max(s.acked, v);
-      say(s, `Write v${v} acknowledged: every replica has it.`);
+      say(s, `Write v${v} acknowledged: ${s.mode === 'semi' ? 'a replica has it' : 'every replica has it'}.`);
     }
   }
   return s;

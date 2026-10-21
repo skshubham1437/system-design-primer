@@ -64,3 +64,16 @@ export function shardsTouched(query: Query, strategy: Strategy, shards: number):
   if (query === 'name-prefix') return strategy === 'range' ? 1 : shards; // only range sharding keeps neighbours together
   return shards;                                                         // a city can be on any shard
 }
+
+/**
+ * The same users some time after they were placed: popularity has moved (a different 5% are now the busy ones),
+ * and optionally one user has become a celebrity with as much traffic as hundreds of ordinary users.
+ */
+export function laterTraffic(users: User[], opts: { shift?: boolean; celebrity?: boolean }): User[] {
+  return users.map((u) => {
+    let weight = u.weight;
+    if (opts.shift) weight = u.id % 20 === 11 ? 14 : 1;
+    if (opts.celebrity && u.id === 42) weight = 400;
+    return { ...u, weight };
+  });
+}

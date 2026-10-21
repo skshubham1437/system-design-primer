@@ -1,0 +1,54 @@
+# Questions about the quorum lab. reviewed: true only after a second person checks.
+topic: labs/quorum/
+reviewed: false
+questions:
+  - id: q-rule
+    q: With N replicas, a write quorum W and a read quorum R, when does every read overlap the latest write?
+    choices:
+      - When R = W
+      - When R + W > N
+      - When W = 1
+      - When R + W = N
+    answer: 1
+    why: If R + W > N, any set of R replicas shares at least one replica with any set of W.
+    difficulty: 1
+  - id: q-fast-weak
+    q: N = 3, W = 1, R = 1. What do you get?
+    choices:
+      - Strong consistency
+      - Writes that need all three replicas
+      - Fast reads and writes, but a read can miss the latest write
+      - Reads that always fail
+    answer: 2
+    why: R + W = 2 is not more than 3, so a read can land on a replica the write never reached. It becomes consistent only as replicas catch up.
+    difficulty: 1
+  - id: q-failures
+    q: N = 3, W = 2, R = 2. How many replicas can be down before writes are refused?
+    choices:
+      - None
+      - One can be down; with two down, writes are refused
+      - Two
+      - All three
+    answer: 1
+    why: A write needs W = 2 live replicas, so it survives N - W = 1 failure.
+    difficulty: 2
+  - id: q-repair
+    q: How do stale replicas eventually catch up in Dynamo-style stores?
+    choices:
+      - They are deleted and recreated
+      - The client rewrites every value
+      - They never do
+      - Background repair, such as read repair, hinted handoff and anti-entropy
+    answer: 3
+    why: Repair mechanisms copy newer versions to replicas that missed them, which is why low quorums are eventually consistent.
+    difficulty: 2
+  - id: q-read-heavy
+    q: For read-heavy data, which setting keeps reads cheap while staying consistent with N = 3?
+    choices:
+      - W = 3, R = 1
+      - W = 1, R = 1
+      - W = 1, R = 3
+      - W = 2, R = 1
+    answer: 0
+    why: Writing to all three means any single replica has the latest value, so reads need ask only one. W = 2, R = 1 would give R + W = 3, which is not enough.
+    difficulty: 3
