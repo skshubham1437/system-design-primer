@@ -4,9 +4,11 @@
 import { getProgress } from '../../lib/progress';
 import { grade, isDue, newItem, previewDays, startOfDay, summarize, type Grade, type SrsItem } from '../../lib/srs';
 
-interface Card { front: string; back: string }
+/** `key` is how progress is stored: a stable id for the site's own cards, the front for the upstream deck. */
+interface Card { key: string; front: string; back: string; draft?: boolean }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const draftNote = (c: Card) => (c.draft ? ' · <span class="fc-draft">Draft: not yet checked by a second person</span>' : '');
 const dayWord = (n: number) => (n <= 0 ? 'now' : n === 1 ? 'tomorrow' : `${n} days`);
 
 export function mount(host: HTMLElement) {
@@ -15,7 +17,7 @@ export function mount(host: HTMLElement) {
   const cards: Card[] = JSON.parse(data.textContent || '[]');
   if (!cards.length) return;
   const progress = getProgress();
-  const titles = new Set(cards.map((c) => c.front));
+  const titles = new Set(cards.map((c) => c.key));
 
   type Mode = 'study' | 'browse';
   let mode: Mode = 'study';
@@ -30,7 +32,7 @@ export function mount(host: HTMLElement) {
   root.setAttribute('aria-label', 'Flashcards');
   host.replaceChildren(root);
 
-  const byTitle = (t: string) => cards.find((c) => c.front === t)!;
+  const byTitle = (t: string) => cards.find((c) => c.key === t)!;
   const items = () => Object.entries(progress.get().cards).filter(([t]) => titles.has(t));
 
   function newQuota(now: number): number {
@@ -43,7 +45,7 @@ export function mount(host: HTMLElement) {
     const now = Date.now();
     const state = progress.get().cards;
     const due = items().filter(([, i]) => i.seen > 0 && isDue(i, now)).sort((a, b) => a[1].due - b[1].due).map(([t]) => t);
-    const fresh = cards.map((c) => c.front).filter((t) => !state[t]).slice(0, newQuota(now));
+    const fresh = cards.map((c) => c.key).filter((t) => !state[t]).slice(0, newQuota(now));
     queue = [...due, ...fresh];
     revealed = false;
   }
@@ -92,7 +94,7 @@ export function mount(host: HTMLElement) {
   function renderStudy() {
     const s = stats();
     if (!queue.length) {
-      const more = cards.some((c) => !progress.get().cards[c.front]);
+      const more = cards.some((c) => !progress.get().cards[c.key]);
       root.innerHTML = `${head(s)}
         <div class="fc-done"><h4>${session.reviewed ? 'Session complete' : 'All caught up'}</h4>
           <p>${session.reviewed ? `You reviewed ${session.reviewed} card${session.reviewed === 1 ? '' : 's'} and got ${Math.round((session.correct / session.reviewed) * 100)}% right.` : 'Nothing is due right now.'} ${esc(nextReview())}</p>
@@ -107,7 +109,7 @@ export function mount(host: HTMLElement) {
     const isNew = !progress.get().cards[title];
     root.innerHTML = `${head(s)}
       <div class="fc-stage">
-        <div class="fc-count">${queue.length} left this session${isNew ? ' · new card' : ''}</div>
+        <div class="fc-count">${queue.length} left this session${isNew ? ' · new card' : ''}${draftNote(card)}</div>
         <article class="fc-card${revealed ? ' is-open' : ''}">
           <h4 class="fc-front">${esc(card.front)}</h4>
           ${revealed ? `<div class="fc-back prose">${card.back}</div>` : '<p class="fc-hint">Try to recall it first, then reveal.</p>'}
@@ -127,7 +129,7 @@ export function mount(host: HTMLElement) {
     const card = cards[browseIndex];
     root.innerHTML = `${head(s)}
       <div class="fc-stage">
-        <div class="fc-count">Card ${browseIndex + 1} of ${cards.length} · browsing does not affect your schedule</div>
+        <div class="fc-count">Card ${browseIndex + 1} of ${cards.length} · browsing does not affect your schedule${draftNote(card)}</div>
         <article class="fc-card${revealed ? ' is-open' : ''}">
           <h4 class="fc-front">${esc(card.front)}</h4>
           ${revealed ? `<div class="fc-back prose">${card.back}</div>` : '<p class="fc-hint">Try to recall it first, then reveal.</p>'}

@@ -33,8 +33,6 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - run: npm ci
         working-directory: site
-      - run: npm test
-        working-directory: site
       - run: npm run build
         working-directory: site
         env:
@@ -46,6 +44,16 @@ jobs:
           SITE_BASE: /${{ github.event.repository.name }}/
       - run: npm run typecheck
         working-directory: site
+      # After the build: some suites check the generated pages and fail in CI if there are none.
+      - run: npm test
+        working-directory: site
+      # The same browser checks as pull requests, because master is also updated by direct push.
+      - run: npx playwright install --with-deps chromium
+        working-directory: site
+      - run: npm run test:e2e
+        working-directory: site
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/dist

@@ -355,7 +355,7 @@ async function main() {
 
   let deck = [];
   try { deck = await readDeck(path.join(ROOT, 'resources/flash_cards/System Design.apkg')); }
-  catch (e) { warn(`flashcards skipped: ${e.message}`); }
+  catch (e) { warn(`flashcards skipped: ${e.message}`, true); } // fatal in CI: a deploy must not ship without the deck
 
   await prepareImages([readme, ...Object.values(solutionMd), ...deck.map((c) => c.back)]);
 
@@ -573,24 +573,29 @@ async function main() {
   const cards = deck.map((c) => ({
     front: cardTitle(c.front),
     back: cleanCard(c.back, { resolveHref: (h) => resolveHref(h, cardCtx), resolveImg: (src) => imgMap.get(src) }),
-  })).filter((c) => c.front && c.back);
+  })).filter((c) => c.front && c.back).map((c) => ({ key: c.front, ...c }));
 
-  // Cards written for this site (content/flashcards/*.yaml), appended after the upstream deck. Cards are stored in
-  // progress by their front, so a front must be unique across the whole deck.
+  // Cards written for this site (content/flashcards/*.yaml), appended after the upstream deck. Progress stores a
+  // card under its `key`: the front for upstream cards (they have no ids, and learners already have progress under
+  // those fronts), the card's own `id` here, so a reviewer can reword a front without resetting anyone's schedule.
+  // Each file is { reviewed, cards: [{ id, front, back, link? }] }.
   const ownCardsDir = path.join(SITE, 'content', 'flashcards');
   const dbFlashcardsOn = readFeatures(SITE).advancedDb === true;
   for (const file of fs.existsSync(ownCardsDir) ? fs.readdirSync(ownCardsDir).filter((x) => /\.ya?ml$/.test(x)).sort() : []) {
     if (file.startsWith('databases') && !dbFlashcardsOn) continue;
-    let list = [];
-    try { list = loadYaml(fs.readFileSync(path.join(ownCardsDir, file), 'utf8')) ?? []; } catch (e) { warn(`content/flashcards/${file}: could not parse (${e.message.split('\n')[0]})`, true); continue; }
-    for (const [i, c] of list.entries()) {
+    let doc;
+    try { doc = loadYaml(fs.readFileSync(path.join(ownCardsDir, file), 'utf8')); } catch (e) { warn(`content/flashcards/${file}: could not parse (${e.message.split('\n')[0]})`, true); continue; }
+    if (typeof doc?.reviewed !== 'boolean' || !Array.isArray(doc.cards)) { warn(`content/flashcards/${file}: needs "reviewed: true|false" and a "cards" list`, true); continue; }
+    for (const [i, c] of doc.cards.entries()) {
       const where = `content/flashcards/${file} card ${i + 1}`;
       if (typeof c?.front !== 'string' || typeof c?.back !== 'string' || c.front.length < 8 || c.back.length < 20) { warn(`${where}: needs a front and a back`, true); continue; }
+      if (typeof c.id !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(c.id)) { warn(`${where}: needs an id in lowercase-with-dashes (progress is stored under it)`, true); continue; }
+      if (cards.some((x) => x.key === c.id)) { warn(`${where}: id "${c.id}" is already in the deck`, true); continue; }
       if (cards.some((x) => x.front === c.front)) { warn(`${where}: front "${c.front}" is already in the deck`, true); continue; }
       if (c.link && !out.some((p) => p.path === c.link)) warn(`${where}: link "${c.link}" is not a page`, true);
       const html = String(await unified().use(remarkParse).use(remarkRehype).use(rehypeStringify).process(c.back));
       const more = c.link ? `<p><a href="${BASE}${c.link}">Read more</a></p>` : '';
-      cards.push({ front: c.front, back: html + more });
+      cards.push({ key: c.id, front: c.front, back: html + more, ...(doc.reviewed ? {} : { draft: true }) });
     }
   }
 

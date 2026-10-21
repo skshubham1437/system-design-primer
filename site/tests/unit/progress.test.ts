@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createStore, emptyDoc, migrateLegacy, normalize, STORE_KEY, type StorageLike } from '../../src/lib/progress';
+import { createStore, emptyDoc, migrateLegacy, normalize, STORE_KEY, type ProgressDoc, type StorageLike } from '../../src/lib/progress';
 
 function memoryStorage(initial: Record<string, string> = {}): StorageLike & { data: Map<string, string> } {
   const data = new Map(Object.entries(initial));
@@ -147,6 +147,34 @@ describe('import and export', () => {
     const b = createStore({ storage: memoryStorage() });
     expect(b.importJson(a.exportJson())).toEqual({ ok: true });
     expect(b.get()).toEqual(a.get());
+  });
+
+  it('keeps every section through a save and a reload', () => {
+    // normalize() runs on every write and copies only the sections it knows. A section added to ProgressDoc
+    // but not to normalize() would be wiped on each save, so fill every section and check nothing is lost.
+    const full: ProgressDoc = {
+      version: 1,
+      read: { 'dns/': { at: 1, pct: 40 } },
+      plan: { last: 'long', done: { long: [0, 2] } },
+      cards: { X: { box: 2, due: 5, seen: 3, lapses: 1 } },
+      quiz: { attempts: [{ id: 'q', score: 3, of: 5, at: 2 }], items: { 'q-1': { box: 1, due: 9, seen: 1, lapses: 0 } } },
+      solutions: { 'solutions/x/': { status: 'done', step: 'scale', notes: { a: 'b' }, rubric: { a: ['c'] } } },
+      paths: { databases: { stage: 2 } },
+      choosers: { db: { guided: 1, attempts: [{ score: 2, of: 3, at: 4 }] } },
+      sessions: [{ id: 's', question: 'x', minutes: 45, notes: { a: 'b' }, at: 3 }],
+      exercises: { ex: { attempts: 2, hints: 1, solved: 7, revealed: true } },
+      settings: { newCardsPerDay: 20 },
+      daily: { day: 86_400_000, newCards: 4 },
+    };
+    const empty = emptyDoc();
+    for (const k of Object.keys(empty) as (keyof ProgressDoc)[]) {
+      if (k !== 'version') expect(full[k], `fill section "${k}" in this test`).not.toEqual(empty[k]);
+    }
+    const storage = memoryStorage();
+    const a = createStore({ storage });
+    a.update((d) => { Object.assign(d, structuredClone(full)); });
+    expect(a.get()).toEqual(full);
+    expect(createStore({ storage }).get()).toEqual(full);
   });
 
   it('rejects bad input and leaves the existing data alone', () => {

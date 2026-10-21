@@ -1,7 +1,8 @@
 // The Databases pages make claims about the real outputs printed under their examples ("no Sort node",
 // "the estimate is ten times off"). Outputs are produced at build time and can change when the engine or the data
 // changes, so these tests re-check every such claim against what was actually printed.
-// They read the generated site data, so they run after a content build and are skipped before one.
+// They read the generated site data, so they run after a content build. Locally they are skipped before one;
+// in CI a missing build is a failure, so a reordered workflow cannot quietly skip them.
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -9,6 +10,12 @@ import { describe, expect, it } from 'vitest';
 const file = path.resolve(__dirname, '../../src/generated/site.json');
 const built = fs.existsSync(file);
 const site = built ? JSON.parse(fs.readFileSync(file, 'utf8')) as { pages: { path: string; html: string }[]; features: Record<string, boolean> } : null;
+
+describe.runIf(!!process.env.CI)('in CI', () => {
+  it('the site was built before the tests ran', () => {
+    expect(built, 'src/generated/site.json is missing: run npm run build before npm test').toBe(true);
+  });
+});
 const dec = (t: string) => t.replace(/<[^>]+>/g, '').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&#x3C;/g, '<').replace(/&amp;/g, '&');
 const outs = (slug: string) => {
   const page = site!.pages.find((p) => p.path === `databases/${slug}/`);
@@ -101,11 +108,15 @@ describe.skipIf(!built || !site?.features.advancedDb)('claims the Databases page
 
 describe.skipIf(!built || !site?.features.advancedDb)('Databases study material in the build', () => {
   it('the flashcard deck includes the Databases cards, each front once', () => {
-    const cards = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../src/generated/flashcards.json'), 'utf8')) as { front: string; back: string }[];
+    const cards = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../src/generated/flashcards.json'), 'utf8')) as { key: string; front: string; back: string; draft?: boolean }[];
     const fronts = cards.map((c) => c.front);
     expect(fronts).toContain('What is SKIP LOCKED for?');
     expect(new Set(fronts).size).toBe(fronts.length);
-    expect(cards.find((c) => c.front === 'What is SKIP LOCKED for?')!.back).toContain('databases/locks-and-deadlocks/');
+    const skip = cards.find((c) => c.front === 'What is SKIP LOCKED for?')!;
+    expect(skip.back).toContain('databases/locks-and-deadlocks/');
+    // progress is stored under the key: a stable id for the site's own cards, so rewording a front keeps it
+    expect(skip.key).toBe('db-skip-locked');
+    expect(new Set(cards.map((c) => c.key)).size).toBe(cards.length);
   });
   it('every Databases topic with a quiz has it attached', () => {
     const quizzes = (JSON.parse(fs.readFileSync(file, 'utf8')) as { quizzes: { topic: string }[] }).quizzes.map((q) => q.topic);

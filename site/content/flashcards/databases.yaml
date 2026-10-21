@@ -1,71 +1,97 @@
 # Flashcards for the Databases section, added to the same spaced-repetition deck as the upstream cards.
-# The front must be unique across the whole deck: it is how progress is stored.
-- front: What is a database page, and why does it matter for performance?
-  back: A fixed-size block (8 kB in PostgreSQL) holding rows. The database reads and writes whole pages, so the number of pages a query touches is the best single measure of its work. **Buffers** in EXPLAIN counts them.
-  link: databases/how-rows-are-stored/
-- front: What does an UPDATE do to a row in PostgreSQL?
-  back: It writes a **new version** of the row and marks the old one as replaced (MVCC). Old versions stay until VACUUM removes them; too many of them is **bloat**.
-  link: databases/how-rows-are-stored/
-- front: What is a HOT update?
-  back: A heap-only tuple update. When no indexed column changes and the new version fits on the same page, no index has to be updated. A reason not to index columns that change often.
-  link: databases/how-rows-are-stored/
-- front: Why does a B-tree lookup read so few pages?
-  back: Each page holds hundreds of sorted keys, so every level multiplies the reach by hundreds. Three or four levels cover hundreds of millions of rows; a lookup reads one page per level.
-  link: databases/btree-indexes/
-- front: How should columns be ordered in a composite index?
-  back: Columns compared with **=** first, then a range column or the **ORDER BY** columns. After a range condition, later columns cannot narrow the slice. (PostgreSQL 18 can skip scan a leading column with few distinct values, but do not design for it.)
-  link: databases/index-design/
-- front: What is a covering index?
-  back: An index that contains every column a query needs, often with **INCLUDE**, so the query can be answered by an **index-only scan** without visiting the table.
-  link: databases/index-design/
-- front: When is a partial index useful?
-  back: When queries always ask for a small, fixed subset of rows, such as pending orders. The index holds only those rows, so it is small and cheap to maintain. The query's WHERE must imply the index's condition.
-  link: databases/index-design/
-- front: Why can't an index on created_at help `where created_at::date = '2024-06-15'`?
-  back: The cast hides the column from the index. Compare the bare column with a half-open range instead, `created_at >= '2024-06-15' and created_at < '2024-06-16'`, or index the expression (if it is immutable).
-  link: databases/index-design/
-- front: Seq scan, index scan or bitmap scan - when does each win?
-  back: '**Seq scan** when much of the table matches (reading in order is cheap). **Index scan** for a few rows or when rows must come out in index order. **Bitmap scan** for "more than a few, less than most": find all positions first, then read each page once.'
-  link: databases/scan-types/
-- front: In EXPLAIN ANALYZE, what is the first thing to compare at each node?
-  back: '**Estimated rows** against **actual rows**. Off by ten times or more, and the plan built on that estimate is suspect: fix the estimate first (ANALYZE, extended statistics, rewrite expressions).'
-  link: databases/reading-plans/
-- front: In a plan, what do actual time and rows mean when loops is greater than 1?
-  back: They are **per loop**. Multiply by loops for the total work, which matters most on the inner side of a nested loop.
-  link: databases/reading-plans/
-- front: Nested loop, hash join, merge join - one line each?
-  back: '**Nested loop**: per outer row, look up the inner side; best for few outer rows with an index. **Hash join**: build a hash table from one side, probe with the other; large unsorted inputs. **Merge join**: walk two inputs sorted on the key.'
-  link: databases/joins/
-- front: Why can a stale estimate make a join catastrophically slow?
-  back: If the planner expects one outer row it picks a nested loop. If there are really 30,000, that is 30,000 inner lookups. ANALYZE after bulk loads.
-  link: databases/joins/
-- front: Why does OFFSET pagination get slower on later pages?
-  back: OFFSET does not jump; the database produces and discards every skipped row. **Keyset pagination** (`where key < last_seen order by key limit n`) stays fast at any depth.
-  link: databases/pagination-and-n-plus-one/
-- front: What is the N+1 query problem?
-  back: Loading a list with one query and then running one more query per item, so 1 + N round trips. Replace with a join, or one query with `= any(array_of_ids)`.
-  link: databases/pagination-and-n-plus-one/
-- front: Which anomaly can PostgreSQL's read committed level allow?
-  back: Non-repeatable reads, phantoms, lost updates and write skew. It never allows dirty reads (no level in PostgreSQL does).
-  link: databases/isolation-and-mvcc/
-- front: What is write skew, and which isolation level prevents it?
-  back: Two transactions each read the same data, then each update different rows based on it, breaking a rule together (for example both doctors going off call). Only **serializable** prevents it; one transaction is aborted and must retry.
-  link: databases/isolation-and-mvcc/
-- front: How do you prevent a lost update in a read-modify-write?
-  back: Do the arithmetic in one statement (`set balance = balance + 30`), lock the row with **SELECT … FOR UPDATE**, or detect the conflict (higher isolation or a version column) and retry.
-  link: databases/transactions/
-- front: Why can a quick ALTER TABLE stop every query on a table?
-  back: It waits for an ACCESS EXCLUSIVE lock behind an open transaction, and every later query queues behind it. Set **lock_timeout** before migrations and keep transactions short.
-  link: databases/locks-and-deadlocks/
-- front: How does PostgreSQL resolve a deadlock?
-  back: After **deadlock_timeout** (1 s by default) it detects the cycle and aborts one transaction with error 40P01. Prevent with a consistent lock order; retry the victim.
-  link: databases/locks-and-deadlocks/
-- front: What is SKIP LOCKED for?
-  back: Job queues. `select … for update skip locked limit 1` lets several workers each claim a different row without waiting for each other.
-  link: databases/locks-and-deadlocks/
-- front: What does partition pruning need from a query?
-  back: A condition comparing the **partition key itself** with values (a range on `at`, not `date_trunc('month', at)`), so the planner can check each partition's bounds.
-  link: databases/partitioning/
-- front: Why should a connection pool usually be small?
-  back: Each PostgreSQL connection is a process; the server can only do as much work at once as its cores and disks allow. Extra connections queue inside the database. Start near (cores × 2) + disks and measure.
-  link: databases/connection-pooling/
+# Progress is stored by each card's id, so a front can be reworded freely; never change or reuse an id.
+# Fronts must still be unique across the whole deck. Set reviewed: true once a second person has checked the cards.
+reviewed: false
+cards:
+  - id: db-database-page-performance
+    front: What is a database page, and why does it matter for performance?
+    back: A fixed-size block (8 kB in PostgreSQL) holding rows. The database reads and writes whole pages, so the number of pages a query touches is the best single measure of its work. **Buffers** in EXPLAIN counts them.
+    link: databases/how-rows-are-stored/
+  - id: db-update-row
+    front: What does an UPDATE do to a row in PostgreSQL?
+    back: It writes a **new version** of the row and marks the old one as replaced (MVCC). Old versions stay until VACUUM removes them; too many of them is **bloat**.
+    link: databases/how-rows-are-stored/
+  - id: db-hot-update
+    front: What is a HOT update?
+    back: A heap-only tuple update. When no indexed column changes and the new version fits on the same page, no index has to be updated. A reason not to index columns that change often.
+    link: databases/how-rows-are-stored/
+  - id: db-btree-few-pages
+    front: Why does a B-tree lookup read so few pages?
+    back: Each page holds hundreds of sorted keys, so every level multiplies the reach by hundreds. Three or four levels cover hundreds of millions of rows; a lookup reads one page per level.
+    link: databases/btree-indexes/
+  - id: db-composite-column-order
+    front: How should columns be ordered in a composite index?
+    back: Columns compared with **=** first, then a range column or the **ORDER BY** columns. After a range condition, later columns cannot narrow the slice. (PostgreSQL 18 can skip scan a leading column with few distinct values, but do not design for it.)
+    link: databases/index-design/
+  - id: db-covering-index
+    front: What is a covering index?
+    back: An index that contains every column a query needs, often with **INCLUDE**, so the query can be answered by an **index-only scan** without visiting the table.
+    link: databases/index-design/
+  - id: db-partial-index-useful
+    front: When is a partial index useful?
+    back: When queries always ask for a small, fixed subset of rows, such as pending orders. The index holds only those rows, so it is small and cheap to maintain. The query's WHERE must imply the index's condition.
+    link: databases/index-design/
+  - id: db-expression-defeats-index
+    front: Why can't an index on created_at help `where created_at::date = '2024-06-15'`?
+    back: The cast hides the column from the index. Compare the bare column with a half-open range instead, `created_at >= '2024-06-15' and created_at < '2024-06-16'`, or index the expression (if it is immutable).
+    link: databases/index-design/
+  - id: db-seq-scan-index-scan
+    front: Seq scan, index scan or bitmap scan - when does each win?
+    back: '**Seq scan** when much of the table matches (reading in order is cheap). **Index scan** for a few rows or when rows must come out in index order. **Bitmap scan** for "more than a few, less than most": find all positions first, then read each page once.'
+    link: databases/scan-types/
+  - id: db-explain-analyze-compare
+    front: In EXPLAIN ANALYZE, what is the first thing to compare at each node?
+    back: '**Estimated rows** against **actual rows**. Off by ten times or more, and the plan built on that estimate is suspect: fix the estimate first (ANALYZE, extended statistics, rewrite expressions).'
+    link: databases/reading-plans/
+  - id: db-plan-actual-time-rows
+    front: In a plan, what do actual time and rows mean when loops is greater than 1?
+    back: They are **per loop**. Multiply by loops for the total work, which matters most on the inner side of a nested loop.
+    link: databases/reading-plans/
+  - id: db-nested-loop-hash-join
+    front: Nested loop, hash join, merge join - one line each?
+    back: '**Nested loop**: per outer row, look up the inner side; best for few outer rows with an index. **Hash join**: build a hash table from one side, probe with the other; large unsorted inputs. **Merge join**: walk two inputs sorted on the key.'
+    link: databases/joins/
+  - id: db-stale-estimate-join
+    front: Why can a stale estimate make a join catastrophically slow?
+    back: If the planner expects one outer row it picks a nested loop. If there are really 30,000, that is 30,000 inner lookups. ANALYZE after bulk loads.
+    link: databases/joins/
+  - id: db-offset-pagination
+    front: Why does OFFSET pagination get slower on later pages?
+    back: OFFSET does not jump; the database produces and discards every skipped row. **Keyset pagination** (`where key < last_seen order by key limit n`) stays fast at any depth.
+    link: databases/pagination-and-n-plus-one/
+  - id: db-n-1-query-problem
+    front: What is the N+1 query problem?
+    back: Loading a list with one query and then running one more query per item, so 1 + N round trips. Replace with a join, or one query with `= any(array_of_ids)`.
+    link: databases/pagination-and-n-plus-one/
+  - id: db-read-committed-anomaly
+    front: Which anomaly can PostgreSQL's read committed level allow?
+    back: Non-repeatable reads, phantoms, lost updates and write skew. It never allows dirty reads (no level in PostgreSQL does).
+    link: databases/isolation-and-mvcc/
+  - id: db-write-skew-isolation-level
+    front: What is write skew, and which isolation level prevents it?
+    back: Two transactions each read the same data, then each update different rows based on it, breaking a rule together (for example both doctors going off call). Only **serializable** prevents it; one transaction is aborted and must retry.
+    link: databases/isolation-and-mvcc/
+  - id: db-prevent-lost-update
+    front: How do you prevent a lost update in a read-modify-write?
+    back: Do the arithmetic in one statement (`set balance = balance + 30`), lock the row with **SELECT … FOR UPDATE**, or detect the conflict (higher isolation or a version column) and retry.
+    link: databases/transactions/
+  - id: db-alter-table-lock-queue
+    front: Why can a quick ALTER TABLE stop every query on a table?
+    back: It waits for an ACCESS EXCLUSIVE lock behind an open transaction, and every later query queues behind it. Set **lock_timeout** before migrations and keep transactions short.
+    link: databases/locks-and-deadlocks/
+  - id: db-resolve-deadlock
+    front: How does PostgreSQL resolve a deadlock?
+    back: After **deadlock_timeout** (1 s by default) it detects the cycle and aborts one transaction with error 40P01. Prevent with a consistent lock order; retry the victim.
+    link: databases/locks-and-deadlocks/
+  - id: db-skip-locked
+    front: What is SKIP LOCKED for?
+    back: Job queues. `select … for update skip locked limit 1` lets several workers each claim a different row without waiting for each other.
+    link: databases/locks-and-deadlocks/
+  - id: db-partition-pruning
+    front: What does partition pruning need from a query?
+    back: A condition comparing the **partition key itself** with values (a range on `at`, not `date_trunc('month', at)`), so the planner can check each partition's bounds.
+    link: databases/partitioning/
+  - id: db-small-connection-pool
+    front: Why should a connection pool usually be small?
+    back: Each PostgreSQL connection is a process; the server can only do as much work at once as its cores and disks allow. Extra connections queue inside the database. Start near (cores × 2) + disks and measure.
+    link: databases/connection-pooling/
