@@ -5,9 +5,9 @@ questions:
   - id: ss-stateless
     q: Before you can put several web servers behind a load balancer, what must be true of them?
     choices:
-      - They must all run on the same machine
-      - They must share one database connection
-      - They must use UDP
+      - They must all run on the same machine so that they share memory
+      - They must share a single database connection between all of them
+      - They must talk over UDP, so the balancer can spread the packets
       - They must be stateless, with sessions kept in a shared store
     answer: 3
     why: If any server can handle any request, the load balancer can send requests anywhere and a server can fail without losing sessions.
@@ -15,40 +15,40 @@ questions:
   - id: ss-cache-cost
     q: What is the main cost of adding a cache in front of the database?
     choices:
-      - Cached data can be stale, and deciding when to update or remove it is hard
-      - Reads become slower
-      - The database must be sharded first
-      - Writes are lost
+      - Cached data can go stale, and knowing when to drop it is hard
+      - Reads become slower, because each one has to check the cache first
+      - The database has to be sharded before a cache can be added
+      - Writes can be lost, because they now go to the cache only
     answer: 0
-    why: Every fix has a cost, and a cache's cost is staleness.
+    why: Every fix has a cost, and a cache's cost is staleness - deciding when to update or remove cached data is hard.
     difficulty: 1
   - id: ss-shard-last
     q: Why is splitting the data (sharding) usually the last step?
     choices:
-      - It is the cheapest step
-      - It must come before a load balancer
-      - 'It is the most expensive: joins across shards are hard, the application must know where data lives, and rebalancing is complex'
-      - It only helps reads
+      - It is the cheapest step, so it is kept for when budgets are tight
+      - It has to wait until a load balancer sits in front of the database
+      - It is the costliest - cross-shard joins, routing and rebalancing
+      - It only helps reads, which caches and replicas already handle
     answer: 2
-    why: Take it when the single write primary is saturated and simpler measures are exhausted.
+    why: Joins across shards are hard, the application must know where data lives, and rebalancing is complex. Take it when the single write primary is saturated and simpler measures are exhausted.
     difficulty: 2
   - id: ss-queue
     q: Which symptom does a message queue fix in the story?
     choices:
-      - Users waiting for slow work such as resizing images or sending email
-      - Too many reads on the database
-      - Users far away from the servers
-      - A single point of failure in the load balancer
+      - Users waiting on slow work, such as resizing images or sending email
+      - Too many reads on the database from the same repeated queries
+      - Users far from the servers waiting on long network round trips
+      - A single point of failure in front of all of the web servers
     answer: 0
     why: The web server records the job and replies at once; workers do the slow work in the background.
     difficulty: 1
   - id: ss-order
     q: What is the main lesson about the order of the stages?
     choices:
-      - Always follow all nine stages in order
-      - Start with sharding to be safe
-      - Add a CDN before anything else
-      - Add a component to fix a measured problem; the order is a pattern, not a rule
+      - Always follow all nine stages in order, whatever the system is
+      - Start with sharding, so the data never has to be moved later
+      - Add a CDN before anything else, because it helps every site
+      - Add each part to fix a measured problem; the order is a pattern
     answer: 3
     why: A write-heavy system may need to split data early; a mostly static site may never go beyond a CDN.
     difficulty: 1

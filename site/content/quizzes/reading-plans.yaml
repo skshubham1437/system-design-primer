@@ -5,10 +5,10 @@ questions:
   - id: explain-cost-units
     q: In `cost=0.00..2060.00`, what does 2060 measure?
     choices:
-      - Milliseconds the query took
-      - The number of rows returned
-      - The number of 8 kB pages read
-      - The planner's estimated total cost in abstract units, relative to reading one page in sequence
+      - Milliseconds the query is expected to take on this machine
+      - The number of rows the planner expects this node to return
+      - The number of 8 kB pages the query will have to read from disk
+      - The estimated total cost, in units of one sequential page read
     answer: 3
     why: Costs are estimates in arbitrary units (seq_page_cost is 1.0). Compare them between plans for the same query, never with timings.
     link: '#reading-one-line'
@@ -16,10 +16,10 @@ questions:
   - id: explain-read-order
     q: In which order does a plan do its work?
     choices:
-      - From the most indented nodes outwards, passing rows up towards the root
-      - From the top line down
-      - All nodes run at once
-      - In the order the tables appear in the SQL
+      - From the most indented nodes outwards, passing rows up to the root
+      - From the top line down, in the order the lines are printed
+      - All nodes start together and run at the same time in parallel
+      - In the order the tables are written in the query's FROM clause
     answer: 0
     why: The innermost nodes read the tables and pass rows up through joins, sorts and aggregates. A hash join is the one detail to remember - it builds its hash table from the Hash child first.
     link: '#reading-order'
@@ -27,10 +27,10 @@ questions:
   - id: explain-loops
     q: An inner node shows `actual time=0.02..0.05 rows=3.00 loops=1000`. How much work did it really do?
     choices:
-      - 3 rows in 0.05 ms
-      - About 3,000 rows in about 50 ms, because figures are per loop
-      - 1,000 rows
-      - Nothing; loops counts retries
+      - 3 rows in 0.05 ms, exactly as the line says, for the whole query
+      - About 3,000 rows in about 50 ms, since the figures are per loop
+      - 1,000 rows, one for each loop, in a total of 0.05 ms
+      - Nothing; loops counts retries after the first attempt failed
     answer: 1
     why: Actual time and rows are averages per loop. Multiply by loops to get the total, which matters most on the inner side of a nested loop.
     link: '#reading-one-line'
@@ -38,10 +38,10 @@ questions:
   - id: explain-estimate-off
     q: '`where total * 1.18 > 2400` was estimated at 33,333 rows but returned 61. What is the best first fix?'
     choices:
-      - Add more memory
-      - Run VACUUM FULL
-      - Move the arithmetic to the other side, `total > 2400 / 1.18`, so the planner can use the column's statistics
-      - Rewrite it as a CTE
+      - Give the server more memory so the estimate has room to improve
+      - Run VACUUM FULL so the table's statistics are rebuilt from scratch
+      - Compare the bare column, `total > 2400 / 1.18`, so stats apply
+      - Rewrite the condition as a CTE so the planner estimates it apart
     answer: 2
     why: The planner has statistics for total, not for total * 1.18, so it fell back to a fixed guess. Comparing the bare column lets it use the histogram; the rewritten query was estimated at 75 rows.
     link: '#the-estimate-is-far-from-the-truth'
@@ -49,10 +49,10 @@ questions:
   - id: explain-spill
     q: 'What does `Sort Method: external merge  Disk: 7360kB` tell you?'
     choices:
-      - The sort was fast
-      - The data was already sorted
+      - The sort was fast, because it used the disk's own merge feature
+      - The data was already sorted on disk, so only a merge was needed
       - The sort did not fit in work_mem and wrote temporary files
-      - The disk is full
+      - The disk is nearly full, and the sort is waiting for free space
     answer: 2
     why: An external merge sort spilled to disk because the rows did not fit in work_mem (4 MB by default). Sort fewer rows, use a LIMIT, return rows from an index already in order, or raise work_mem for that query.
     link: '#a-sort-that-spills-to-disk'
@@ -60,10 +60,10 @@ questions:
   - id: explain-analyze-runs
     q: Why should you wrap `EXPLAIN ANALYZE` of an UPDATE in BEGIN and ROLLBACK?
     choices:
-      - EXPLAIN ANALYZE really runs the statement, so the update would otherwise change data
-      - It is faster that way
-      - Otherwise it shows estimates only
-      - PostgreSQL requires it for every EXPLAIN
+      - It really runs the statement, so the update would change data
+      - It runs faster inside a transaction, so the timings come out lower
+      - Without a transaction it only shows estimates, not real timings
+      - PostgreSQL requires a transaction around every EXPLAIN it runs
     answer: 0
     why: Unlike plain EXPLAIN, EXPLAIN ANALYZE executes the statement to measure it. Rolling back undoes the change.
     link: '#reading-one-line'

@@ -15,30 +15,30 @@ questions:
   - id: q-fast-weak
     q: N = 3, W = 1, R = 1. What do you get?
     choices:
-      - Strong consistency
-      - Writes that need all three replicas
+      - Strong consistency, because every replica takes part in each write
+      - Writes that must reach all three replicas before they succeed
       - Fast reads and writes, but a read can miss the latest write
-      - Reads that always fail
+      - Reads that fail whenever any one of the three replicas is down
     answer: 2
     why: R + W = 2 is not more than 3, so a read can land on a replica the write never reached. It becomes consistent only as replicas catch up.
     difficulty: 1
   - id: q-failures
     q: N = 3, W = 2, R = 2. How many replicas can be down before writes are refused?
     choices:
-      - None
-      - One can be down; with two down, writes are refused
-      - Two
-      - All three
+      - None; every replica must be up for a write
+      - One; with two down, writes are refused
+      - Two; one live replica is enough for a write
+      - All three; writes wait until they return
     answer: 1
     why: A write needs W = 2 live replicas, so it survives N - W = 1 failure.
     difficulty: 2
   - id: q-repair
     q: How do stale replicas eventually catch up in Dynamo-style stores?
     choices:
-      - They are deleted and recreated
-      - The client rewrites every value
-      - They never do
-      - Background repair, such as read repair, hinted handoff and anti-entropy
+      - They are deleted and rebuilt from a full copy of another replica
+      - The client rewrites every value it reads, on every single read
+      - They never do; each replica keeps whatever it last received
+      - Background repair - read repair, hinted handoff and anti-entropy
     answer: 3
     why: Repair mechanisms copy newer versions to replicas that missed them, which is why low quorums are eventually consistent.
     difficulty: 2

@@ -3,6 +3,10 @@ import { rules } from './rules.mjs';
 
 export const QUESTIONS_MIN = 5;
 export const QUESTIONS_MAX = 10;
+/** The right answer may be at most this many times as long as the longest wrong one. */
+export const ANSWER_LENGTH_RATIO = 1.3;
+/** In one file, the right answer may be the longest choice in at most this share of questions. */
+export const LONGEST_ANSWER_SHARE = 0.4;
 
 /**
  * @param {{ quizzes?: {slug: string, file: string, data: any, error?: string}[], pages?: {path: string, html: string}[] }} ctx
@@ -46,6 +50,10 @@ export function validateQuizzes({ quizzes = [], pages = [] }) {
         const norm = choices.map((c) => c.trim().toLowerCase());
         check(new Set(norm).size === norm.length, `${at}: two choices are identical`);
         check(Number.isInteger(q.answer) && q.answer >= 0 && q.answer < choices.length, `${at}: "answer" must be the index (from 0) of exactly one choice`);
+        // The longest, most qualified choice is a giveaway: a learner can pick it without knowing the topic.
+        const right = choices[q.answer]?.trim().length ?? 0;
+        const longestWrong = Math.max(...choices.filter((_, k) => k !== q.answer).map((c) => c.trim().length));
+        check(right <= longestWrong * ANSWER_LENGTH_RATIO, `${at}: the right answer (${right} characters) is much longer than every wrong one (at most ${longestWrong}); make the wrong ones as specific`);
       }
 
       check(typeof q.why === 'string' && q.why.trim().length >= 20, `${at}: the explanation ("why") is missing or too short`);
@@ -61,6 +69,11 @@ export function validateQuizzes({ quizzes = [], pages = [] }) {
     for (const q of list) if (Number.isInteger(q?.answer)) counts[q.answer] = (counts[q.answer] ?? 0) + 1;
     const most = Math.max(0, ...Object.values(counts));
     check(list.length < QUESTIONS_MIN || most / list.length <= 0.6, `${where}: the correct answer is in the same position too often (${most} of ${list.length}); vary it`);
+
+    // Likewise a quiz where the right answer is usually the longest choice.
+    const longest = list.filter((q) => Array.isArray(q?.choices) && Number.isInteger(q.answer)
+      && q.choices.every((c, k) => k === q.answer || String(c).trim().length < String(q.choices[q.answer]).trim().length)).length;
+    check(list.length < QUESTIONS_MIN || longest / list.length <= LONGEST_ANSWER_SHARE, `${where}: the right answer is the longest choice in ${longest} of ${list.length} questions; at most ${Math.floor(list.length * LONGEST_ANSWER_SHARE)} may be`);
   }
   return problems;
 }

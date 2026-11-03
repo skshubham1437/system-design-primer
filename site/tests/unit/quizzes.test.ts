@@ -24,6 +24,18 @@ describe('validateQuizzes', () => {
     expect(validateQuizzes({ quizzes: [quiz(good())], pages })).toEqual([]);
   });
 
+  it('rejects a right answer that is much longer than every wrong one', () => {
+    const giveaway = question({ choices: ['The cache', 'The application, which loads the entry from storage and adds it', 'The database'], answer: 1 });
+    const p = validateQuizzes({ quizzes: [quiz([giveaway, ...good().slice(1)])], pages }).join('\n');
+    expect(p).toMatch(/much longer than every wrong one/);
+  });
+
+  it('rejects a quiz where the right answer is usually the longest choice', () => {
+    // 'The application' is the longest choice; answer 1 in four of five questions
+    const p = validateQuizzes({ quizzes: [quiz([1, 1, 1, 1, 0].map((answer) => question({ answer })))], pages }).join('\n');
+    expect(p).toMatch(/longest choice in 4 of 5 questions/);
+  });
+
   it('reports a file that does not parse', () => {
     const p = validateQuizzes({ quizzes: [{ slug: 'cache', file: 'f.yaml', data: null, error: 'bad indentation' }], pages });
     expect(p[0]).toMatch(/could not parse/);

@@ -5,10 +5,10 @@ questions:
   - id: lock-select-conflicts
     q: Which table lock mode does a plain SELECT conflict with?
     choices:
-      - ROW EXCLUSIVE, taken by INSERT and UPDATE
-      - SHARE, taken by CREATE INDEX
+      - ROW EXCLUSIVE, which INSERT, UPDATE and DELETE take on the table
+      - SHARE, which a plain CREATE INDEX takes while it builds the index
       - Only ACCESS EXCLUSIVE, taken by most ALTER TABLE, DROP and TRUNCATE
-      - Every other mode
+      - Every other mode, since a read must see a table nobody is changing
     answer: 2
     why: SELECT takes ACCESS SHARE, the weakest mode. It conflicts only with ACCESS EXCLUSIVE, which is why reads and writes run side by side.
     link: '#which-modes-conflict'
@@ -17,9 +17,9 @@ questions:
     q: What does a plain CREATE INDEX block while it runs?
     choices:
       - Writes to the table (INSERT, UPDATE, DELETE), but not reads
-      - Nothing
-      - Reads and writes
-      - Only other CREATE INDEX statements
+      - Nothing at all, since building an index only reads the table
+      - Both reads and writes, until the whole index has been built
+      - Only other CREATE INDEX statements on the same table
     answer: 0
     why: CREATE INDEX takes a SHARE lock, which conflicts with the ROW EXCLUSIVE lock writers need. CREATE INDEX CONCURRENTLY avoids that.
     link: '#what-a-statement-locks'
@@ -27,9 +27,9 @@ questions:
   - id: lock-queue-migration
     q: A quick ALTER TABLE waits behind a long open transaction that read the table. What happens to new SELECTs on the table?
     choices:
-      - They run normally
-      - They fail immediately
-      - They read the old schema
+      - They run normally, because they do not conflict with the open read
+      - They fail at once with a lock timeout error from the server
+      - They read the old schema while the ALTER TABLE waits its turn
       - They queue behind the ALTER TABLE, so the table effectively stops
     answer: 3
     why: Locks are granted in order. The ALTER TABLE waits for ACCESS EXCLUSIVE, and later requests, even ones compatible with the open transaction, queue behind it. Set lock_timeout before migrations.
@@ -38,10 +38,10 @@ questions:
   - id: deadlock-handling
     q: Two transactions each hold a row the other needs. What does PostgreSQL do?
     choices:
-      - Waits forever
-      - After deadlock_timeout it detects the cycle and aborts one transaction with error 40P01
-      - Rolls back both
-      - Lets both continue and merges their changes
+      - Both wait forever, until an administrator ends one of the sessions
+      - After deadlock_timeout it finds the cycle and aborts one (40P01)
+      - It rolls back both transactions and returns an error to each one
+      - It lets both continue and merges their changes when they commit
     answer: 1
     why: Deadlock detection runs after deadlock_timeout (1 second by default), finds the cycle and aborts one transaction so the other can finish. The recording shows exactly that.
     link: '#deadlocks'
@@ -49,10 +49,10 @@ questions:
   - id: deadlock-prevention
     q: Which practice makes deadlocks between money transfers rare?
     choices:
-      - Use longer transactions
-      - Turn off deadlock detection
-      - Always lock the rows in a consistent order, for example the lower account id first
-      - Use SERIALIZABLE for everything
+      - Use longer transactions, so each transfer keeps its locks longer
+      - Turn off deadlock detection, so transfers are never interrupted
+      - Always lock rows in one order, such as the lower account id first
+      - Run every transaction at SERIALIZABLE so that locks are not needed
     answer: 2
     why: If every transfer locks rows in the same order, two transfers cannot each hold what the other needs. Keep transactions short and retry the ones that still fail.
     link: '#deadlocks'
@@ -60,10 +60,10 @@ questions:
   - id: skip-locked-use
     q: What is SELECT … FOR UPDATE SKIP LOCKED good for?
     choices:
-      - Several workers taking different jobs from one queue table without waiting for each other
-      - Reading rows without any locks
-      - Skipping rows that fail a constraint
-      - Speeding up full table scans
+      - Letting several workers take different jobs from one queue table
+      - Reading rows without taking any locks, even rows being changed
+      - Skipping rows that would fail a constraint during an update
+      - Speeding up full table scans by ignoring rows other sessions hold
     answer: 0
     why: Each worker locks the first row nobody else holds and skips the locked ones, so workers never wait on each other.
     link: '#patterns-that-use-locks-well'

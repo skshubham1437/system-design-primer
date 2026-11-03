@@ -18,10 +18,10 @@ questions:
   - id: master-slave-master-down
     q: With master-slave replication, what happens when the master goes offline?
     choices:
-      - Writes continue on whichever slave answers first
-      - Reads and writes stop until the master returns
-      - The slaves merge themselves into a new master with no extra logic
-      - The system can keep serving reads until a slave is promoted or a new master is provisioned
+      - Writes move automatically to whichever slave answers first
+      - Reads and writes both stop until the original master comes back
+      - The slaves elect a new master among themselves with no extra setup
+      - Reads keep working until a slave is promoted or a new master is set up
     answer: 3
     why: Slaves only serve reads, so the system keeps working in read-only mode. Promoting a slave to master needs additional logic, which is one of the disadvantages of this setup.
     link: "#master-slave-replication"
@@ -30,10 +30,10 @@ questions:
   - id: replication-lag-more-replicas
     q: Why does adding more read replicas tend to increase replication lag?
     choices:
-      - Each replica holds different data, so queries must be merged
-      - The more read slaves there are, the more writes the system has to replicate
-      - Reads must wait for every replica to answer
-      - Replication can only update one replica at a time
+      - Each replica holds a different part of the data, so every result must be merged
+      - Every write must be replayed on every replica, so there is more to replicate
+      - A read has to wait until every replica returns the same value
+      - The master sends changes to one replica at a time, in a fixed order
     answer: 1
     why: Every write has to be replayed on every replica. With a lot of writes, replicas also get bogged down replaying them and can serve fewer reads.
     link: "#disadvantages-replication"
@@ -42,10 +42,10 @@ questions:
   - id: federation-meaning
     q: What does federation (functional partitioning) do to a database?
     choices:
-      - It copies the same data onto many servers
-      - It splits databases by function, for example separate databases for users, forums and products
-      - It spreads the rows of one table across servers by a hash of the key
-      - It merges several databases so joins become easier
+      - It keeps a full copy of the same data on several servers to spread the reads
+      - It splits data by function, such as separate users and products databases
+      - It spreads the rows of one table across servers by a hash of their key
+      - It merges several databases into one so that joins across them are easy
     answer: 1
     why: Federation splits by function, which lowers read and write traffic to each database and therefore replication lag. Copying data is replication, and spreading one table's rows is sharding.
     link: "#federation"
@@ -54,10 +54,10 @@ questions:
   - id: sharding-lopsided
     q: A sharded users database has one shard that is far busier than the others because it holds many power users. Which problem is this?
     choices:
-      - Replication lag between a master and its slaves
-      - A deadlock between two transactions
-      - Lopsided data distribution, where rebalancing is complex and consistent hashing can reduce the data moved
-      - Denormalization that has gone too far
+      - Replication lag, because the busy shard's slaves fall behind its master
+      - A deadlock between transactions that touch rows on two shards
+      - Uneven data distribution, which makes rebalancing the shards necessary
+      - Too much denormalization, because user rows were copied to every shard
     answer: 2
     why: Uneven distribution is a known disadvantage of sharding. Rebalancing shards adds complexity, and a sharding function based on consistent hashing reduces how much data has to move.
     link: "#disadvantages-sharding"
@@ -66,10 +66,10 @@ questions:
   - id: denormalization-trade
     q: Denormalization improves read performance. What does it give up in exchange?
     choices:
-      - Some write performance, because redundant copies of the data must be written
-      - The ability to use indices on any table
-      - Durability of committed transactions
-      - The ability to add read replicas
+      - Write speed, because every redundant copy is updated on each write
+      - Indexes, which cannot be added to tables that hold duplicated data
+      - Durability, because the redundant copies are not written to the log
+      - Read replicas, because duplicated data cannot be replicated safely
     answer: 0
     why: Denormalization writes redundant copies of data into multiple tables so reads avoid expensive joins. Every write now has to update those copies, so writes get slower.
     link: "#denormalization"

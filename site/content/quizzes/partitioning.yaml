@@ -5,11 +5,11 @@ questions:
   - id: partition-prune-function
     q: "The events table is partitioned by month on at. Why does `where date_trunc('month', at) = '2024-11-01'` read all twelve partitions?"
     choices:
-      - Pruning only works on primary keys
-      - The planner can only compare the partition key itself with partition bounds; a function of it hides that
-      - Partitions are always scanned in full
-      - date_trunc is not allowed on partitioned tables
-    answer: 1
+      - Pruning only works on primary keys, and at is not part of the key
+      - Monthly partitions cannot be pruned by a condition on a single day
+      - Bounds are compared with the bare key; a function on it hides it
+      - date_trunc cannot be used in a WHERE clause on a partitioned table
+    answer: 2
     why: Pruning compares the condition with each partition's bounds, which are ranges of at. A half-open range on the bare column reads one partition.
     link: "#partition-pruning"
     difficulty: 1
@@ -17,10 +17,10 @@ questions:
   - id: partition-vs-sharding
     q: What does partitioning NOT give you?
     choices:
-      - Smaller pieces of one large table
-      - Fast removal of old data by dropping a partition
+      - Smaller pieces of one large table, each with its own indexes
+      - Fast removal of old data by dropping a whole partition at once
       - More CPU, memory or disks, because everything stays on one server
-      - Queries that skip irrelevant partitions
+      - Queries that skip the partitions their conditions rule out
     answer: 2
     why: Partitioning makes a big table manageable on one server. Spreading load across servers is sharding.
     link: "#the-limits"
@@ -29,10 +29,10 @@ questions:
   - id: partition-unique-key
     q: Why must a primary key on a partitioned table include the partition key?
     choices:
-      - Each partition enforces uniqueness only within itself, and there are no global indexes
-      - Primary keys are not allowed otherwise for performance
-      - The SQL standard requires it
-      - So that pruning can use it
+      - Each partition enforces uniqueness only inside itself; no global index
+      - The SQL standard requires every key to include the partition column
+      - So that pruning can use the primary key to find the right partition
+      - Otherwise a row could never move to another partition on update
     answer: 0
     why: There is no index across all partitions, so uniqueness can only be guaranteed when the key determines the partition.
     link: "#the-limits"
@@ -53,9 +53,9 @@ questions:
   - id: partition-old-data
     q: What is the cheapest way to remove a whole month of old data from a monthly-partitioned table?
     choices:
-      - DELETE the rows, then VACUUM
+      - DELETE that month's rows, then VACUUM
       - Detach or drop that month's partition
-      - TRUNCATE the whole table
+      - TRUNCATE the whole table and reload the rest
       - Rewrite the table without those rows
     answer: 1
     why: Detaching or dropping a partition is a metadata change. A DELETE writes WAL for every row and leaves dead rows behind.

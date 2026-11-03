@@ -5,50 +5,50 @@ questions:
   - id: tcp-hol
     q: What is head-of-line blocking in TCP?
     choices:
-      - A packet that arrived is held back until every earlier packet has arrived
-      - The first packet is always lost
-      - The handshake blocks all traffic
-      - Packets are sent one at a time
+      - A packet that arrived is held until every earlier packet has arrived
+      - The first packet of every connection is always lost and has to be sent again
+      - The handshake blocks all other traffic on the network until it ends
+      - Packets go one at a time, each waiting for the previous one's reply
     answer: 0
     why: TCP delivers one ordered stream, so one lost packet holds back everything behind it until it is resent.
     difficulty: 1
   - id: tcp-udp-voice
     q: Why do voice and video calls usually use UDP?
     choices:
-      - UDP is encrypted
-      - UDP guarantees delivery
-      - TCP cannot carry audio
-      - A late packet is useless, so waiting for retransmission is the wrong trade
+      - UDP is encrypted by default, which calls need for privacy
+      - UDP guarantees delivery, so no part of the call goes missing
+      - TCP cannot carry audio, because it only transports text and whole files
+      - A late packet is useless, so waiting for a resend is the wrong trade
     answer: 3
     why: The deciding question is what you do with a late packet. In a call it arrives too late to play, so skipping it is better than waiting.
     difficulty: 1
   - id: tcp-no-loss
     q: With no packet loss, why does TCP still finish later than UDP in the lab?
     choices:
-      - It sends packets more slowly
-      - It spends a round trip on the handshake before data flows
-      - It resends every packet
-      - UDP compresses the data
+      - It sends each packet more slowly, to leave room for other traffic
+      - It spends a round trip on the handshake before any data flows
+      - It sends every packet twice, to be sure that nothing was lost
+      - UDP compresses the data, so it has fewer bytes to send overall
     answer: 1
     why: Connection set-up costs one round trip before the client can send data.
     difficulty: 1
   - id: tcp-quic-streams
     q: How does QUIC reduce head-of-line blocking compared with TCP?
     choices:
-      - It never resends lost packets
-      - It sends every packet twice
-      - Each stream is ordered separately, so a loss only holds back its own stream
-      - It has no handshake
+      - It never resends lost packets, so nothing waits for a resend
+      - It sends every packet twice, so a single loss never matters
+      - Each stream is ordered on its own, so a loss holds back only that one
+      - It has no handshake, so data goes out before any loss can occur
     answer: 2
     why: QUIC is reliable like TCP, but several independent streams share one connection; a loss stalls one of them, not all.
     difficulty: 2
   - id: tcp-quic-tls
     q: Besides independent streams, what does QUIC save compared with TCP plus TLS?
     choices:
-      - All retransmissions
-      - Round trips at set-up, because encryption is negotiated in the same handshake
-      - The need for IP addresses
-      - Congestion control
+      - All retransmissions, because QUIC packets are rarely lost
+      - Set-up round trips, as encryption is agreed in the same handshake
+      - The need for IP addresses, since QUIC connections use their own IDs
+      - Congestion control, which QUIC leaves to the application instead
     answer: 1
     why: QUIC's one-round-trip handshake includes TLS, which TCP needs extra round trips for.
     difficulty: 2

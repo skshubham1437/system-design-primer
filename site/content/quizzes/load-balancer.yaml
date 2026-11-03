@@ -6,10 +6,10 @@ questions:
   - id: lb-unhealthy-servers
     q: Which problem does placing a load balancer in front of a group of servers help with?
     choices:
-      - It stops requests from being sent to unhealthy servers
-      - It makes the database ACID compliant
-      - It encrypts all data stored on disk
-      - It removes the need for any caching
+      - It stops requests going to servers that are unhealthy
+      - It makes the database behind the servers fully ACID compliant
+      - It encrypts the data each server stores on its local disk
+      - It removes the need for a cache in front of the application
     answer: 0
     why: Load balancers prevent requests going to unhealthy servers, prevent overloading any one resource, and help eliminate a single point of failure.
     difficulty: 1
@@ -17,10 +17,10 @@ questions:
   - id: lb-layer4-inputs
     q: What does a layer 4 load balancer use to decide where to send a request?
     choices:
-      - Cookies and the body of the message
-      - The URL path
-      - The source and destination IP addresses and ports, not the contents of the packet
-      - The result of a database query
+      - Cookies and the body of the HTTP request, which it reads in full
+      - The URL path and the Host header of each incoming request
+      - IP addresses and ports in the packet header, not its contents
+      - The user's session ID, which it reads from the request headers
     answer: 2
     why: Layer 4 balancers work at the transport layer. They look at addresses and ports in the header and forward packets to and from the upstream server, using network address translation.
     link: "#layer-4-load-balancing"
@@ -29,10 +29,10 @@ questions:
   - id: lb-layer7-example
     q: Which routing rule needs a layer 7 load balancer?
     choices:
-      - Handing connections to identical servers in turn
-      - Sending video requests to servers that host videos and billing requests to security-hardened servers
-      - Forwarding packets by address and port using NAT
-      - Choosing a server at random
+      - Handing each new connection to identical servers in strict turn
+      - Video requests to video servers, billing to security-hardened ones
+      - Forwarding packets by IP address and port using address translation
+      - Choosing a server at random for every incoming TCP connection
     answer: 1
     why: Routing by what the request is for needs the contents of the message, such as the header or cookies. Layer 7 balancers read the message, then open a connection to the chosen server. Simple in-turn or random choices do not need that.
     link: "#layer-7-load-balancing"
@@ -41,10 +41,10 @@ questions:
   - id: lb-layer4-trade-off
     q: Compared with layer 7, what is the trade-off of layer 4 load balancing?
     choices:
-      - It is more flexible but needs more computing resources
-      - It needs a TLS certificate on every server
-      - It cannot send traffic to more than one server
-      - It needs less time and computing resources, at the cost of flexibility
+      - It is more flexible, but it needs more computing power per request
+      - It needs a TLS certificate installed on every backend server
+      - It can only ever send one client's traffic to a single server
+      - It needs less time and computing power, but it is less flexible
     answer: 3
     why: Layer 4 balancing is cheaper because it does not read the message. On modern commodity hardware the performance difference can be minimal, so flexibility often decides.
     link: "#layer-7-load-balancing"
@@ -53,10 +53,10 @@ questions:
   - id: lb-session-storage
     q: You scale a web tier out behind a load balancer. Where should user sessions be kept so the servers stay stateless?
     choices:
-      - In memory on whichever server first handled the user
-      - In a centralized store such as a database or a persistent cache like Redis
-      - Only in the load balancer's memory
-      - On the local disk of every server
+      - In memory on whichever server happened to handle the user's first request
+      - In a shared store, such as a database or a persistent cache like Redis
+      - Only in the load balancer's memory, keyed by the user's address
+      - On the local disk of every server, copied there at each login
     answer: 1
     why: Servers should hold no user-related data, so any server can handle any request and servers can be cloned freely. Sessions belong in a shared store that all servers can reach.
     link: "#disadvantages-horizontal-scaling"
@@ -65,22 +65,22 @@ questions:
   - id: lb-single-point-of-failure
     q: A single load balancer fronts every server. Which new risk has been introduced?
     choices:
-      - It makes the servers stateful
-      - It prevents horizontal scaling
-      - It forces every request to use layer 7
-      - It is a single point of failure, so teams run several in active-passive or active-active mode
+      - It makes the servers behind it stateful, so they cannot be cloned
+      - It stops you adding servers, so the web tier cannot scale out
+      - It forces every request through slower layer 7 inspection
+      - It is a single point of failure unless you run more than one
     answer: 3
-    why: Removing the single point of failure from the servers moves it to the load balancer. Running multiple balancers fixes that, at the cost of more complexity.
+    why: Removing the single point of failure from the servers moves it to the load balancer. Running multiple balancers, in active-passive or active-active mode, fixes that at the cost of more complexity.
     link: "#disadvantages-load-balancer"
     difficulty: 2
 
   - id: lb-ssl-termination
     q: What does SSL termination at the load balancer mean?
     choices:
-      - The load balancer decrypts incoming requests and encrypts responses so the backend servers do not have to
-      - The load balancer refuses all unencrypted traffic and drops it
-      - Each backend server keeps its own copy of the certificate and does its own encryption
-      - The load balancer stores encrypted sessions on its disk
+      - It decrypts requests and encrypts responses so servers do not have to
+      - It refuses all unencrypted traffic and drops those requests
+      - Each backend server keeps its own certificate and does its own encryption
+      - It stores encrypted session data on its own disk for the servers
     answer: 0
     why: Doing the expensive encryption work once, at the balancer, spares the backend servers and removes the need to install an X.509 certificate on each one.
     difficulty: 2
