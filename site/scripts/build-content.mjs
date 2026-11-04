@@ -79,7 +79,8 @@ const altText = (() => {
   const md5 = (p) => crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex');
   const byHash = new Map();
   for (const [rel, text] of Object.entries(byPath)) {
-    const p = path.join(SITE, 'public', 'img', rel);
+    // local images are copied from the repository's images/ folder during the build, so read the originals
+    const p = rel.startsWith('local/') ? path.join(ROOT, 'images', path.basename(rel)) : path.join(SITE, 'public', 'img', rel);
     if (fs.existsSync(p)) byHash.set(md5(p), text);
     else warn(`content/alt-text.yaml: no image public/img/${rel}`, true);
   }
