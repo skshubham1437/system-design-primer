@@ -384,6 +384,11 @@ dialog::backdrop { background: rgb(12 14 13 / 0.5); backdrop-filter: blur(3px); 
   .toc { display: none; }
   .toc-inline { display: block; }
 }
+/* The full nav and a 250px search box need about 1120px; below that the search box becomes its icon. */
+@media (max-width: 1160px) {
+  .site-header .search-btn { min-width: 0; width: 38px; height: 38px; padding: 0; justify-content: center; border-color: transparent; background: transparent; }
+  .site-header .search-btn span, .site-header .search-btn kbd { display: none; }
+}
 @media (max-width: 960px) {
   :root { --sidebar-w: 300px; }
   .shell, .shell.no-toc { grid-template-columns: minmax(0, 1fr); padding: 0 16px; }
@@ -392,8 +397,6 @@ dialog::backdrop { background: rgb(12 14 13 / 0.5); backdrop-filter: blur(3px); 
   body.nav-open::after { content: ''; position: fixed; inset: 0; z-index: 65; background: rgb(12 14 13 / 0.45); }
   .menu-btn { display: grid; }
   .top-nav { display: none; }
-  .site-header .search-btn { min-width: 0; width: 38px; height: 38px; padding: 0; justify-content: center; border-color: transparent; background: transparent; }
-  .site-header .search-btn span, .site-header .search-btn kbd { display: none; }
   .main { padding-top: 28px; }
   .hero-grid { grid-template-columns: 1fr; padding-block: 48px 44px; }
   .hero-art { max-width: 520px; }

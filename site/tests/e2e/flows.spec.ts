@@ -88,3 +88,13 @@ test('load balancing: a dead server loses requests until health checks remove it
   await page.getByRole('button', { name: /Least connections/ }).click();
   await expect(page.locator('#lb-goal')).toContainText('Done');
 });
+
+// The every-page test checks 1280 and 375 pixels. The header once overflowed between about 960 and 1135, on every page.
+test('no page width in between scrolls sideways', async ({ page }) => {
+  for (const width of [1160, 1135, 1100, 1024, 961, 960, 820, 768, 600]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('learn/cache/');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${width} pixels wide`).toBeLessThanOrEqual(0);
+  }
+});
