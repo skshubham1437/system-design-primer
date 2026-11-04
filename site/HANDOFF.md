@@ -1,6 +1,6 @@
 # Handoff: learning features and the Databases section
 
-Branch `learning-features`. **Nothing has been pushed**: the user asked for local commits only.
+Branch `learning-features`. Open as [pull request 14](https://github.com/skshubham1437/system-design-primer/pull/14). Merging it deploys the site.
 
 ## Where things stand
 
@@ -27,7 +27,7 @@ The plan is [ADVANCED_DB_PLAN.md](ADVANCED_DB_PLAN.md). Phases 0 to 8 are built 
 4. **Data premortem:** [DATA_PREMORTEM.md](DATA_PREMORTEM.md). Done: PostgreSQL notes on the Database page, the latency table dated, every Databases source linked (and checked weekly), descriptions for every diagram in `content/alt-text.yaml`, production-scale recordings on three pages. Decided: `advancedDb` ships on, labelled Draft.
 5. **Quizzes:** the wrong answers were rewritten after the data premortem, and the build now fails if the right answer is much longer than the wrong ones, or is the longest choice in more than 40% of a file. New quizzes must meet this.
 6. **Rate limiting** is a new lab with five limiters, written up with distributed limiting and client behaviour. It awaits the same second-person review. Next in line: idempotency and retries, unique IDs, observability.
-7. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
+7. **After the first deploy:** `advancedDb` stays on, labelled Draft, by decision. Check that GitHub Pages serves the engine gzipped (about 5.6 MB).
 
 ## Rules for working on the Databases section
 
