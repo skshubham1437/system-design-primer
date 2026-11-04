@@ -25,7 +25,9 @@ The plan is [ADVANCED_DB_PLAN.md](ADVANCED_DB_PLAN.md). Phases 0 to 8 are built 
 2. **Lab improvements from the review are done.** They added a quorum lab, semi-synchronous replication with read-your-writes, DNS TTL, CDN counters, estimator headroom and overhead, a shared-queue curve, consistent-hashing copies, sharding traffic drift, a QUIC lane, 2Q eviction, a predict-mode self-check, and 70 lab quiz questions. All of it awaits the same second-person review.
 3. **Premortem:** [ADVANCED_DB_PREMORTEM.md](ADVANCED_DB_PREMORTEM.md). Fixed: claims on every page with outputs, the exercise sandbox, `db:check`, a report link on Draft pages. Open: a named reviewer and date, the flag (the plan said off until reviewed), timing a start on two real phones, and whether to add production-scale recorded plans.
 4. **Data premortem:** [DATA_PREMORTEM.md](DATA_PREMORTEM.md). Done: PostgreSQL notes on the Database page, the latency table dated, every Databases source linked (and checked weekly), descriptions for every diagram in `content/alt-text.yaml`, production-scale recordings on three pages. Decided: `advancedDb` ships on, labelled Draft.
-5. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
+5. **Quizzes:** the wrong answers were rewritten after the data premortem, and the build now fails if the right answer is much longer than the wrong ones, or is the longest choice in more than 40% of a file. New quizzes must meet this.
+6. **Rate limiting** is a new lab with five limiters, written up with distributed limiting and client behaviour. It awaits the same second-person review. Next in line: idempotency and retries, unique IDs, observability.
+7. **Before pushing:** decide whether the section goes live. The `advancedDb` flag in `features.json` is on. After the first deploy, check that GitHub Pages serves the engine gzipped (about 5.6 MB).
 
 ## Rules for working on the Databases section
 

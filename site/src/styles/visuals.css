@@ -284,3 +284,27 @@
 @media (max-width: 700px) { .q-rule { margin-inline: 16px; } }
 .story-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; }
 .story-check small { color: var(--ink-2); flex-basis: 100%; }
+
+/* rate limiting */
+.v-rate .seg { flex-wrap: wrap; }
+.v-rate-wrap { padding: 14px 24px 0; }
+.v-rate-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.v-rate-svg .rl-lane { font-size: 10px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink-3); }
+.v-rate-svg .rl-win { stroke: var(--line); stroke-dasharray: 3 3; }
+.v-rate-svg .rl-arr { stroke: var(--ink-3); stroke-width: 1.4; }
+.v-rate-svg .rl-ok { fill: var(--accent); }
+.v-rate-svg .rl-wait { stroke: var(--warn); stroke-width: 2; stroke-linecap: round; opacity: 0.75; }
+.v-rate-svg .rl-no { stroke: var(--hue-practice); stroke-width: 1.8; stroke-linecap: round; fill: none; }
+.v-rate-svg .rl-peak { fill: var(--accent-soft); }
+.v-rate-svg .rl-peak.over { fill: color-mix(in srgb, var(--hue-practice) 18%, transparent); }
+.v-rate-svg .rl-now { stroke: var(--ink-2); stroke-width: 1; }
+.v-rate-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 24px 0; font-size: 12.5px; color: var(--ink-2); }
+.v-rate-key span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; vertical-align: -1px; }
+.v-rate-key .k-arr::before { width: 2px; background: var(--ink-3); }
+.v-rate-key .k-ok::before { border-radius: 50%; background: var(--accent); }
+.v-rate-key .k-wait::before { height: 3px; vertical-align: 2px; background: var(--warn); }
+.v-rate-key .k-no::before { background: none; border: 2px solid var(--hue-practice); }
+.v-rate-key .k-peak::before { background: var(--accent-soft); border: 1px solid var(--line); }
+.v-rate-table td.bad { color: var(--ink-practice, var(--hue-practice)); font-weight: 650; }
+.v-rate .lab-range[hidden] { display: none; }
+@media (max-width: 700px) { .v-rate-wrap { padding-inline: 16px; } .v-rate-key { margin-inline: 16px; } }

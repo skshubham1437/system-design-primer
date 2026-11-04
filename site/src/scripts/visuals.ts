@@ -13,6 +13,7 @@ import { getProgress } from '../lib/progress';
 import { architectureAt, newAt } from '../lib/scaling-story';
 import { createTtl, lookupTtl, changeRecord, setTtl, passTime, type TtlState } from '../lib/dns-ttl';
 import { createQuorum, quorumWrite, quorumRead, quorumSync, toggleReplica, overlaps, tolerates, type QuorumState } from '../lib/quorum';
+import { ALGORITHMS, limitRequests, summarize, traffic, type Algorithm, type Decision, type LimitParams, type Pattern } from '../lib/rate-limit';
 
 const TONES = ['#0c7a73', '#4f5bd5', '#c4690a', '#cc3a5d', '#8a4fd0', '#0b84b8', '#9a7b0a', '#5f8a2a'];
 
@@ -666,6 +667,140 @@ function dnsTtl(host: HTMLElement) {
   draw();
 }
 
+/* ------------------------------------------------------------ rate limiting */
+
+const RL_ALGOS: Record<Algorithm, { b: string; s: string }> = {
+  'fixed-window': { b: 'Fixed window', s: 'a count per second' },
+  'sliding-log': { b: 'Sliding log', s: 'every timestamp' },
+  'sliding-counter': { b: 'Sliding counter', s: 'a weighted estimate' },
+  'token-bucket': { b: 'Token bucket', s: 'bursts allowed' },
+  'leaky-bucket': { b: 'Leaky bucket', s: 'a queue, steady out' },
+};
+const RL_TRAFFIC: Record<Pattern, { b: string; s: string }> = {
+  boundary: { b: 'Window edges', s: 'bursts either side' },
+  steady: { b: 'Steady', s: '1.5× the limit' },
+  bursts: { b: 'Bursts', s: '2× the limit at once' },
+  random: { b: 'Random', s: 'averages the limit' },
+};
+
+function rateLimit(host: HTMLElement) {
+  const DURATION = 10_000;
+  const STEP = 100;
+  const p: LimitParams = { limit: 10, windowMs: 1000, burst: 10 };
+  let algo: Algorithm = 'fixed-window';
+  let pattern: Pattern = 'boundary';
+  let now = 0; // how much of the ten seconds has been played
+  let arrivals: number[] = [];
+  let decisions: Decision[] = [];
+  const root = shell(host, 'v-rate', 'Rate limiting', { eyebrow: 'Simulation', title: 'Ten seconds of requests, one limit', desc: 'Every limiter here aims for the same number of requests per second. Send the same traffic through each one and see which requests get through, which are refused with a 429, and which are made to wait.' }, `
+    <div class="vis-controls">
+      <div class="seg small" role="group" aria-label="Algorithm">${ALGORITHMS.map((a) => `<button type="button" data-a="${a}"><b>${RL_ALGOS[a].b}</b><small>${RL_ALGOS[a].s}</small></button>`).join('')}</div>
+      <div class="seg small" role="group" aria-label="Traffic">${(Object.keys(RL_TRAFFIC) as Pattern[]).map((t) => `<button type="button" data-t="${t}"><b>${RL_TRAFFIC[t].b}</b><small>${RL_TRAFFIC[t].s}</small></button>`).join('')}</div>
+    </div>
+    <div class="vis-controls vis-grid">
+      <label class="lab-range"><span>Limit <b id="rl-l">10</b> requests per second</span><input type="range" id="rl-l-in" min="4" max="20" value="10" aria-label="Limit in requests per second" /></label>
+      <label class="lab-range" id="rl-b-wrap"><span><span id="rl-b-name">Bucket holds</span> <b id="rl-b">10</b></span><input type="range" id="rl-b-in" min="1" max="30" value="10" aria-label="Bucket size" /></label>
+    </div>
+    <div class="vis-actions" id="rl-actions"><span class="vis-label" id="rl-clock"></span></div>
+    <div class="v-rate-wrap"><svg class="v-rate-svg" id="rl-svg" viewBox="0 0 600 150" role="img"></svg></div>
+    <p class="v-rate-key"><span class="k-arr">Arrived</span><span class="k-ok">Served</span><span class="k-wait">Waited in the queue</span><span class="k-no">Refused (429)</span><span class="k-peak">Busiest second</span></p>
+    <dl class="vis-stats" id="rl-stats"></dl>
+    <p class="vis-status" id="rl-verdict" role="status" aria-live="polite"></p>
+    <p class="vis-h">All five on the same traffic</p>
+    <div class="lb-table-wrap" tabindex="0" role="region" aria-label="All five limiters on the same traffic (scrolls sideways on small screens)"><table class="lb-table v-rate-table"><thead><tr><th scope="col">Limiter</th><th scope="col">Served</th><th scope="col">Refused</th><th scope="col">Busiest second</th><th scope="col">Longest wait</th></tr></thead><tbody id="rl-table"></tbody></table></div>`);
+
+  const x = (t: number) => 24 + (t / DURATION) * 566;
+  const compute = () => { arrivals = traffic(pattern, p.limit, p.windowMs, DURATION); decisions = limitRequests(arrivals, algo, p); };
+  const ms = (v: number) => (v <= 0 ? 'none' : `${Math.round(v)} ms`);
+
+  const draw = () => {
+    $$('[data-a]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.a === algo)));
+    $$('[data-t]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === pattern)));
+    $('#rl-l', root)!.textContent = String(p.limit);
+    $('#rl-b', root)!.textContent = String(p.burst);
+    const bucket = algo === 'token-bucket' || algo === 'leaky-bucket';
+    ($('#rl-b-wrap', root) as HTMLElement).hidden = !bucket;
+    $('#rl-b-name', root)!.textContent = algo === 'leaky-bucket' ? 'Queue holds' : 'Bucket holds';
+    $('#rl-clock', root)!.textContent = `${(Math.min(now, DURATION) / 1000).toFixed(1)} s of 10`;
+
+    // what has happened so far
+    const seen = decisions.filter((d) => d.t <= now);
+    const shown = summarize(seen.filter((d) => d.allowed && d.startMs <= now), p.windowMs); // served so far (queued ones are not yet)
+    const so = summarize(seen, p.windowMs);
+    const full = summarize(decisions, p.windowMs);
+    const over = shown.peakInWindow > p.limit;
+
+    let svg = '';
+    for (let w = p.windowMs; w < DURATION; w += p.windowMs) svg += `<line class="rl-win" x1="${x(w)}" x2="${x(w)}" y1="14" y2="140"/>`;
+    if (shown.peakInWindow > 0) svg += `<rect class="rl-peak${over ? ' over' : ''}" x="${x(shown.peakAt)}" y="56" width="${x(shown.peakAt + p.windowMs) - x(shown.peakAt)}" height="38" rx="4"/>`;
+    svg += `<text class="rl-lane" x="2" y="12">Arrived</text><text class="rl-lane" x="2" y="58">Served</text><text class="rl-lane" x="2" y="106">Refused</text>`;
+    for (const d of seen) {
+      svg += `<line class="rl-arr" x1="${x(d.t)}" x2="${x(d.t)}" y1="20" y2="38"/>`;
+      if (!d.allowed) svg += `<path class="rl-no" d="M${x(d.t) - 3} 117l6 6m0 -6l-6 6"/>`;
+      else {
+        if (d.startMs > d.t) svg += `<line class="rl-wait" x1="${x(d.t)}" x2="${x(Math.min(d.startMs, now))}" y1="75" y2="75"/>`;
+        if (d.startMs <= now) svg += `<circle class="rl-ok" cx="${x(d.startMs)}" cy="75" r="3.2"/>`;
+      }
+    }
+    if (now < DURATION) svg += `<line class="rl-now" x1="${x(now)}" x2="${x(now)}" y1="14" y2="140"/>`;
+    const svgEl = $('#rl-svg', root)!;
+    svgEl.innerHTML = svg;
+    svgEl.setAttribute('aria-label', `${RL_ALGOS[algo].b} on ${RL_TRAFFIC[pattern].b.toLowerCase()} traffic: ${so.sent} requests arrived, ${shown.allowed} served, ${so.rejected} refused. The busiest second served ${shown.peakInWindow} against a limit of ${p.limit}.`);
+
+    $('#rl-stats', root)!.innerHTML = [
+      ['Arrived', String(so.sent), ''],
+      ['Served', String(shown.allowed), ''],
+      ['Refused (429)', String(so.rejected), so.rejected ? 'bad' : ''],
+      ['Busiest second', `${shown.peakInWindow} / ${p.limit}`, over ? 'bad' : ''],
+      ['Longest wait', ms(so.maxWaitMs), ''],
+    ].map(([k, v, c]) => `<div class="${c}"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+    const ratio = (full.peakInWindow / p.limit).toLocaleString('en-US', { maximumFractionDigits: 1 });
+    const verdicts: Record<Algorithm, string> = {
+      'fixed-window': full.peakInWindow > p.limit
+        ? `The fixed window let ${full.peakInWindow} requests through in one second, ${ratio} times the limit. Its count resets at each boundary, so a burst just before the boundary and another just after both fit.`
+        : `The fixed window kept every second to ${p.limit} or fewer on this traffic. Try "Window edges" to see where it fails.`,
+      'sliding-log': `The sliding log never served more than ${full.peakInWindow} in any second, because it checks the real last second every time. The price is memory: it stores the time of every request it allows.`,
+      'sliding-counter': `The sliding counter estimates the last second from just two counts, the previous window's weighted by how much of it still overlaps. Its busiest second was ${full.peakInWindow}, close to the limit of ${p.limit}, for almost no memory.`,
+      'token-bucket': full.peakInWindow > p.limit
+        ? `The token bucket served ${full.peakInWindow} in its busiest second: a full bucket of ${p.burst} lets a burst through at once, and then it refills at ${p.limit} a second. Over the whole run it averages the limit.`
+        : `The token bucket never needed more than its refill here; its busiest second was ${full.peakInWindow}. Raise the bucket size, or choose "Bursts", to see it absorb a spike.`,
+      'leaky-bucket': `The leaky bucket served at most ${full.peakInWindow} a second, evenly spaced, and refused ${full.rejected}. Nothing is refused while its queue has room, but requests wait: up to ${Math.round(full.maxWaitMs)} ms here.`,
+    };
+    $('#rl-verdict', root)!.textContent = now >= DURATION ? verdicts[algo] : `Playing: ${so.sent} requests so far, ${so.rejected} refused.`;
+
+    $('#rl-table', root)!.innerHTML = ALGORITHMS.map((a) => {
+      const s = summarize(limitRequests(arrivals, a, p), p.windowMs);
+      return `<tr class="${a === algo ? 'on' : ''}" data-row="${a}"><td>${RL_ALGOS[a].b}</td><td>${s.allowed}</td><td>${s.rejected}</td><td class="${s.peakInWindow > p.limit ? 'bad' : ''}">${s.peakInWindow} / ${p.limit}</td><td>${ms(s.maxWaitMs)}</td></tr>`;
+    }).join('');
+  };
+
+  const pl = player(root, {
+    ms: 80, autoplay: true,
+    step: () => { if (now >= DURATION) return false; now = Math.min(DURATION, now + STEP); draw(); return now < DURATION; },
+    reset: () => { now = 0; draw(); },
+    describe: () => {
+      const so = summarize(decisions.filter((d) => d.t <= now), p.windowMs);
+      return `${(now / 1000).toFixed(1)} seconds: ${so.sent} arrived, ${so.allowed} allowed, ${so.rejected} refused.`;
+    },
+  });
+  $('#rl-actions', root)!.prepend(pl.el);
+
+  root.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const a = t.closest<HTMLElement>('[data-a], [data-row]');
+    const tr = t.closest<HTMLElement>('[data-t]');
+    if (a) algo = (a.dataset.a ?? a.dataset.row) as Algorithm;
+    else if (tr) pattern = tr.dataset.t as Pattern;
+    else return;
+    compute(); draw();
+  });
+  $('#rl-l-in', root)!.addEventListener('input', (e) => { p.limit = Number((e.target as HTMLInputElement).value); compute(); draw(); });
+  $('#rl-b-in', root)!.addEventListener('input', (e) => { p.burst = Number((e.target as HTMLInputElement).value); compute(); draw(); });
+  compute();
+  draw();
+}
+
 export const visualWidgets: Record<string, (host: HTMLElement) => void> = {
   replication,
   sharding,
@@ -677,4 +812,5 @@ export const visualWidgets: Record<string, (host: HTMLElement) => void> = {
   'scale-story': scaleStory,
   'quorum-lab': quorumLab,
   'dns-ttl': dnsTtl,
+  'rate-limit': rateLimit,
 };

@@ -213,3 +213,30 @@ test.describe('lab additions', () => {
     await expect(w.locator('#r-status')).toContainText('sent this read to the primary');
   });
 });
+
+test.describe('rate limiting', () => {
+  test('a fixed window lets twice the limit through at a boundary; a sliding log does not', async ({ page }) => {
+    await page.goto('labs/rate-limiting/');
+    const w = page.locator('.v-rate');
+    // the comparison table is computed from the whole run, so it can be checked without waiting for playback
+    await expect(w.locator('[data-row="fixed-window"] td').nth(3)).toHaveText('20 / 10');
+    await expect(w.locator('[data-row="fixed-window"] td').nth(3)).toHaveClass(/bad/);
+    await expect(w.locator('[data-row="sliding-log"] td').nth(3)).toHaveText('10 / 10');
+    await w.locator('.player [data-pl="toggle"]').click(); // pause, then play to the end one step at a time
+    for (let i = 0; i < 100; i++) await w.locator('.player [data-pl="step"]').click();
+    await expect(w.locator('#rl-verdict')).toContainText('20 requests through in one second, 2 times the limit');
+    await w.getByRole('button', { name: /Sliding log/ }).click();
+    await expect(w.locator('#rl-verdict')).toContainText('never served more than 10');
+  });
+
+  test('only the bucket limiters show a bucket size, and only the leaky bucket makes requests wait', async ({ page }) => {
+    await page.goto('labs/rate-limiting/');
+    const w = page.locator('.v-rate');
+    await expect(w.locator('#rl-b-wrap')).toBeHidden();
+    await w.getByRole('button', { name: /Leaky bucket/ }).click();
+    await expect(w.locator('#rl-b-wrap')).toBeVisible();
+    await expect(w.locator('#rl-b-name')).toHaveText('Queue holds');
+    for (const a of ['fixed-window', 'sliding-log', 'sliding-counter', 'token-bucket']) await expect(w.locator(`[data-row="${a}"] td`).nth(4)).toHaveText('none');
+    await expect(w.locator('[data-row="leaky-bucket"] td').nth(4)).not.toHaveText('none');
+  });
+});

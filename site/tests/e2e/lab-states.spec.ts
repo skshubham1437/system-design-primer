@@ -29,6 +29,12 @@ const states: { name: string; path: string; act: (page: Page) => Promise<void> }
     await p.locator('#q-bp').check();
     for (let i = 0; i < 10; i++) await p.locator('.v-queue .player [data-pl="step"]').click();
   } },
+  { name: 'rate limiter refusing and queueing', path: 'labs/rate-limiting/', act: async (p) => {
+    const w = p.locator('.v-rate');
+    await w.locator('.player [data-pl="toggle"]').click();
+    for (let i = 0; i < 25; i++) await w.locator('.player [data-pl="step"]').click();
+    await w.getByRole('button', { name: /Leaky bucket/ }).click();
+  } },
   { name: 'cache eviction mid-replay', path: 'labs/cache-eviction/', act: async (p) => {
     for (let i = 0; i < 12; i++) await p.locator('#ce-next').click();
   } },
