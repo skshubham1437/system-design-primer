@@ -19,7 +19,7 @@ import pg from 'pg';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.resolve(here, '..');
 const OUT = path.join(SITE, 'data', 'db-scale');
-const seed = fs.readFileSync(path.join(SITE, 'content', 'databases', 'seed-scale.sql'), 'utf8');
+const seed = fs.readFileSync(path.join(SITE, 'content', 'databases', 'seed-scale.sql'), 'utf8').replace(/\r\n/g, '\n'); // hashed: the same on any checkout
 const scenarios = loadYaml(fs.readFileSync(path.join(SITE, 'content', 'databases', 'scale-runs.yaml'), 'utf8'));
 const only = process.argv[2];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

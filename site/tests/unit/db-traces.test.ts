@@ -56,3 +56,21 @@ describe('recorded traces', () => {
     expect(fu.events.find((e) => e.kind === 'resumed')!.rows).toEqual([{ balance: 150 }]);
   });
 });
+
+describe('line endings', () => {
+  it('a Windows checkout (CRLF) does not make the production-scale recordings look out of date', async () => {
+    const { loadScaleRuns } = await import('../../scripts/lib/db-scale.mjs');
+    const os = await import('node:os');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'primer-crlf-'));
+    fs.mkdirSync(path.join(tmp, 'content/databases'), { recursive: true });
+    fs.cpSync(path.join(SITE, 'data/db-scale'), path.join(tmp, 'data/db-scale'), { recursive: true });
+    for (const f of ['seed-scale.sql', 'scale-runs.yaml']) {
+      const text = fs.readFileSync(path.join(SITE, 'content/databases', f), 'utf8').replace(/\r?\n/g, '\r\n');
+      fs.writeFileSync(path.join(tmp, 'content/databases', f), text);
+    }
+    const runs = loadScaleRuns(tmp) as { id: string; current: boolean }[];
+    expect(runs.length).toBeGreaterThan(0);
+    for (const r of runs) expect(r.current, r.id).toBe(true);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+});

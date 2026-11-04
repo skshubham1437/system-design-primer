@@ -22,6 +22,8 @@ export const ROW_LIMIT = 10;
 
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 16);
 const stripSemi = (sql) => sql.trim().replace(/;\s*$/, '');
+// git checks files out with CRLF on Windows and LF elsewhere; neither may change a cache key
+const lf = (s) => s.replace(/\r\n/g, '\n');
 
 /** Parse a code block's info string: "explain-analyze", "setup hidden". Returns null if it is not a runnable block. */
 export function parseRunMeta(lang, meta) {
@@ -34,7 +36,7 @@ export function parseRunMeta(lang, meta) {
 
 export function createDbRunner({ siteDir, warn, force = !!process.env.DB_RERUN }) {
   const cacheFile = path.join(siteDir, 'data', 'db-runs.json');
-  const seed = fs.readFileSync(path.join(siteDir, 'content', 'databases', 'seed.sql'), 'utf8');
+  const seed = lf(fs.readFileSync(path.join(siteDir, 'content', 'databases', 'seed.sql'), 'utf8'));
   const pkg = JSON.parse(fs.readFileSync(path.join(siteDir, 'node_modules', '@electric-sql', 'pglite', 'package.json'), 'utf8'));
   const salt = `${sha(seed)}:${pkg.version}`;
   const cache = fs.existsSync(cacheFile) ? JSON.parse(fs.readFileSync(cacheFile, 'utf8')) : { engine: null, entries: {} };
@@ -83,7 +85,7 @@ export function createDbRunner({ siteDir, warn, force = !!process.env.DB_RERUN }
    * or null for a block that failed (the failure is reported through `warn` as fatal).
    */
   async function runPage(pageName, blocks) {
-    const keys = blocks.map((_, i) => sha(`${salt}:${pageName}:${JSON.stringify(blocks.slice(0, i + 1))}`));
+    const keys = blocks.map((_, i) => sha(`${salt}:${pageName}:${JSON.stringify(blocks.slice(0, i + 1).map((b) => ({ ...b, sql: lf(b.sql) })))}`));
     keys.forEach((k) => used.add(k));
     if (!force && keys.every((k) => cache.entries[k])) return keys.map((k) => cache.entries[k]);
     const d = await open();

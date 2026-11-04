@@ -13,7 +13,8 @@ const escHtml = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;'
 export function loadScaleRuns(siteDir) {
   const dir = path.join(siteDir, 'content', 'databases');
   const scenarios = loadYaml(fs.readFileSync(path.join(dir, 'scale-runs.yaml'), 'utf8')) ?? [];
-  const seed = hash(fs.readFileSync(path.join(dir, 'seed-scale.sql'), 'utf8'));
+  // git checks files out with CRLF on Windows and LF elsewhere; that is not a change to the seed
+  const seed = hash(fs.readFileSync(path.join(dir, 'seed-scale.sql'), 'utf8').replace(/\r\n/g, '\n'));
   return scenarios.map((sc) => {
     const file = path.join(siteDir, 'data', 'db-scale', `${sc.id}.json`);
     const run = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
