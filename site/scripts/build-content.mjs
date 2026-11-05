@@ -15,8 +15,18 @@ import { toString as mdToString } from 'mdast-util-to-string';
 import { toString as hastToString } from 'hast-util-to-string';
 import { visit } from 'unist-util-visit';
 import { createHighlighter } from 'shiki';
+import { load as loadYaml } from 'js-yaml';
+import { runValidators, readFeatures } from './validate/index.mjs';
+import { loadQuizzes, emitQuizzes } from './lib/quizzes.mjs';
+import { loadPractice, emitPractice } from './lib/practice.mjs';
+import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
+import { loadDbExercises, emitDbExercises } from './lib/db-exercises.mjs';
+import { loadTraces, emitTraces } from './lib/db-traces.mjs';
+import { loadScaleRuns, scaleHtml } from './lib/db-scale.mjs';
+import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
-import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS } from './site-map.mjs';
+import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, TOPICS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
+import { createDbRunner, parseRunMeta, outputHtml } from './lib/db-runs.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.resolve(here, '..');
@@ -59,7 +69,23 @@ function imageSize(buf) {
 
 // ---------------------------------------------------------------- images
 
-const imgMap = new Map(); // original src -> { src, width, height }
+const imgMap = new Map(); // original src -> { src, width, height, alt? }
+
+// Written descriptions of the diagrams (content/alt-text.yaml), keyed by file under public/img/. An image with the
+// same bytes as a described one (the flashcard decks carry copies of the README diagrams) gets the same description.
+const altText = (() => {
+  const file = path.join(SITE, 'content', 'alt-text.yaml');
+  const byPath = fs.existsSync(file) ? loadYaml(fs.readFileSync(file, 'utf8')) ?? {} : {};
+  const md5 = (p) => crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex');
+  const byHash = new Map();
+  for (const [rel, text] of Object.entries(byPath)) {
+    // local images are copied from the repository's images/ folder during the build, so read the originals
+    const p = rel.startsWith('local/') ? path.join(ROOT, 'images', path.basename(rel)) : path.join(SITE, 'public', 'img', rel);
+    if (fs.existsSync(p)) byHash.set(md5(p), text);
+    else warn(`content/alt-text.yaml: no image public/img/${rel}`, true);
+  }
+  return (rel, abs) => byPath[rel] ?? byHash.get(md5(abs));
+})();
 
 async function prepareImages(sources) {
   fs.mkdirSync(IMG_LOCAL, { recursive: true });
@@ -76,7 +102,7 @@ async function prepareImages(sources) {
     if (!fs.existsSync(file)) { warn(`missing local image: ${url}`); continue; }
     const name = path.basename(file);
     fs.copyFileSync(file, path.join(IMG_LOCAL, name));
-    imgMap.set(url, { src: `${BASE}img/local/${name}`, ...imageSize(fs.readFileSync(file)) });
+    imgMap.set(url, { src: `${BASE}img/local/${name}`, alt: altText(`local/${name}`, file), ...imageSize(fs.readFileSync(file)) });
   }
   const fetchOne = async (url) => {
     // GitHub's camo proxy URLs embed the original URL as hex; fetch the original.
@@ -101,14 +127,14 @@ async function prepareImages(sources) {
         return;
       }
     }
-    imgMap.set(url, { src: `${BASE}img/remote/${name}`, ...imageSize(fs.readFileSync(file)) });
+    imgMap.set(url, { src: `${BASE}img/remote/${name}`, alt: altText(`remote/${name}`, file), ...imageSize(fs.readFileSync(file)) });
   };
   for (let i = 0; i < remote.length; i += 6) await Promise.all(remote.slice(i, i + 6).map(fetchOne));
 }
 
 // ---------------------------------------------------------------- README sections
 
-const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8').replace(/:\+1:/g, '<span class="yes" role="img" aria-label="Yes">✓</span>');
+const readme = quoteHrefs(fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')).replace(/:\+1:/g, '<span class="yes" role="img" aria-label="Yes">✓</span>');
 
 function readSections(tree) {
   // Assign GitHub-compatible heading ids across the whole README, in order.
@@ -129,18 +155,7 @@ const idOf = (h) => h.data.hProperties.id;
 
 const anchorMap = new Map(); // heading id -> path ("learn/cache/#sharding")
 
-function internal(p) { return BASE + p; }
-
-function anchorTo(id, ctx) {
-  id = decodeURIComponent(id).split('>')[0]; // some upstream links carry stray ">1" suffixes
-  if (ctx.localIds?.has(id)) return { href: `#${id}` };
-  const target = anchorMap.get(id);
-  if (!target) { warn(`unresolved anchor #${id} (in ${ctx.name})`, true); return { href: `${REPO}#${id}`, external: true }; }
-  return { href: internal(target) };
-}
-
-// "System Design Exercises.apkg" -> "system-design-exercises.apkg"
-const deckFileName = (name) => name.replace(/\.apkg$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.apkg';
+const { resolveHref } = createLinkResolver({ base: BASE, repo: REPO, anchorMap, warn });
 
 function copyDecks() {
   const src = path.join(ROOT, 'resources', 'flash_cards');
@@ -150,22 +165,9 @@ function copyDecks() {
   for (const f of fs.readdirSync(src).filter((n) => n.endsWith('.apkg'))) fs.copyFileSync(path.join(src, f), path.join(dest, deckFileName(f)));
 }
 
-function resolveHref(href, ctx) {
-  if (!href) return { href };
-  let m;
-  if (href.startsWith('#')) return anchorTo(href.slice(1), ctx);
-  if ((m = href.match(/^https?:\/\/github\.com\/donnemartin\/system-design-primer\/?#(.+)$/))) return anchorTo(m[1], ctx);
-  if ((m = href.match(/^https?:\/\/github\.com\/donnemartin\/system-design-primer\/(?:tree|blob)\/master\/resources\/flash_cards\/([^/]+\.apkg)$/))) {
-    return { href: internal('downloads/' + deckFileName(decodeURIComponent(m[1]))), download: true };
-  }
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return { href, external: true };
-  const abs = path.posix.normalize(path.posix.join(ctx.dir, href));
-  const [file, hash] = abs.split('#');
-  if ((m = file.match(/^solutions\/system_design\/([^/]+)\/README\.md$/))) return { href: internal(`practice/system-design/${m[1].replace(/_/g, '-')}/`) + (hash ? `#${hash}` : '') };
-  if ((m = file.match(/^solutions\/object_oriented_design\/([^/]+)\//))) return { href: internal(`practice/object-oriented/${m[1].replace(/_/g, '-')}/`) };
-  if (file === 'README.md') return hash ? anchorTo(hash, ctx) : { href: internal('') };
-  return { href: `${REPO}/blob/master/${file}`, external: true };
-}
+// Links the audit found dead: swapped for an archived copy when one exists, otherwise marked as broken.
+const overridesFile = path.join(SITE, 'data', 'link-overrides.json');
+const linkOverrides = fs.existsSync(overridesFile) ? JSON.parse(fs.readFileSync(overridesFile, 'utf8')) : {};
 
 // ---------------------------------------------------------------- hast transform
 
@@ -200,7 +202,8 @@ function primer(ctx) {
         if (info.width) { node.properties.width = info.width; node.properties.height = info.height; }
       }
       const alt = node.properties.alt;
-      if (!alt || alt === 'Imgur') node.properties.alt = `Diagram: ${ctx.title}`;
+      if (info?.alt) node.properties.alt = info.alt;
+      else if (!alt || alt === 'Imgur') node.properties.alt = `Diagram: ${ctx.title}`;
       node.properties.loading = 'lazy';
       node.properties.decoding = 'async';
     });
@@ -208,8 +211,14 @@ function primer(ctx) {
     // 3. links
     visit(root, 'element', (node) => {
       if (node.tagName !== 'a' || !node.properties.href) return;
-      const r = resolveHref(String(node.properties.href), ctx);
+      const original = String(node.properties.href);
+      const r = resolveHref(original, ctx);
       node.properties.href = r.href;
+      const fix = linkOverrides[original];
+      if (fix && r.external) {
+        if (fix.replacement) { node.properties.href = fix.replacement; node.properties.title = 'The original page is gone. This is an archived copy.'; node.properties.dataLink = 'archived'; }
+        else { node.properties.title = 'This link no longer works and no archived copy was found.'; node.properties.dataLink = 'dead'; }
+      }
       if (r.download) node.properties.download = '';
       if (r.external) { node.properties.target = '_blank'; node.properties.rel = 'noopener noreferrer'; node.properties.className = ['ext']; }
     });
@@ -217,7 +226,7 @@ function primer(ctx) {
     // 4. tables scroll on small screens
     visit(root, 'element', (node, index, parent) => {
       if (node.tagName !== 'table' || !parent || parent.properties?.className?.includes('table-wrap')) return;
-      parent.children[index] = el('div', { className: ['table-wrap'] }, [node]);
+      parent.children[index] = el('div', { className: ['table-wrap'], tabIndex: 0, role: 'region', 'aria-label': 'Table (scrolls sideways on small screens)' }, [node]);
       return 'skip';
     });
 
@@ -233,7 +242,7 @@ function primer(ctx) {
       const title = meta.match(/title="?([^"\s]+)"?/)?.[1];
       const value = hastToString(code).replace(/\n$/, '');
       const useLang = KNOWN_LANGS.includes(lang) ? lang : 'text';
-      const hl = highlighter.codeToHast(value, { lang: useLang, themes: { light: 'github-light', dark: 'github-dark' }, defaultColor: false });
+      const hl = highlighter.codeToHast(value, { lang: useLang, themes: { light: 'github-light-high-contrast', dark: 'github-dark-high-contrast' }, defaultColor: false });
       const pre = hl.children[0];
       const head = el('div', { className: ['code-head'] }, [
         el('span', { className: ['code-lang'] }, [text(title || (useLang === 'text' ? 'text' : useLang))]),
@@ -299,6 +308,18 @@ function primer(ctx) {
       }
     }
     root.children = out;
+
+    // solutions: wrap each H2 and what follows it, so practice mode can hide and reveal steps
+    if (ctx.wrapSteps) {
+      const wrapped = [];
+      let cur = null;
+      for (const n of root.children) {
+        if (headingDepth(n) === 2) { cur = el('section', { className: ['sol-step'], 'data-step': n.properties.id }, [n]); wrapped.push(cur); }
+        else if (cur) cur.children.push(n);
+        else wrapped.push(n);
+      }
+      root.children = wrapped;
+    }
   };
 }
 
@@ -315,15 +336,33 @@ async function render(nodes, ctx) {
   return { html, toc: ctx.toc, minutes: Math.max(1, Math.round(words / 210)) };
 }
 
+// Original material added to an upstream page: content/extras/<slug>.md, shown in a labelled section.
+async function appendExtras(r, meta, slug, pagePath, title) {
+  const extraFile = path.join(SITE, 'content', 'extras', `${slug}.md`);
+  if (!fs.existsSync(extraFile)) return;
+  const tr = parse(fs.readFileSync(extraFile, 'utf8'));
+  const slugger = new GithubSlugger();
+  for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: `extra-${slugger.slug(mdToString(n))}` } };
+  const ectx = { name: `${pagePath} (added)`, dir: '', title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+  const e = await render(tr.children, ectx);
+  r.html += `
+<section class="extra" aria-labelledby="extra-badge-${slug}"><p class="extra-badge" id="extra-badge-${slug}">Added on this site</p>
+${e.html}
+</section>`;
+  r.toc = [...r.toc, ...e.toc];
+  r.minutes += e.minutes;
+  meta.extended = true;
+}
+
 // ---------------------------------------------------------------- main
 
 async function main() {
-  highlighter = await createHighlighter({ themes: ['github-light', 'github-dark'], langs: KNOWN_LANGS.filter((l) => l !== 'text') });
+  highlighter = await createHighlighter({ themes: ['github-light-high-contrast', 'github-dark-high-contrast'], langs: KNOWN_LANGS.filter((l) => l !== 'text') });
 
   // Gather sources
   const sysDirs = fs.readdirSync(path.join(ROOT, 'solutions/system_design')).filter((d) => SOLUTIONS[d]);
   const oodDirs = fs.readdirSync(path.join(ROOT, 'solutions/object_oriented_design')).filter((d) => OOD[d]);
-  const solutionMd = Object.fromEntries(sysDirs.map((d) => [d, fs.readFileSync(path.join(ROOT, `solutions/system_design/${d}/README.md`), 'utf8')]));
+  const solutionMd = Object.fromEntries(sysDirs.map((d) => [d, quoteHrefs(fs.readFileSync(path.join(ROOT, `solutions/system_design/${d}/README.md`), 'utf8'))]));
   const oodNb = Object.fromEntries(oodDirs.map((d) => {
     const dir = path.join(ROOT, 'solutions/object_oriented_design', d);
     const nb = fs.readdirSync(dir).find((f) => f.endsWith('.ipynb'));
@@ -334,7 +373,7 @@ async function main() {
 
   let deck = [];
   try { deck = await readDeck(path.join(ROOT, 'resources/flash_cards/System Design.apkg')); }
-  catch (e) { warn(`flashcards skipped: ${e.message}`); }
+  catch (e) { warn(`flashcards skipped: ${e.message}`, true); } // fatal in CI: a deploy must not ship without the deck
 
   await prepareImages([readme, ...Object.values(solutionMd), ...deck.map((c) => c.back)]);
 
@@ -411,6 +450,8 @@ async function main() {
     const ctx = { name: p.path, dir: '', title: p.title, localIds: null };
     const r = await render(p.nodes, ctx);
     const { nodes, ...meta } = p;
+
+    await appendExtras(r, meta, p.slug, p.path, p.title);
     out.push({ ...meta, ...r });
   }
 
@@ -433,7 +474,7 @@ async function main() {
       const pagePath = target && target.split('#')[0];
       if (pagePath && pagePath.startsWith('learn/') && !concepts.includes(pagePath)) concepts.push(pagePath);
     });
-    const ctx = { name: `solution ${d}`, dir: `solutions/system_design/${d}`, title, localIds };
+    const ctx = { name: `solution ${d}`, dir: `solutions/system_design/${d}`, title, localIds, wrapSteps: true };
     const r = await render(body, ctx);
     const thumb = imgMap.get(thumbs[d])?.src;
     out.push({
@@ -471,35 +512,140 @@ async function main() {
     const body = tr.children.filter((n) => n !== h1 && !(n.type === 'paragraph' && mdToString(n).startsWith('This notebook was prepared by')));
     const ctx = { name: `ood ${d}`, dir: `solutions/object_oriented_design/${d}`, title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
     const r = await render(body, ctx);
-    out.push({ kind: 'ood', section: 'practice', slug, group: 'practice', path: `practice/object-oriented/${slug}/`, title, blurb: OOD[d].blurb, ...r });
+    const oodMeta = {};
+    await appendExtras(r, oodMeta, slug, `practice/object-oriented/${slug}/`, title);
+    out.push({ kind: 'ood', section: 'practice', slug, group: 'practice', path: `practice/object-oriented/${slug}/`, title, blurb: OOD[d].blurb, ...oodMeta, ...r });
     ood.push(slug);
   }
 
-  // Original lab pages (site/content/labs/*.md); each mounts its widget with a raw <div data-widget>.
-  for (const lab of LABS) {
-    const file = path.join(SITE, 'content', 'labs', `${lab.slug}.md`);
-    if (!fs.existsSync(file)) { warn(`lab content missing: ${file}`, true); continue; }
+  // Original pages: labs (site/content/labs/*.md), each mounting its widget with a raw <div data-widget>,
+  // and Learn pages with no simulation (site/content/topics/*.md).
+  const originals = [
+    ...LABS.map((p) => ({ ...p, dir: 'labs', section: 'labs', group: 'labs' })),
+    ...TOPICS.map((p) => ({ ...p, dir: 'topics', section: 'learn' })),
+  ];
+  for (const pg of originals) {
+    const file = path.join(SITE, 'content', pg.dir, `${pg.slug}.md`);
+    if (!fs.existsSync(file)) { warn(`page content missing: ${file}`, true); continue; }
     const tr = parse(fs.readFileSync(file, 'utf8'));
     const slugger = new GithubSlugger();
     for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
-    const ctx = { name: `labs/${lab.slug}/`, dir: '', title: lab.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+    const pagePath = `${pg.section}/${pg.slug}/`;
+    const ctx = { name: pagePath, dir: '', title: pg.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
     const r = await render(tr.children, ctx);
-    out.push({ kind: 'topic', section: 'labs', slug: lab.slug, group: 'labs', path: `labs/${lab.slug}/`, title: lab.title, blurb: lab.blurb, original: true, ...r });
+    out.push({ kind: 'topic', section: pg.section, slug: pg.slug, group: pg.group, path: pagePath, title: pg.title, blurb: pg.blurb, original: true, draft: pg.draft === true, source: `site/content/${pg.dir}/${pg.slug}.md`, ...r });
+  }
+
+  // The Databases section (site/content/databases/*.md). Top-level ```sql blocks marked run / explain /
+  // explain-analyze / setup are executed against the sample database and their real output is placed after them.
+  const dbOn = readFeatures(SITE).advancedDb === true;
+  const dbRunner = dbOn ? createDbRunner({ siteDir: SITE, warn }) : null;
+  const dbExercises = dbOn ? loadDbExercises(SITE) : [];
+  const traceById = new Map((dbOn ? loadTraces(SITE) : []).filter((t) => t.trace).map((t) => [t.id, t.trace]));
+  const dbScale = dbOn ? loadScaleRuns(SITE) : [];
+  const scaleById = new Map(dbScale.filter((s) => s.run).map((s) => [s.id, s.run]));
+  // <div data-widget="tx-trace" data-id="x"></div> becomes the recorded steps as a list, which the replay widget replaces.
+  const traceHtml = (id) => {
+    const t = traceById.get(id);
+    if (!t) return `<div data-widget="tx-trace" data-id="${escHtml(id)}"></div>`;
+    const res = (e) => e.status === 'waiting' ? 'waits' : e.status === 'error' ? `error: ${escHtml(e.error)}` : e.rows?.length ? escHtml(e.rows.map((r) => Object.values(r).join(', ')).join(' | ')) : 'ok';
+    return `<div class="widget-host trace-host" data-widget="tx-trace" data-id="${escHtml(id)}" data-src="${BASE}data/db/traces/${escHtml(id)}.json"><div class="trace-static"><p class="eyebrow">Recorded on ${escHtml(t.engine.replace(/ [(].*$/, ''))}, ${escHtml(t.recorded)}</p><p class="sqlx-static-title">${escHtml(t.title)}</p><ol>${t.events.map((e) => `<li><b>${escHtml(e.session)}${e.kind === 'resumed' ? ' (finishes)' : ''}:</b> <code>${escHtml(e.sql)}</code> → ${res(e)}${e.note ? `<br><span>${escHtml(e.note)}</span>` : ''}</li>`).join('')}</ol></div></div>`;
+  };
+  const exerciseById = new Map(dbExercises.filter((x) => x.data?.id).map((x) => [x.data.id, x.data]));
+  // <div data-widget="sql-exercise" data-id="x"></div> becomes a readable static version that the widget replaces:
+  // without JavaScript, and for search, the page still shows the scenario, the task and the query.
+  const escHtml = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const exerciseHtml = (id) => {
+    const x = exerciseById.get(id);
+    if (!x) return `<div data-widget="sql-exercise" data-id="${escHtml(id)}"></div>`;
+    return `<div class="widget-host sqlx-host" data-widget="sql-exercise" data-id="${escHtml(id)}" data-src="${BASE}data/db/exercises/${escHtml(id)}.json"><div class="sqlx-static"><p class="eyebrow">Exercise</p><p class="sqlx-static-title">${escHtml(x.title)}</p><p>${escHtml(x.scenario)}</p><p><b>Your task.</b> ${escHtml(x.task)}</p><pre class="db-out" tabindex="0" role="region" aria-label="The query">${escHtml(String(x.query).trim())}</pre><p class="sqlx-static-note">This exercise runs a real database in your browser and needs JavaScript.</p></div></div>`;
+  };
+  try {
+    // reading order: by module, then as listed
+    const moduleOrder = (p) => DB_MODULES.findIndex((m) => m.id === p.module);
+    for (const pg of dbOn ? [...DB_PAGES].sort((a, b) => moduleOrder(a) - moduleOrder(b)) : []) {
+      const file = path.join(SITE, 'content', 'databases', `${pg.slug}.md`);
+      if (!fs.existsSync(file)) { warn(`database page missing: ${file}`, true); continue; }
+      const tr = parse(fs.readFileSync(file, 'utf8'));
+      const slugger = new GithubSlugger();
+      for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
+      const pagePath = `databases/${pg.slug}/`;
+      for (const n of tr.children) {
+        const m = n.type === 'html' && n.value.match(/^<div data-widget="sql-exercise" data-id="([^"]+)"><\/div>$/);
+        if (m) n.value = exerciseHtml(m[1]);
+        const tm = n.type === 'html' && n.value.match(/^<div data-widget="tx-trace" data-id="([^"]+)"><\/div>$/);
+        if (tm) n.value = traceHtml(tm[1]);
+        // <div data-widget="db-scale" data-id="x"></div> becomes the plans recorded at 100x scale (static, no JavaScript)
+        const sm = n.type === 'html' && n.value.match(/^<div data-widget="db-scale" data-id="([^"]+)"><\/div>$/);
+        if (sm && scaleById.has(sm[1])) n.value = scaleHtml(scaleById.get(sm[1]));
+      }
+      const runnable = tr.children.map((n, i) => ({ n, i, m: n.type === 'code' ? parseRunMeta(n.lang, n.meta) : null })).filter((x) => x.m);
+      if (runnable.length) {
+        const outs = await dbRunner.runPage(pagePath, runnable.map((x) => ({ kind: x.m.kind, sql: x.n.value })));
+        for (let k = runnable.length - 1; k >= 0; k--) {
+          const { i, m } = runnable[k];
+          const html = outputHtml(outs[k], dbRunner.engine());
+          tr.children.splice(i, 1, ...(m.hidden ? [] : [tr.children[i]]), ...(html ? [{ type: 'html', value: html }] : []));
+        }
+      }
+      const ctx = { name: pagePath, dir: '', title: pg.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+      const r = await render(tr.children, ctx);
+      out.push({ kind: 'topic', section: 'databases', slug: pg.slug, group: 'databases', module: pg.module, path: pagePath, title: pg.title, blurb: pg.blurb, original: true, draft: pg.draft === true, source: `site/content/databases/${pg.slug}.md`, engine: runnable.length ? dbRunner.engine() : undefined, ...r });
+    }
+  } finally {
+    await dbRunner?.close();
   }
   for (const p of out) if (RELATED_LABS[p.path]) p.labs = RELATED_LABS[p.path];
+  for (const p of out) if (PREREQS[p.path]) p.prereqs = PREREQS[p.path];
 
   const cardCtx = { name: 'flashcards', dir: '', localIds: null };
   const cards = deck.map((c) => ({
     front: cardTitle(c.front),
     back: cleanCard(c.back, { resolveHref: (h) => resolveHref(h, cardCtx), resolveImg: (src) => imgMap.get(src) }),
-  })).filter((c) => c.front && c.back);
+  })).filter((c) => c.front && c.back).map((c) => ({ key: c.front, ...c }));
+
+  // Cards written for this site (content/flashcards/*.yaml), appended after the upstream deck. Progress stores a
+  // card under its `key`: the front for upstream cards (they have no ids, and learners already have progress under
+  // those fronts), the card's own `id` here, so a reviewer can reword a front without resetting anyone's schedule.
+  // Each file is { reviewed, cards: [{ id, front, back, link? }] }.
+  const ownCardsDir = path.join(SITE, 'content', 'flashcards');
+  const dbFlashcardsOn = readFeatures(SITE).advancedDb === true;
+  for (const file of fs.existsSync(ownCardsDir) ? fs.readdirSync(ownCardsDir).filter((x) => /\.ya?ml$/.test(x)).sort() : []) {
+    if (file.startsWith('databases') && !dbFlashcardsOn) continue;
+    let doc;
+    try { doc = loadYaml(fs.readFileSync(path.join(ownCardsDir, file), 'utf8')); } catch (e) { warn(`content/flashcards/${file}: could not parse (${e.message.split('\n')[0]})`, true); continue; }
+    if (typeof doc?.reviewed !== 'boolean' || !Array.isArray(doc.cards)) { warn(`content/flashcards/${file}: needs "reviewed: true|false" and a "cards" list`, true); continue; }
+    for (const [i, c] of doc.cards.entries()) {
+      const where = `content/flashcards/${file} card ${i + 1}`;
+      if (typeof c?.front !== 'string' || typeof c?.back !== 'string' || c.front.length < 8 || c.back.length < 20) { warn(`${where}: needs a front and a back`, true); continue; }
+      if (typeof c.id !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(c.id)) { warn(`${where}: needs an id in lowercase-with-dashes (progress is stored under it)`, true); continue; }
+      if (cards.some((x) => x.key === c.id)) { warn(`${where}: id "${c.id}" is already in the deck`, true); continue; }
+      if (cards.some((x) => x.front === c.front)) { warn(`${where}: front "${c.front}" is already in the deck`, true); continue; }
+      if (c.link && !out.some((p) => p.path === c.link)) warn(`${where}: link "${c.link}" is not a page`, true);
+      const html = String(await unified().use(remarkParse).use(remarkRehype).use(rehypeStringify).process(c.back));
+      const more = c.link ? `<p><a href="${BASE}${c.link}">Read more</a></p>` : '';
+      cards.push({ key: c.id, front: c.front, back: html + more, ...(doc.reviewed ? {} : { draft: true }) });
+    }
+  }
+
+  const features = readFeatures(SITE);
+  const quizzes = loadQuizzes(SITE);
+  const practice = loadPractice(SITE);
+  const choosers = loadChoosers(SITE);
+  const dbTraces = dbOn ? loadTraces(SITE) : [];
+  runValidators({ siteDir: SITE, anchorMap, pages: out, quizzes, practice, choosers, dbExercises, dbTraces, dbScale }, warn);
+  if (dbOn) emitTraces(dbTraces, SITE);
+  const dbExerciseIndex = dbOn ? emitDbExercises(dbExercises, SITE) : [];
+  const chooserIndex = features.choosers ? emitChoosers(choosers, SITE, out, BASE) : [];
+  const practiceCount = features.practiceMode ? emitPractice(practice, SITE, out, BASE) : 0;
+  const quizIndex = features.quizzes ? emitQuizzes(quizzes, SITE, out, BASE) : [];
 
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'flashcards.json'), JSON.stringify(cards));
-  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, groups: GROUPS, solutions, ood, pages: out }));
+  fs.writeFileSync(path.join(OUT, 'site.json'), JSON.stringify({ base: BASE, repo: REPO, features, quizzes: quizIndex, choosers: chooserIndex, groups: GROUPS.filter((g) => g.id !== 'databases' || dbOn), dbModules: dbOn ? DB_MODULES : [], dbExercises: dbExerciseIndex, solutions, ood, pages: out }));
   const kb = Math.round(fs.statSync(path.join(OUT, 'site.json')).size / 1024);
-  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${kb} KB`);
+  console.log(`content: ${out.length} pages (${solutions.length} solutions, ${ood.length} OOD), ${imgMap.size} images, ${cards.length} flashcards, ${quizIndex.reduce((n, q) => n + q.count, 0)} quiz questions, ${practiceCount} practice sets, ${chooserIndex.length} choosers, ${dbExerciseIndex.length} database exercises, ${kb} KB`);
   if (warnings.length) console.warn(`\n${warnings.length} warning(s):\n` + [...new Set(warnings)].map((w) => '  - ' + w).join('\n'));
   if (fatal.length && (process.env.STRICT === '1' || process.env.CI)) {
     console.error(`\nFailing the build: ${fatal.length} structural problem(s) above. The README layout probably changed; update scripts/site-map.mjs.`);

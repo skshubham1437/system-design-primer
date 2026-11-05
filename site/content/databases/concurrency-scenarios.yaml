@@ -1,0 +1,154 @@
+# Two or three sessions working on the same data at the same time, recorded against a real PostgreSQL server.
+# PGlite (the in-browser engine) has a single connection, so these cannot run live in the page.
+#
+# Record with:  node scripts/record-traces.mjs     (needs Docker; writes data/db-traces/*.json)
+#
+# Every step says what must happen: ok, waits (the statement blocks) or error. The recorder refuses to save a
+# trace when the server does something else, so the notes below can never contradict the recording.
+
+- id: read-committed
+  title: Read committed sees each new commit
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: A, sql: "update accounts set balance = 150 where id = 1", expect: ok, note: "A changes Asha's balance but has not committed." }
+    - { s: B, sql: "begin", expect: ok }
+    - { s: B, sql: "select balance from accounts where id = 1", expect: ok, note: "B still sees 100: PostgreSQL never shows another transaction's uncommitted work (no dirty reads), at any isolation level." }
+    - { s: A, sql: "commit", expect: ok }
+    - { s: B, sql: "select balance from accounts where id = 1", expect: ok, note: "The same query inside the same transaction now returns 150. At read committed, each statement sees everything committed before it started: a non-repeatable read." }
+    - { s: B, sql: "commit", expect: ok }
+
+- id: repeatable-read
+  title: Repeatable read keeps one snapshot
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);
+  sessions: [A, B]
+  steps:
+    - { s: B, sql: "begin isolation level repeatable read", expect: ok }
+    - { s: B, sql: "select balance from accounts where id = 1", expect: ok, note: "B's snapshot is taken by its first query: Asha has 100." }
+    - { s: A, sql: "update accounts set balance = 150 where id = 1", expect: ok, note: "A, in autocommit mode, changes it to 150 and commits at once." }
+    - { s: B, sql: "select balance from accounts where id = 1", expect: ok, note: "B still sees 100. Every query in a repeatable read transaction sees the same snapshot." }
+    - { s: B, sql: "update accounts set balance = balance + 10 where id = 1", expect: error, note: "B tries to change a row that was changed after its snapshot. PostgreSQL refuses rather than silently overwrite A's change; the application must retry the whole transaction." }
+    - { s: B, sql: "rollback", expect: ok }
+
+- id: lost-update
+  title: A lost update, and the fix
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100);
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: A, sql: "select balance from accounts where id = 1", expect: ok, note: "A reads 100 and plans to add 50." }
+    - { s: B, sql: "begin", expect: ok }
+    - { s: B, sql: "select balance from accounts where id = 1", expect: ok, note: "B also reads 100 and plans to add 30." }
+    - { s: A, sql: "update accounts set balance = 150 where id = 1", expect: ok, note: "A writes the total it computed in the application." }
+    - { s: A, sql: "commit", expect: ok }
+    - { s: B, sql: "update accounts set balance = 130 where id = 1", expect: ok, note: "B writes the total it computed from its stale read." }
+    - { s: B, sql: "commit", expect: ok }
+    - { s: A, sql: "select balance from accounts where id = 1", expect: ok, note: "130. A's deposit of 50 is gone, and no error was raised. The fix: update balance = balance + 30 in the database, or read with SELECT … FOR UPDATE so the second reader waits." }
+
+- id: select-for-update
+  title: SELECT … FOR UPDATE makes the second writer wait
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100);
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: A, sql: "select balance from accounts where id = 1 for update", expect: ok, note: "A reads 100 and locks the row for the rest of its transaction." }
+    - { s: B, sql: "begin", expect: ok }
+    - { s: B, sql: "select balance from accounts where id = 1 for update", expect: waits, note: "B asks for the same lock and has to wait for A." }
+    - { s: A, sql: "update accounts set balance = 150 where id = 1", expect: ok }
+    - { s: A, sql: "commit", expect: ok, note: "A commits and releases the lock. B's read completes, and it sees 150, the new value." }
+    - { s: B, sql: "update accounts set balance = 180 where id = 1", expect: ok }
+    - { s: B, sql: "commit", expect: ok, note: "Both deposits are kept: 100 + 50 + 30 = 180." }
+
+- id: write-skew
+  title: Write skew, caught by serializable
+  setup: |
+    create table doctors (name text primary key, on_call boolean not null);
+    insert into doctors values ('Ana', true), ('Raj', true);
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin isolation level serializable", expect: ok }
+    - { s: B, sql: "begin isolation level serializable", expect: ok }
+    - { s: A, sql: "select count(*) from doctors where on_call", expect: ok, note: "The rule: at least one doctor must stay on call. Ana sees two on call, so she may go off call." }
+    - { s: B, sql: "select count(*) from doctors where on_call", expect: ok, note: "Raj checks at the same moment and also sees two." }
+    - { s: A, sql: "update doctors set on_call = false where name = 'Ana'", expect: ok }
+    - { s: B, sql: "update doctors set on_call = false where name = 'Raj'", expect: ok, note: "They change different rows, so neither blocks the other. At repeatable read both would commit and nobody would be on call." }
+    - { s: A, sql: "commit", expect: ok }
+    - { s: B, sql: "commit", expect: error, note: "Serializable notices that the two transactions could not have run one after the other and still produced this result, and aborts one of them. Raj's transaction must be retried, and on retry it sees only one doctor on call." }
+
+- id: row-lock-wait
+  title: Waiting for a row lock
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: A, sql: "update accounts set balance = balance - 50 where id = 1", expect: ok, note: "A updates row 1 and so holds a lock on it until it ends." }
+    - { s: B, sql: "update accounts set balance = balance + 10 where id = 2", expect: ok, note: "B updates a different row: no conflict, no waiting." }
+    - { s: B, sql: "update accounts set balance = balance + 10 where id = 1", expect: waits, note: "B wants row 1 too and waits. In pg_locks it is waiting for A's transaction id; pg_blocking_pids names A." }
+    - { s: A, sql: "commit", expect: ok, note: "A commits; B's update goes ahead immediately, on top of A's change." }
+    - { s: B, sql: "select id, balance from accounts order by id", expect: ok }
+
+- id: deadlock
+  title: A deadlock, detected and broken
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: B, sql: "begin", expect: ok }
+    - { s: A, sql: "update accounts set balance = balance - 10 where id = 1", expect: ok, note: "A moves money from Asha to Ben: it locks Asha's row first." }
+    - { s: B, sql: "update accounts set balance = balance - 10 where id = 2", expect: ok, note: "B moves money the other way: it locks Ben's row first." }
+    - { s: A, sql: "update accounts set balance = balance + 10 where id = 2", expect: waits, note: "A now needs Ben's row, which B holds. A waits." }
+    - { s: B, sql: "update accounts set balance = balance + 10 where id = 1", expect: either, note: "B needs Asha's row, which A holds. Each waits for the other: a deadlock. After deadlock_timeout (1 second by default) PostgreSQL checks, finds the cycle and aborts one transaction so the other can finish." }
+    - { s: A, sql: "rollback", expect: ok }
+    - { s: B, sql: "rollback", expect: ok }
+
+- id: lock-queue
+  title: A migration that stalls every query
+  setup: |
+    create table accounts (id int primary key, owner text not null, balance int not null);
+    insert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);
+  sessions: [A, B, C]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: A, sql: "select count(*) from accounts", expect: ok, note: "A long-running transaction has read the table, so it holds a light ACCESS SHARE lock until it ends." }
+    - { s: B, sql: "alter table accounts add column note text", expect: waits, note: "A migration needs an ACCESS EXCLUSIVE lock, which conflicts with every other lock, so it waits for A." }
+    - { s: C, sql: "select count(*) from accounts", expect: waits, note: "An ordinary read now waits too, even though it does not conflict with A: it queues behind the migration's request. Every new query on the table piles up here." }
+    - { s: A, sql: "commit", expect: ok, note: "A finishes. The migration runs, then the queued reads. In production, set lock_timeout before a migration so it gives up instead of stalling everything." }
+
+- id: skip-locked
+  title: A job queue with SKIP LOCKED
+  setup: |
+    create table jobs (id int primary key, payload text not null, done boolean not null default false);
+    insert into jobs (id, payload) select g, 'job ' || g from generate_series(1, 5) g;
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "begin", expect: ok }
+    - { s: A, sql: "select id from jobs where not done order by id limit 1 for update skip locked", expect: ok, note: "Worker A claims the first job that nobody else has locked: job 1." }
+    - { s: B, sql: "begin", expect: ok }
+    - { s: B, sql: "select id from jobs where not done order by id limit 1 for update skip locked", expect: ok, note: "Worker B skips job 1, which A holds, and claims job 2 without waiting. Without SKIP LOCKED it would wait for A." }
+    - { s: A, sql: "update jobs set done = true where id = 1", expect: ok }
+    - { s: A, sql: "commit", expect: ok }
+    - { s: B, sql: "update jobs set done = true where id = 2", expect: ok }
+    - { s: B, sql: "commit", expect: ok }
+
+- id: advisory-lock
+  title: An advisory lock for a job that must run once
+  setup: |
+    select 1;
+  sessions: [A, B]
+  steps:
+    - { s: A, sql: "select pg_try_advisory_lock(42) as got_it", expect: ok, note: "Instance A of a nightly job takes advisory lock 42, a number the application chose." }
+    - { s: B, sql: "select pg_try_advisory_lock(42) as got_it", expect: ok, note: "Instance B tries the same number and gets false at once, so it knows another instance is running and exits." }
+    - { s: A, sql: "select pg_advisory_unlock(42) as released", expect: ok, note: "A finishes and releases the lock. A session-level advisory lock is also released if the connection drops." }

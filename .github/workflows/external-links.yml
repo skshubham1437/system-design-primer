@@ -1,7 +1,9 @@
 name: External links
 
-# The README links to a lot of third-party pages and some will rot. Check weekly and
-# keep one open issue with the findings instead of failing builds.
+# The README, and the site's own pages through their source lists, link to a lot of third-party
+# pages and some will rot. Check weekly and keep one open issue with the findings instead of
+# failing builds. (403 is accepted because some documentation sites, such as the MySQL manual,
+# refuse automated requests.)
 on:
   schedule:
     - cron: "17 5 * * 1"
@@ -22,8 +24,8 @@ jobs:
           args: >-
             --no-progress --max-concurrency 8 --max-retries 2 --timeout 20
             --accept "100..=103,200..=299,403,429"
-            --exclude-mail --exclude-path site --exclude "^https?://(localhost|127\.0\.0\.1)"
-            README.md "solutions/**/*.md"
+            --exclude-mail --exclude "^https?://(localhost|127\.0\.0\.1)" --exclude "^site:"
+            README.md "solutions/**/*.md" "site/content/**/*.md"
           output: lychee/report.md
           fail: false
       - if: steps.lychee.outputs.exit_code != 0

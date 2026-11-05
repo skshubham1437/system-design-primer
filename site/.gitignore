@@ -6,3 +6,7 @@ public/img/local/
 public/pagefind/
 public/downloads/
 !src/lib/
+test-results/
+playwright-report/
+public/data/
+!scripts/lib/

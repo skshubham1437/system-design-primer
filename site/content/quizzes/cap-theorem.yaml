@@ -1,0 +1,54 @@
+# Questions about the CAP lab. reviewed: true only after a second person checks.
+topic: labs/cap-theorem/
+reviewed: false
+questions:
+  - id: cap-choice
+    q: According to the CAP theorem, when must a replicated store choose between consistency and availability?
+    choices:
+      - Always, even while the network between the nodes is healthy
+      - Only when a disk fails and its data has to be restored
+      - Only for writes, because reads can always be served safely
+      - Only while a network partition separates the nodes
+    answer: 3
+    why: Without a partition you can have both. When the network splits, a node must either refuse (consistency) or answer possibly stale data (availability).
+    difficulty: 1
+  - id: cap-cp-minority
+    q: In CP mode, node 3 is cut off from nodes 1 and 2. What does node 3 do with a read?
+    choices:
+      - It answers with its last known value and marks the reply as stale
+      - It refuses, because it cannot reach a majority to confirm its data
+      - It forwards the read to node 1, which still has the current data
+      - It holds the read until the network heals, however long that takes
+    answer: 1
+    why: CP gives up availability on the minority side to avoid ever returning inconsistent data.
+    difficulty: 1
+  - id: cap-ap-conflict
+    q: In AP mode, both sides of a partition accept writes. What does last-write-wins do when the network heals?
+    choices:
+      - It merges both values into one, so neither side's write is lost
+      - It rejects both writes and rolls both sides back to the last agreed value
+      - It keeps the newest value and silently drops the other side's value
+      - It keeps both values and asks the user to choose on the next read
+    answer: 2
+    why: Last-write-wins is simple and loses data. Real systems use version vectors, CRDTs or application merges when that matters.
+    difficulty: 2
+  - id: cap-cp-use
+    q: Which data suits a CP choice?
+    choices:
+      - Social feeds, where every user must see each post at the same moment
+      - Account balances and inventory, where a wrong answer costs most
+      - Shopping carts, where adding an item must never be refused or delayed
+      - Page view counters, which must be exact for every single visit
+    answer: 1
+    why: When a wrong answer is worse than no answer, refuse during partitions.
+    difficulty: 1
+  - id: cap-majority-write
+    q: In CP mode during the partition, why does a write on node 1 succeed?
+    choices:
+      - Node 1 is the leader, and the leader may always accept writes
+      - Writes are always allowed in CP mode; only reads are restricted
+      - Node 3 will accept the write later, once the partition heals
+      - Nodes 1 and 2 together are a majority of the three nodes
+    answer: 3
+    why: A majority can still agree, so the majority side stays available while the isolated node does not.
+    difficulty: 2

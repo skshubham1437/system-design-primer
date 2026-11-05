@@ -1,0 +1,54 @@
+# Questions about the DNS lab. reviewed: true only after a second person checks.
+topic: labs/dns-resolution/
+reviewed: false
+questions:
+  - id: dns-common-case
+    q: What is the most common way a lookup is answered quickly?
+    choices:
+      - By the root servers, which every lookup has to start from
+      - By the authoritative server, which answers every query directly
+      - By the TLD servers, which hold the address of every name below them
+      - From a cache, often the resolver's, which keeps popular names warm
+    answer: 3
+    why: Caching is what makes DNS fast; a full walk from the root is rare.
+    difficulty: 1
+  - id: dns-ttl-change
+    q: You move a site to a new server. Why do some users keep reaching the old one?
+    choices:
+      - Resolvers cached the old answer and serve it until its TTL expires
+      - DNS changes take exactly one day to reach every resolver in the world
+      - Browsers never refresh a DNS answer until they are restarted
+      - The authoritative server keeps returning both addresses for a while
+    answer: 0
+    why: Caches do not hear about the change; they hold the answer for the TTL it came with.
+    difficulty: 1
+  - id: dns-lower-early
+    q: When should you lower a record's TTL before a move?
+    choices:
+      - At the moment of the move, so the new address spreads quickly
+      - Just after the move, once the new server is answering requests
+      - At least one old TTL ahead, so caches hold short-lived answers
+      - It makes no difference, because caches ask again when an address changes
+    answer: 2
+    why: An answer already cached keeps the TTL it was given; lowering the TTL at the last minute does not shorten it.
+    difficulty: 2
+  - id: dns-skip-root
+    q: Why can a resolver often skip the root servers?
+    choices:
+      - It remembers where the top-level domain servers are
+      - The root servers are offline most of the time
+      - Browsers send their queries to the TLD servers directly
+      - Root servers only hold answers for names under .com
+    answer: 0
+    why: Resolvers cache the servers for each top-level domain, so even a name nobody asked about recently usually skips the first hop.
+    difficulty: 2
+  - id: dns-record-types
+    q: Which record points one name at another name?
+    choices:
+      - A (address)
+      - MX (mail exchanger)
+      - NS (name server)
+      - CNAME (alias)
+    answer: 3
+    why: An A record holds an address, a CNAME an alias to another name, an MX the mail servers, and an NS the name servers for a domain.
+    difficulty: 1

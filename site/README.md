@@ -30,4 +30,19 @@ For a GitHub Pages project site, build with `SITE_BASE=/<repo>/` (the workflow i
 
 Live site: https://skshubham1437.github.io/system-design-primer/
 
-Plans for larger features are in [ROADMAP.md](ROADMAP.md).
+Where things stand and what is next:
+
+- [ROADMAP.md](ROADMAP.md): what is built and what is planned
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md): tasks, order and gates
+- [CONTENT_REVIEW.md](CONTENT_REVIEW.md): review of the existing content
+- [CONTENT_GUIDE.md](CONTENT_GUIDE.md): how to write and review content
+- [PILOT.md](PILOT.md): how to run the learner pilot
+
+Useful commands:
+
+```bash
+npm test                              # unit tests
+npm run test:e2e                      # end-to-end and accessibility tests (build first)
+node scripts/audit-content.mjs --links  # content audit with a live link check
+node scripts/link-overrides.mjs audit.json  # look up archived copies of dead links
+```

@@ -1,0 +1,39 @@
+id: deep-pagination
+title: Page 2,501 of the order list
+difficulty: 2
+reviewed: false
+page: databases/scan-types/
+scenario: >-
+  An admin list shows orders newest first, 20 per page, using OFFSET. Page 2,501 is painfully slow: to skip 50,000
+  rows the database has to produce them first. The previous page ended with the order created at
+  2023-12-31 14:10:51+00 (created_at is unique in this table).
+task: Fetch the same 20 rows by starting after the last row you already have, instead of skipping 50,000.
+query: |
+  select id, created_at, total
+  from orders
+  order by created_at desc
+  offset 50000
+  limit 20
+ordered: true
+allowChanges: true
+checks:
+  - avoid: { node: [Sort, Incremental Sort] }
+  - max_buffers: 20
+hints:
+  - "An index on created_at removes the sort, but OFFSET still walks 50,000 index entries before returning anything."
+  - "Keyset (seek) pagination: ask for rows older than the last one shown, newest first, and take 20."
+  - "With an index on created_at: where created_at < '2023-12-31 14:10:51+00' order by created_at desc limit 20"
+solution:
+  changes: create index orders_created_at_idx on orders (created_at);
+  query: |
+    select id, created_at, total
+    from orders
+    where created_at < '2023-12-31 14:10:51+00'
+    order by created_at desc
+    limit 20
+why: >-
+  OFFSET n does not jump: the database produces n rows and throws them away, so each page is slower than the one
+  before. Keyset pagination remembers where the previous page ended and asks for the next rows after that point.
+  With an index on the sort column that is one descent and twenty entries, however deep the page. The cost is that
+  you can only go to the next or previous page, not jump to page 2,501 directly, and the sort key must be unique
+  (add the id to it when it is not).

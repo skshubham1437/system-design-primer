@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import { features, quizzes, href, pageByPath } from '../lib/site';
+---
+<Base title="Mixed quiz" description="Questions from across the topics, with reviews of what you missed coming first." current="quiz/">
+  <div class="page-hero group-practice" style="padding-top:0">
+    <p class="eyebrow">Practice</p>
+    <h1>Mixed quiz</h1>
+    <p>Questions from across the topics. Ones you missed before come back first, then topics you have read.</p>
+  </div>
+  {features.quizzes ? (
+    <div data-widget="quiz-mixed" style="margin-top:32px">
+      <noscript><p>The quiz needs JavaScript. You can also take a quiz at the end of these topics:</p></noscript>
+      <ul>{quizzes.map((q) => { const p = pageByPath(q.topic); return p && <li><a href={href(p)}>{q.title}</a> ({q.count} questions)</li>; })}</ul>
+    </div>
+  ) : (
+    <p style="margin-top:32px">This feature is switched off.</p>
+  )}
+</Base>

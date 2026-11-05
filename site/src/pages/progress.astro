@@ -1,0 +1,41 @@
+---
+import Base from '../layouts/Base.astro';
+import cards from '../generated/flashcards.json';
+import { features, groups, pagesInGroup, solutions, quizzes, choosers, dbExercises, href, withBase } from '../lib/site';
+
+// The reading trail is the core learning groups; practice and reference pages are not "read in order".
+const core = groups.filter((g) => ['start', 'fundamentals', 'network', 'application', 'data', 'databases'].includes(g.id));
+const data = {
+  cardsTotal: cards.length,
+  cardKeys: cards.map((c) => c.key),
+  dataPanel: features.dataPanel,
+  groups: core.map((g) => ({ id: g.id, label: g.label, pages: pagesInGroup(g.id).map((p) => ({ path: p.path, title: p.title })) })),
+  solutions: solutions.map((p) => ({ path: p.path, title: p.short ?? p.title })),
+  choosers: choosers.map((c) => ({ id: c.id, title: c.title, topic: c.topic, scenarios: c.scenarios })),
+  quizzes: quizzes.map((q) => ({ slug: q.slug, topic: q.topic, title: q.title, ids: q.ids, count: q.count })),
+  exercises: dbExercises.map((x) => ({ id: x.id, title: x.title, difficulty: x.difficulty, page: x.page ?? 'databases/tuning-exercises/' })),
+};
+const json = JSON.stringify(data).replace(/</g, '\\u003c');
+---
+<Base title="Your progress" description="What you have read, practised and reviewed, and what to do next." current="progress/">
+  <div class="page-hero group-start" style="padding-top:0">
+    <p class="eyebrow">Your progress</p>
+    <h1>What you have covered, and what is next</h1>
+    <p>Everything here is stored in your browser only. Nothing is sent anywhere.</p>
+  </div>
+  {features.progressDashboard ? (
+    <div data-widget="progress-page" style="margin-top:36px">
+      <script type="application/json" set:html={json} />
+      <!-- shown until scripts run, and when JavaScript is off -->
+      <p class="ch-note">Your marks appear here once scripts load. The full list of topics:</p>
+      {core.map((g) => (
+        <section class={`topic-group group-${g.id}`}>
+          <h3>{g.label}</h3>
+          <ul>{pagesInGroup(g.id).map((p) => <li><a href={href(p)}>{p.title}</a></li>)}</ul>
+        </section>
+      ))}
+    </div>
+  ) : (
+    <p style="margin-top:36px">This feature is switched off.</p>
+  )}
+</Base>

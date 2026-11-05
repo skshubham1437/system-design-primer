@@ -1,0 +1,26 @@
+id: login-by-email
+title: Log in with any capitalisation
+difficulty: 1
+reviewed: false
+page: databases/index-design/
+scenario: >-
+  Users type their email address however they like, so the login query compares lower-cased values. There is
+  already a unique index on email, yet every login reads the whole users table.
+task: Make the login lookup use an index, without changing the query.
+query: |
+  select id from users where lower(email) = 'user123@example.com'
+allowChanges: true
+checks:
+  - avoid: { node: Seq Scan, relation: users }
+  - max_buffers: 10
+hints:
+  - "Explain it. The existing index is on email, but the query asks about lower(email): a different value, as far as the index is concerned."
+  - An index can be built on an expression, as long as the query uses exactly the same expression.
+  - "create index users_lower_email_idx on users (lower(email));"
+solution:
+  changes: create index users_lower_email_idx on users (lower(email));
+why: >-
+  An index on email is sorted by the stored text, but the query compares lower(email), which the index knows nothing
+  about, so the database has to compute lower() for every row. An index on the expression lower(email) stores the
+  computed values in order, so the lookup becomes a single descent. In practice you might instead store emails
+  already lower-cased, or use the citext type.

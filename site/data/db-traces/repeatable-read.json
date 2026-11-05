@@ -1,0 +1,126 @@
+{
+ "id": "repeatable-read",
+ "title": "Repeatable read keeps one snapshot",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "7795e0bddd16c393",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);",
+ "events": [
+  {
+   "at": 126,
+   "step": 0,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin isolation level repeatable read",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 257,
+   "step": 1,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "B's snapshot is taken by its first query: Asha has 100.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 100
+    }
+   ],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 393,
+   "step": 2,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = 150 where id = 1",
+   "note": "A, in autocommit mode, changes it to 150 and commits at once.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 521,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "B still sees 100. Every query in a repeatable read transaction sees the same snapshot.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 100
+    }
+   ],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 659,
+   "step": 4,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance + 10 where id = 1",
+   "note": "B tries to change a row that was changed after its snapshot. PostgreSQL refuses rather than silently overwrite A's change; the application must retry the whole transaction.",
+   "status": "error",
+   "error": "could not serialize access due to concurrent update",
+   "code": "40001",
+   "locks": []
+  },
+  {
+   "at": 792,
+   "step": 5,
+   "session": "B",
+   "kind": "statement",
+   "sql": "rollback",
+   "note": "",
+   "status": "ok",
+   "command": "ROLLBACK",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  }
+ ]
+}

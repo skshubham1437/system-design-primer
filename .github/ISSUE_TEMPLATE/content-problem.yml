@@ -1,0 +1,30 @@
+name: Problem with site content
+description: A wrong answer, unclear explanation, broken link or missing topic on the reading site
+labels: ["content"]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where is it?
+      description: The page URL, or the question / definition id if shown.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem?
+      options:
+        - The answer or fact is wrong
+        - The explanation is unclear
+        - A link is broken
+        - Something important is missing
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What should it say instead, and how do you know?
+      description: A source link helps a lot.
+    validations:
+      required: true

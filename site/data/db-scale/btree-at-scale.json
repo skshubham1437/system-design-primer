@@ -1,0 +1,30 @@
+{
+ "id": "btree-at-scale",
+ "scenario": "de3ebf781968a6ae",
+ "seed": "fa054216c6fe497a",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-21",
+ "sizes": {
+  "users": 2000000,
+  "orders": 10000000
+ },
+ "title": "One user's orders, among ten million",
+ "steps": [
+  {
+   "kind": "explain-analyze",
+   "label": "Without an index",
+   "sql": "select * from orders where user_id = 42;",
+   "text": "Gather  (cost=1000.00..133990.66 rows=18 width=31) (actual time=4.187..213.522 rows=525.00 loops=1)\n  Workers Planned: 2\n  Workers Launched: 2\n  Buffers: shared hit=80906\n  ->  Parallel Seq Scan on orders  (cost=0.00..132988.86 rows=8 width=31) (actual time=3.667..182.374 rows=175.00 loops=3)\n        Filter: (user_id = 42)\n        Rows Removed by Filter: 3333158\n        Buffers: shared hit=80906\nPlanning Time: 0.064 ms\nJIT:\n  Functions: 6\n  Options: Inlining false, Optimization false, Expressions true, Deforming true\n  Timing: Generation 0.673 ms (Deform 0.120 ms), Inlining 0.000 ms, Optimization 0.508 ms, Emission 6.840 ms, Total 8.021 ms\nExecution Time: 213.885 ms"
+  },
+  {
+   "kind": "setup",
+   "sql": "create index orders_user_id_idx on orders (user_id);"
+  },
+  {
+   "kind": "explain-analyze",
+   "label": "With the index on user_id",
+   "sql": "select * from orders where user_id = 42;",
+   "text": "Index Scan using orders_user_id_idx on orders  (cost=0.43..76.75 rows=18 width=31) (actual time=0.027..0.767 rows=525.00 loops=1)\n  Index Cond: (user_id = 42)\n  Index Searches: 1\n  Buffers: shared hit=526\nPlanning Time: 0.089 ms\nExecution Time: 0.809 ms"
+  }
+ ]
+}

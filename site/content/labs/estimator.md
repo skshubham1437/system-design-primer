@@ -10,6 +10,10 @@ Back-of-the-envelope estimates are the first thing an interviewer looks for afte
 
 **Bandwidth** is QPS times payload size. Ingress is the data written; egress is the data served. Egress is usually the larger of the two in read-heavy systems, and it is what a [CDN](#content-delivery-network) takes off your servers.
 
+**Storage overhead.** Raw data is not what lands on disk: indexes, row headers and free space typically add half as much again or double it. The default of 1× matches the hand calculations in the solutions; raise it for a realistic disk budget.
+
+**Servers** are sized at a target utilisation, 70% by default, not at 100%. The [load curve lab](site:labs/load-curve/) shows why: a server at 90% busy answers ten times slower than an idle one, so the last stretch of capacity is not usable.
+
 **Cache size** follows the 80/20 rule of thumb: a small share of items serves most reads, so a [cache](#cache) holding that share of a day's reads can absorb most of the load.
 
 ## What to say out loud
@@ -18,4 +22,4 @@ Back-of-the-envelope estimates are the first thing an interviewer looks for afte
 2. Compute reads and writes separately; their ratio decides your design more than either number alone.
 3. Say what the numbers imply, such as sharding, caching or a CDN, rather than stopping at the arithmetic.
 
-Useful reference tables: [powers of two](#powers-of-two-table) and [latency numbers](#latency-numbers-every-programmer-should-know). The [Pastebin solution](#design-pastebincom-or-bitly) works through this same calculation by hand.
+Useful reference tables: [powers of two](#powers-of-two-table) and [latency numbers](#latency-numbers-every-programmer-should-know). The [Pastebin solution](site:practice/system-design/pastebin/) works through the Pastebin preset by hand, and the [Twitter solution](site:practice/system-design/twitter/) does the same for a timeline.

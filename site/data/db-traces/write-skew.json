@@ -1,0 +1,330 @@
+{
+ "id": "write-skew",
+ "title": "Write skew, caught by serializable",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "406610fbb02015f2",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table doctors (name text primary key, on_call boolean not null);\ninsert into doctors values ('Ana', true), ('Raj', true);",
+ "events": [
+  {
+   "at": 133,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin isolation level serializable",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 267,
+   "step": 1,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin isolation level serializable",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 399,
+   "step": 2,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select count(*) from doctors where on_call",
+   "note": "The rule: at least one doctor must stay on call. Ana sees two on call, so she may go off call.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "count": "2"
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 530,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select count(*) from doctors where on_call",
+   "note": "Raj checks at the same moment and also sees two.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "count": "2"
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 667,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update doctors set on_call = false where name = 'Ana'",
+   "note": "",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 770",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 798,
+   "step": 5,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update doctors set on_call = false where name = 'Raj'",
+   "note": "They change different rows, so neither blocks the other. At repeatable read both would commit and nobody would be on call.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 770",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 771",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 941,
+   "step": 6,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "SIReadLock",
+     "granted": true,
+     "on": "doctors",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 771",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1067,
+   "step": 7,
+   "session": "B",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "Serializable notices that the two transactions could not have run one after the other and still produced this result, and aborts one of them. Raj's transaction must be retried, and on retry it sees only one doctor on call.",
+   "status": "error",
+   "error": "could not serialize access due to read/write dependencies among transactions",
+   "code": "40001",
+   "locks": []
+  }
+ ]
+}

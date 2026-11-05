@@ -1,0 +1,99 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+
+// The every-page test only sees each lab in its starting state. These put each lab into the states that
+// change colours and text (failures, stale reads, drops) and check accessibility there, in both themes.
+
+const states: { name: string; path: string; act: (page: Page) => Promise<void> }[] = [
+  { name: 'replication after a crash', path: 'labs/replication/', act: async (p) => {
+    const r = p.locator('.v-repl');
+    await r.getByRole('button', { name: 'Write', exact: true }).click();
+    await r.getByRole('button', { name: 'Read here' }).nth(1).click();
+    await r.getByRole('button', { name: 'Crash the primary' }).click();
+  } },
+  { name: 'CAP after a conflict', path: 'labs/cap-theorem/', act: async (p) => {
+    await p.getByRole('button', { name: /AP/ }).click();
+    await p.locator('#cap-part').click();
+    await p.locator('[data-w="2"]').click();
+    await p.locator('[data-w="0"]').click();
+    await p.locator('[data-r="2"]').click();
+  } },
+  { name: 'load balancing with a dead server', path: 'labs/load-balancing/', act: async (p) => {
+    await p.getByLabel(/Server 1 dies/).check();
+    await p.locator('.lb .player [data-pl="toggle"]').click(); // pause
+    for (let i = 0; i < 70; i++) await p.locator('.lb .player [data-pl="step"]').click();
+  } },
+  { name: 'queue dropping, then under back pressure', path: 'labs/message-queue/', act: async (p) => {
+    await p.locator('.v-queue .player [data-pl="toggle"]').click();
+    for (let i = 0; i < 30; i++) await p.locator('.v-queue .player [data-pl="step"]').click();
+    await p.locator('#q-bp').check();
+    for (let i = 0; i < 10; i++) await p.locator('.v-queue .player [data-pl="step"]').click();
+  } },
+  { name: 'rate limiter refusing and queueing', path: 'labs/rate-limiting/', act: async (p) => {
+    const w = p.locator('.v-rate');
+    await w.locator('.player [data-pl="toggle"]').click();
+    for (let i = 0; i < 25; i++) await w.locator('.player [data-pl="step"]').click();
+    await w.getByRole('button', { name: /Leaky bucket/ }).click();
+  } },
+  { name: 'a payment charged twice', path: 'labs/idempotency/', act: async (p) => {
+    const w = p.locator('.v-idem');
+    await w.getByRole('button', { name: 'Saved separately' }).click();
+    await w.locator('[data-f="crash-after-commit"][data-p="retry-key"]').click();
+  } },
+  { name: 'retry storm after the outage', path: 'labs/idempotency/', act: async (p) => {
+    const w = p.locator('.v-storm');
+    for (let i = 0; i < 40; i++) await w.locator('.player [data-pl="step"]').click();
+  } },
+  { name: 'duplicate IDs and failed requests', path: 'labs/unique-ids/', act: async (p) => {
+    const w = p.locator('.v-uid');
+    await w.getByRole('button', { name: /Stale failover/ }).click();
+    await w.getByRole('button', { name: /Auto-increment/ }).click();
+  } },
+  { name: 'random ID collisions after a draw', path: 'labs/unique-ids/', act: async (p) => {
+    const w = p.locator('.v-coll');
+    await w.getByRole('button', { name: /24 bits/ }).click();
+    await w.locator('#c-go').click();
+  } },
+  { name: 'cache eviction mid-replay', path: 'labs/cache-eviction/', act: async (p) => {
+    for (let i = 0; i < 12; i++) await p.locator('#ce-next').click();
+  } },
+  { name: 'DNS walk', path: 'labs/dns-resolution/', act: async (p) => { await p.locator('#d-go').click(); await p.waitForTimeout(300); } },
+  { name: 'CDN after an origin fetch', path: 'labs/cdn/', act: async (p) => {
+    await p.getByRole('button', { name: /Pull CDN/ }).click();
+    await p.locator('[data-req="eu"]').click();
+  } },
+  { name: 'B-tree after a split', path: 'databases/btree-indexes/', act: async (p) => {
+    await p.getByRole('button', { name: 'Insert 8 more in a row' }).click();
+    for (let i = 0; i < 5; i++) await p.locator('.v-btree [data-pl="step"]').click();
+  } },
+  { name: 'scan types mid-scan', path: 'databases/scan-types/', act: async (p) => {
+    await p.getByRole('button', { name: 'Bitmap scan' }).click();
+    for (let i = 0; i < 4; i++) await p.locator('.v-scans [data-pl="step"]').click();
+  } },
+  { name: 'composite index skip scan', path: 'databases/index-design/', act: async (p) => { await p.getByRole('button', { name: /status = banned only/ }).click(); } },
+  { name: 'join animation building a hash table', path: 'databases/joins/', act: async (p) => {
+    await p.getByRole('button', { name: 'Hash join', exact: true }).click();
+    for (let i = 0; i < 4; i++) await p.locator('.v-joins [data-pl="step"]').click();
+  } },
+  { name: 'lock queue replay with sessions waiting', path: 'databases/locks-and-deadlocks/', act: async (p) => {
+    const w = p.locator('.v-trace', { hasText: 'migration' });
+    for (let i = 0; i < 3; i++) await w.locator('[data-pl="step"]').click();
+  } },
+  { name: 'plan stepper on a flagged node', path: 'databases/reading-plans/', act: async (p) => { await p.locator('.pt-node.flag').first().click(); } },
+  { name: 'scaling story in predict mode', path: 'labs/scaling-story/', act: async (p) => {
+    await p.getByRole('button', { name: /Stage 5/ }).click();
+    await p.getByLabel(/Predict first/).check();
+  } },
+];
+
+for (const theme of ['light', 'dark'] as const) test.describe(`lab states (${theme})`, () => {
+  for (const s of states) test(`${s.name} passes axe`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('theme', t), theme);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(s.path);
+    await s.act(page);
+    const axe = await new AxeBuilder({ page }).include('.widget').analyze();
+    const bad = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+    expect(bad.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
+  });
+});

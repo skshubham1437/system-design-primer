@@ -171,3 +171,14 @@
   .lb-servers { gap: 6px; }
   .est-cards { grid-template-columns: 1fr 1fr; }
 }
+
+/* load balancing: a failed server and the challenge */
+.lb-play { flex-wrap: wrap; }
+.lb-server.down .lb-stack { background: var(--warn-soft); outline: 2px dashed var(--hue-practice); outline-offset: -2px; }
+.lb-server.down .lb-stack i { background: var(--hue-practice); }
+.lb-server.removed .lb-stack { background: none; border: 1.5px dashed var(--line-strong); }
+.lb-server.down small, .lb-server.removed small { color: var(--ink-2); font-weight: 600; }
+.lb-goal { margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border-left: 3px solid var(--line-strong); font-size: 14px; }
+.lb-goal.ok { border-left-color: var(--accent); background: var(--accent-soft); }
+.lb-goal span { display: block; margin-top: 2px; color: var(--ink-2); }
+.lb-table td.bad { color: var(--ink); font-weight: 700; text-decoration: underline 2px var(--hue-practice); text-underline-offset: 3px; }

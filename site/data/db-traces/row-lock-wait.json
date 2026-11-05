@@ -1,0 +1,199 @@
+{
+ "id": "row-lock-wait",
+ "title": "Waiting for a row lock",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "3954c40b62e936d7",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);",
+ "events": [
+  {
+   "at": 126,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 254,
+   "step": 1,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance - 50 where id = 1",
+   "note": "A updates row 1 and so holds a lock on it until it ends.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 774",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 403,
+   "step": 2,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance + 10 where id = 2",
+   "note": "B updates a different row: no conflict, no waiting.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 774",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 940,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = balance + 10 where id = 1",
+   "note": "B wants row 1 too and waits. In pg_locks it is waiting for A's transaction id; pg_blocking_pids names A.",
+   "status": "waiting",
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 774",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 776",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "tuple",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ShareLock",
+     "granted": false,
+     "on": "transaction 774",
+     "blockedBy": [
+      "A"
+     ]
+    }
+   ]
+  },
+  {
+   "at": 1137,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "A commits; B's update goes ahead immediately, on top of A's change.",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 1137,
+   "session": "B",
+   "kind": "resumed",
+   "sql": "update accounts set balance = balance + 10 where id = 1",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": []
+  },
+  {
+   "at": 1275,
+   "step": 5,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select id, balance from accounts order by id",
+   "note": "",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 2,
+   "rows": [
+    {
+     "id": 1,
+     "balance": 60
+    },
+    {
+     "id": 2,
+     "balance": 110
+    }
+   ],
+   "locks": []
+  }
+ ]
+}

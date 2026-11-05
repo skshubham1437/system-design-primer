@@ -1,0 +1,103 @@
+# Questions about the idempotency and retries lab. reviewed: true only after a second person checks.
+topic: labs/idempotency/
+reviewed: false
+questions:
+  - id: idem-definition
+    q: "What does it mean for a request to be idempotent?"
+    choices:
+      - "Repeating it has the same effect on the server as sending it once"
+      - "The server returns exactly the same bytes every time it is sent"
+      - "It only reads data, so it can never change anything on the server"
+      - "The server handles it in the order it was sent, whatever the delay"
+    answer: 0
+    why: "Idempotence is about the effect on the server. PUT and DELETE change state and are still idempotent, because doing them again changes nothing further."
+    link: "#how-an-idempotency-key-works"
+    difficulty: 1
+  - id: idem-timeout
+    q: "A client charges a card and gets no reply before its timeout. What does it know?"
+    choices:
+      - "The card was not charged, since the server would otherwise have replied"
+      - "The card was charged, since a request that fails returns an error"
+      - "Nothing: the request, the server or the reply could have failed"
+      - "The server is down, so a retry would fail for the same reason"
+    answer: 2
+    why: "A lost request, a crash and a lost reply all look the same from the client: no reply. In the first the card was not charged, and in the last it was."
+    link: "#why-the-client-cannot-tell"
+    difficulty: 1
+  - id: idem-plain-retry
+    q: "A client retries a charge after a timeout, with no idempotency key. When is the card charged twice?"
+    choices:
+      - "When the request was lost on the way to the server"
+      - "When the first attempt succeeded and only its reply was lost"
+      - "When the server crashed before it committed the transaction"
+      - "When the retry is sent within one second of the first attempt"
+    answer: 1
+    why: "If the first attempt did the work, the retry does it again, because to the server it looks like a new payment. If the first attempt had no effect, the retry is harmless, and the client cannot tell which it was."
+    link: "#try-this"
+    difficulty: 2
+  - id: idem-new-key
+    q: "A client generates a fresh idempotency key inside its retry loop. What happens after a lost reply?"
+    choices:
+      - "The server rejects the second key as a conflict with the first"
+      - "The server replays the saved response, since the request body matches"
+      - "The client receives a 422 because the key does not match the payload"
+      - "The card is charged twice, because each attempt looks like a new payment"
+    answer: 3
+    why: "The server recognises a retry only by its key. A new key means a new operation, which is the same as having no key. Make the key once, before the first attempt."
+    link: "#how-an-idempotency-key-works"
+    difficulty: 2
+  - id: idem-atomic
+    q: "Why save the idempotency key in the same transaction as the charge?"
+    choices:
+      - "A crash between the two steps could leave a charge with no key"
+      - "Databases cannot index a key that was written in a separate step"
+      - "It lets the server drop the key as soon as the transaction commits"
+      - "It avoids the second network call that a separate save would need"
+    answer: 0
+    why: "If the charge commits and the server dies before saving the key, the retry finds no key and charges again. One transaction means neither can exist without the other."
+    link: "#how-an-idempotency-key-works"
+    difficulty: 2
+  - id: idem-different-body
+    q: "A server receives a known idempotency key with a different request body. What should it do?"
+    choices:
+      - "Replay the saved response, because the key is what identifies a request"
+      - "Run the new request, because a different body means a different payment"
+      - "Refuse it with an error, because this is a bug in the client"
+      - "Merge the two requests and apply the fields that have changed"
+    answer: 2
+    why: "The same key with a different request is a mistake, and guessing could charge the wrong amount. The draft standard says 422, and Stripe and AWS also return an error."
+    link: "#how-an-idempotency-key-works"
+    difficulty: 2
+  - id: idem-jitter
+    q: "Exponential backoff without jitter still overloads a recovering server. Why?"
+    choices:
+      - "Exponential waits are too short to outlast most real outages"
+      - "Clients that failed together wait equal times and return together"
+      - "Each retry is larger than the request that failed before it"
+      - "Servers treat retries as a higher priority than new requests"
+    answer: 1
+    why: "Identical waits keep clients in step, so they arrive in spikes above capacity with idle time in between. Random waits spread the same retries out."
+    link: "#the-rules"
+    difficulty: 1
+  - id: idem-layers
+    q: "Three layers of services each make up to 4 attempts at the layer below. How many attempts can reach the database?"
+    choices:
+      - "12, because the attempts at each layer add up"
+      - "7, because each layer only adds three retries"
+      - "4, because retries at the top replace those below"
+      - "64, because the attempts at each layer multiply"
+    answer: 3
+    why: "Each attempt from above triggers a full set of attempts below, so 4 × 4 × 4 is 64. This is why retries belong at one layer."
+    link: "#the-rules"
+    difficulty: 2
+  - id: idem-queue
+    q: "Why must a message queue consumer usually be idempotent?"
+    choices:
+      - "Brokers reorder messages, and only idempotent work can be reordered"
+      - "Idempotent consumers can acknowledge a message before processing it"
+      - "A crash before the acknowledgement means the message is delivered again"
+      - "Queues combine duplicate messages, so a consumer may see too few"
+    answer: 2
+    why: "Delivery is usually at least once. If a consumer does the work and crashes before acknowledging, the message comes back, so the work must be safe to repeat."
+    link: "#queues-need-this-too"
+    difficulty: 1

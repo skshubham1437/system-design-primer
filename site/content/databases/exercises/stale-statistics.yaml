@@ -1,0 +1,34 @@
+id: stale-statistics
+title: After a bulk import
+difficulty: 3
+reviewed: false
+page: databases/reading-plans/
+scenario: >-
+  A nightly job has just imported 30,000 new pending orders. Straight afterwards, a query that joins new pending
+  orders to their users is dramatically slower than usual. Nothing about the schema has changed.
+setup: |
+  insert into orders
+  select g, 1 + g % 20000, 'pending', timestamptz '2025-01-01' + g * interval '1 minute', 10
+  from generate_series(100001, 130000) g
+task: Get the planner to choose a sensible plan again, without adding an index or changing the query.
+query: |
+  select o.id, u.email
+  from orders o
+  join users u on u.id = o.user_id
+  where o.status = 'pending' and o.created_at >= '2025-01-01'
+allowChanges: true
+checks:
+  - max_misestimate: 5
+  - max_buffers: 3000
+hints:
+  - "Explain analyze it and compare estimated rows with actual rows on the scan of orders."
+  - "The planner still believes there are no orders from 2025, because its statistics were gathered before the import."
+  - "analyze orders;"
+solution:
+  changes: analyze orders;
+why: >-
+  The planner chooses plans from statistics, and they were gathered before the import. It expected about one
+  matching order, so a nested loop with one index lookup per order looked cheapest. There were 30,000, which meant
+  30,000 lookups. Running ANALYZE refreshes the statistics; with a correct estimate the planner builds one hash
+  table of users instead. Autovacuum would analyse the table eventually, but after a big load, run ANALYZE yourself
+  before the first queries.

@@ -1,0 +1,72 @@
+# The same queries as some Databases pages, recorded on the 100x sample shop (seed-scale.sql) on a real
+# PostgreSQL server. Record with `node scripts/record-scale.mjs` (needs Docker); the build refuses a recording
+# made from an older version of its scenario. A page shows one with <div data-widget="db-scale" data-id="..."></div>.
+#
+# Each scenario runs in one transaction that is rolled back, so they do not affect each other. Every
+# explain-analyze step runs twice and the second run is kept, so the plans show a warm cache, as the pages do.
+# Steps:
+#   explain-analyze  EXPLAIN (ANALYZE, BUFFERS) of the statement; the output is shown
+#   setup            run for its effect; shown as SQL only
+#   bind             a query whose single value replaces :name in later steps (not shown)
+
+- id: btree-at-scale
+  title: One user's orders, among ten million
+  page: databases/btree-indexes/
+  steps:
+    - kind: explain-analyze
+      label: Without an index
+      sql: select * from orders where user_id = 42;
+    - kind: setup
+      sql: create index orders_user_id_idx on orders (user_id);
+    - kind: explain-analyze
+      label: With the index on user_id
+      sql: select * from orders where user_id = 42;
+
+- id: offset-at-scale
+  title: Half way through ten million orders, by OFFSET and by keyset
+  page: databases/pagination-and-n-plus-one/
+  steps:
+    - kind: setup
+      sql: create index orders_created_at_idx on orders (created_at);
+    - kind: explain-analyze
+      label: OFFSET 5,000,000
+      sql: |
+        select id, created_at, total from orders
+        order by created_at desc
+        limit 20 offset 5000000;
+    - kind: bind
+      name: boundary
+      sql: select created_at::text from orders order by created_at desc offset 4999999 limit 1;
+    - kind: explain-analyze
+      label: The same page by keyset
+      sql: |
+        select id, created_at, total from orders
+        where created_at < :boundary
+        order by created_at desc
+        limit 20;
+
+- id: stale-statistics-at-scale
+  title: Three million pending orders the planner has not heard of
+  page: databases/statistics/
+  steps:
+    - kind: setup
+      sql: |
+        insert into orders
+        select g, 1 + g % 2000000, 'pending', timestamptz '2025-01-01' + (g - 10000000) * interval '10 seconds', 10
+        from generate_series(10000001, 13000000) g;
+    - kind: explain-analyze
+      label: Straight after the import
+      sql: |
+        select o.id, u.email
+        from orders o
+        join users u on u.id = o.user_id
+        where o.status = 'pending' and o.created_at >= '2025-01-01';
+    - kind: setup
+      sql: analyze orders;
+    - kind: explain-analyze
+      label: After ANALYZE
+      sql: |
+        select o.id, u.email
+        from orders o
+        join users u on u.id = o.user_id
+        where o.status = 'pending' and o.created_at >= '2025-01-01';

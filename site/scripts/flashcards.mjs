@@ -58,7 +58,7 @@ export function cleanCard(html, { resolveHref, resolveImg }) {
       if (!info) { parent.children.splice(index, 1); return [SKIP, index]; }
       node.properties.src = info.src;
       node.properties.loading = 'lazy';
-      node.properties.alt ||= 'Diagram';
+      node.properties.alt = info.alt || node.properties.alt || 'Diagram';
     }
   });
   return unified().use(rehypeStringify).stringify(tree).replace(/<p>\s*<\/p>/g, '');

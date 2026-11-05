@@ -1,0 +1,179 @@
+{
+ "id": "lock-queue",
+ "title": "A migration that stalls every query",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "f586f4caea60c1be",
+ "sessions": [
+  "A",
+  "B",
+  "C"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100), (2, 'Ben', 100);",
+ "events": [
+  {
+   "at": 130,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 258,
+   "step": 1,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select count(*) from accounts",
+   "note": "A long-running transaction has read the table, so it holds a light ACCESS SHARE lock until it ends.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "count": "2"
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 810,
+   "step": 2,
+   "session": "B",
+   "kind": "statement",
+   "sql": "alter table accounts add column note text",
+   "note": "A migration needs an ACCESS EXCLUSIVE lock, which conflicts with every other lock, so it waits for A.",
+   "status": "waiting",
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 783",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessExclusiveLock",
+     "granted": false,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    }
+   ]
+  },
+  {
+   "at": 1407,
+   "step": 3,
+   "session": "C",
+   "kind": "statement",
+   "sql": "select count(*) from accounts",
+   "note": "An ordinary read now waits too, even though it does not conflict with A: it queues behind the migration's request. Every new query on the table piles up here.",
+   "status": "waiting",
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 783",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessExclusiveLock",
+     "granted": false,
+     "on": "accounts",
+     "blockedBy": [
+      "A"
+     ]
+    },
+    {
+     "session": "C",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": false,
+     "on": "accounts",
+     "blockedBy": [
+      "B"
+     ]
+    }
+   ]
+  },
+  {
+   "at": 1672,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "A finishes. The migration runs, then the queued reads. In production, set lock_timeout before a migration so it gives up instead of stalling everything.",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 1672,
+   "session": "B",
+   "kind": "resumed",
+   "sql": "alter table accounts add column note text",
+   "status": "ok",
+   "command": "ALTER",
+   "rowCount": null,
+   "rows": []
+  },
+  {
+   "at": 1672,
+   "session": "C",
+   "kind": "resumed",
+   "sql": "select count(*) from accounts",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "count": "2"
+    }
+   ]
+  }
+ ]
+}

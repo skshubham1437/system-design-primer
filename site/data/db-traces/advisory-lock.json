@@ -1,0 +1,83 @@
+{
+ "id": "advisory-lock",
+ "title": "An advisory lock for a job that must run once",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "b888b7fd3ffa1191",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "select 1;",
+ "events": [
+  {
+   "at": 127,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select pg_try_advisory_lock(42) as got_it",
+   "note": "Instance A of a nightly job takes advisory lock 42, a number the application chose.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "got_it": true
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "advisory",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "advisory 42",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 267,
+   "step": 1,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select pg_try_advisory_lock(42) as got_it",
+   "note": "Instance B tries the same number and gets false at once, so it knows another instance is running and exits.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "got_it": false
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "advisory",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "advisory 42",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 398,
+   "step": 2,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select pg_advisory_unlock(42) as released",
+   "note": "A finishes and releases the lock. A session-level advisory lock is also released if the connection drops.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "released": true
+    }
+   ],
+   "locks": []
+  }
+ ]
+}

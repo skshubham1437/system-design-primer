@@ -1,0 +1,56 @@
+# Pilot practice set for the Pastebin solution. Every rubric item and follow-up answer is grounded in the
+# solution text. `reviewed` stays false until a second person has checked it (see CONTENT_GUIDE.md).
+solution: practice/system-design/pastebin/
+reviewed: false
+
+steps:
+  - id: step-1-outline-use-cases-and-constraints
+    prompt: Before you draw anything, what would you ask the interviewer, and what numbers would you work out? Write your questions and a quick capacity estimate for a service that stores and shares pieces of text.
+    rubric:
+      - I asked who uses the service and how, and said what is out of scope
+      - I stated assumptions for users, writes per month, reads per month and the read to write ratio
+      - I turned those into requests per second (about 4 writes and 40 reads per second here)
+      - I estimated how much data is stored per paste and how fast it grows over several years
+      - I asked about expiry and whether the statistics must be real time
+
+  - id: step-2-create-a-high-level-design
+    prompt: Sketch a high-level design. Name the main components, show how a request moves through them, and say why each one is there.
+    rubric:
+      - I drew a client, a web tier, an application tier and storage, with the request path between them
+      - I kept the metadata (the short link and its expiry) apart from the paste text itself
+      - I said where analytics and the removal of expired pastes fit
+      - I justified at least one choice, such as separate read and write paths
+
+  - id: step-3-design-core-components
+    prompt: How would you create the short link and what would you store? Describe the approach, the table you would use, and what happens when someone opens a link.
+    rubric:
+      - I explained how to generate a unique 7 character link, for example a hash that is Base 62 encoded
+      - I handled collisions by checking for a duplicate and generating another link
+      - I gave a table keyed on the short link, with the expiry and where the content lives
+      - "I described the read path: look the link up, then fetch the content"
+      - I said how expired pastes are removed
+      - I described the API, for example one endpoint to create a paste and one to fetch it
+
+  - id: step-4-scale-the-design
+    prompt: Where are the bottlenecks? For each one, say what you would add and what it costs you.
+    rubric:
+      - I said I would measure first, with a load test and profiling, instead of jumping to a final design
+      - I put a memory cache in front of the database for popular pastes
+      - I added a load balancer in front of several stateless web servers
+      - I said where the paste content lives (an object store, possibly behind a CDN) and why
+      - I said when one SQL master stops being enough, and what comes next (read replicas, federation, sharding, denormalization or a NoSQL store)
+      - I named a trade-off for at least one of my choices
+
+followups:
+  - q: Two users create a paste at the same instant and both generate the same short link. What happens?
+    a: The primary key on the short link makes the database reject the second insert, so the write API must catch the duplicate and generate a new link. Checking for a duplicate first is not enough on its own, because two requests can both pass the check before either writes. Rely on the uniqueness constraint.
+  - q: Reads are about ten times as common as writes. How does that shape the design?
+    a: Optimise the read path. Serve popular pastes from a memory cache, keep the paste content in an object store, and add read replicas to the database. At about four writes per second a single SQL master can still handle the write side.
+  - q: One paste goes viral and almost all traffic hits that one link. What do you do?
+    a: Cache it. A memory cache in front of the database absorbs a hot key, because the database only sees the first miss. If the content is public, a CDN can serve it from the edge so most requests never reach your servers at all.
+  - q: How would you let users choose their own short link?
+    a: Use the value they supply instead of generating one, validate its length and characters, and check it for a duplicate in the same way. You also need a rule so a custom link cannot collide with a generated one, for example by reserving different lengths or a separate namespace.
+  - q: The job that deletes expired pastes slows the database down. How do you fix it?
+    a: Run it off-peak and in small batches, or mark rows as expired and delete them later. Checking the expiry at read time means an expired paste disappears for users straight away, even before it is physically removed. An index on the creation time keeps the scan cheap.
+  - q: How would you produce monthly visit statistics without slowing reads?
+    a: Keep it off the read path. Record visits in the web server logs or a queue and aggregate them in a separate job, as the solution does with a MapReduce job that writes to an analytics database. Statistics can lag a little behind, which is acceptable because real-time analytics are not a requirement.

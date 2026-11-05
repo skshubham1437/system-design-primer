@@ -1,0 +1,59 @@
+# Questions drawn from the Join algorithms page and its real outputs.
+topic: databases/joins/
+reviewed: false
+questions:
+  - id: join-nested-best
+    q: When is a nested loop join the best choice?
+    choices:
+      - When both inputs are large and unsorted, so neither is cheap to hash
+      - When the outer side is small and the inner side has an index on the key
+      - When both inputs are already sorted on the join key
+      - Never; it is always the slowest method, kept only for compatibility
+    answer: 1
+    why: Each outer row costs one index lookup on the inner side, which is the cheapest possible join for a handful of outer rows.
+    link: '#nested-loop'
+    difficulty: 1
+  - id: join-hash-batches
+    q: A Hash node shows `Batches 4`. What does that mean?
+    choices:
+      - The hash table did not fit in memory, so parts went to temporary files
+      - Four CPU cores built the hash table, each one taking a quarter of it
+      - The hash table was built four times, once for each outer row
+      - The join ran in four planned stages, which is normal for any hash
+    answer: 0
+    why: Batches 1 means the hash table fitted in work_mem. More batches means it was split and spilled, which is much slower.
+    link: '#hash-join'
+    difficulty: 2
+  - id: join-merge-sorted
+    q: In the merge join on the page, why was there no Sort node under it?
+    choices:
+      - Merge joins never need a sort, whatever order their inputs are in
+      - The tables were small enough to merge without any sorting
+      - Disabling the hash join also turned off sorting for this query
+      - Both inputs came from indexes already in user_id order
+    answer: 3
+    why: A merge join needs both inputs sorted on the key. Here the index on orders.user_id and the users primary key already provided that order, so no sort was needed.
+    link: '#merge-join'
+    difficulty: 2
+  - id: join-disabled-pg18
+    q: In PostgreSQL 18, you set enable_nestloop = off but the plan still shows a nested loop marked "Disabled true". Why?
+    choices:
+      - The setting was ignored because of a known bug in PostgreSQL 18
+      - Settings only take effect on new connections, not the current one
+      - No other method could do this join, so the disabled one was used
+      - The plan was cached from an earlier run, before the setting changed
+    answer: 2
+    why: The enable settings do not forbid a method. Plans with fewer disabled steps win first, and a disabled step that could not be avoided is marked Disabled true - for example when a constant on each side leaves no join condition.
+    link: '#how-the-planner-chooses-and-how-to-argue-with-it'
+    difficulty: 3
+  - id: join-hash-equality
+    q: Which join methods can handle only equality conditions such as `a.x = b.y`?
+    choices:
+      - Only the nested loop, which compares every pair
+      - Hash join and merge join
+      - All three methods, since every join needs an equality
+      - None of them; each can evaluate any condition
+    answer: 1
+    why: A hash join looks keys up by equality and a merge join walks keys in matching order. A nested loop can evaluate any condition, including inequalities.
+    link: '#quick-reference'
+    difficulty: 2

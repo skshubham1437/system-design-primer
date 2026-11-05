@@ -1,0 +1,63 @@
+# Questions drawn from the B-tree indexes page and its real outputs. reviewed: true only after a second person checks.
+topic: databases/btree-indexes/
+reviewed: false
+questions:
+  - id: btree-why-shallow
+    q: Why does a B-tree lookup stay fast even when the table holds hundreds of millions of rows?
+    choices:
+      - The whole index is always kept in memory, so a lookup never has to touch disk
+      - Each page holds hundreds of keys, so three or four page reads reach any key
+      - The key is hashed straight to the page that holds it, with no tree to walk
+      - The table's rows are stored inside the index, sorted by the indexed key
+    answer: 1
+    why: Every level multiplies the reach by the number of keys per page, which is in the hundreds for real 8 kB pages. Three or four levels cover hundreds of millions of rows, so a lookup reads three or four index pages.
+    link: "#how-it-stays-fast"
+    difficulty: 1
+
+  - id: btree-grows-taller
+    q: When does a B-tree become one level taller?
+    choices:
+      - Whenever any leaf page fills up and splits
+      - After a fixed number of inserts, set when the index is built
+      - Only when the root page itself splits
+      - When VACUUM rebuilds the index to rebalance it
+    answer: 2
+    why: A full page splits and passes a boundary up to its parent. Height only grows when the root splits, which is why every leaf is always the same distance from the root.
+    link: "#how-it-stays-fast"
+    difficulty: 2
+
+  - id: btree-order-by-free
+    q: An index on user_id exists. Why can `where user_id between 100 and 110 order by user_id limit 10` run without a Sort node?
+    choices:
+      - The linked leaves are already in user_id order, so the scan stops after ten
+      - PostgreSQL sorts results under a thousand rows inside the index itself
+      - LIMIT switches sorting off, so rows come back in the order they are read
+      - The table itself is stored in user_id order, so its rows already come out sorted
+    answer: 0
+    why: A range scan is one descent and then a walk along the linked leaves, which are sorted. Rows come out in index order, so with a LIMIT the database reads ten entries and stops.
+    link: "#how-it-stays-fast"
+    difficulty: 2
+
+  - id: btree-function-on-column
+    q: Which condition can an ordinary B-tree index on email NOT help with?
+    choices:
+      - "email = 'a@example.com'"
+      - "email > 'm'"
+      - "lower(email) = 'a@example.com'"
+      - "email in ('a@example.com', 'b@example.com')"
+    answer: 2
+    why: The index is sorted by email, not by lower(email). Wrapping the column in a function hides it from the index; that needs an index on the expression lower(email).
+    link: "#what-a-b-tree-can-answer"
+    difficulty: 1
+
+  - id: btree-write-cost
+    q: What does every extra index on a table cost?
+    choices:
+      - Nothing after it is built; only building it takes time
+      - Disk space, plus extra work on inserts and on updates of indexed columns
+      - Slower reads for queries that do not use it, which must skip its pages
+      - A read lock on the table that lasts for as long as the index exists
+    answer: 1
+    why: Each insert must add an entry to every index, and updates that change an indexed column (or cannot be HOT updates) must touch the indexes too. Indexes also take disk and memory.
+    link: "#what-it-costs"
+    difficulty: 1

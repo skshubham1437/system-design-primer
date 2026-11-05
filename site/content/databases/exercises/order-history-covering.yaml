@@ -1,0 +1,30 @@
+id: order-history-covering
+title: A customer's latest orders, from the index alone
+difficulty: 2
+reviewed: false
+page: databases/index-design/
+scenario: >-
+  The account page shows a customer's 20 most recent orders: date and total only. It is called on every page view,
+  so it should touch as little as possible.
+task: Serve the query from the index alone, with no sort step.
+query: |
+  select created_at, total
+  from orders
+  where user_id = 7
+  order by created_at desc
+  limit 20
+ordered: true
+allowChanges: true
+checks:
+  - uses: { node: Index Only Scan, relation: orders }
+  - avoid: { node: [Sort, Incremental Sort] }
+hints:
+  - An index on user_id finds the rows, but they still need sorting and a visit to the table for created_at and total.
+  - An index on (user_id, created_at) returns the rows already in order. What does it still have to fetch from the table?
+  - "Add the remaining column with INCLUDE: create index orders_user_recent_idx on orders (user_id, created_at) include (total);"
+solution:
+  changes: create index orders_user_recent_idx on orders (user_id, created_at) include (total);
+why: >-
+  The query filters on user_id, sorts by created_at and reads total. An index on (user_id, created_at) gives one
+  slice already in date order, so the newest 20 are read from its end with no sort. Adding total with INCLUDE puts
+  every column the query needs in the index, so it never has to visit the table at all: an index-only scan.

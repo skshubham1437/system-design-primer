@@ -1,0 +1,54 @@
+# Questions about the load curve lab. reviewed: true only after a second person checks.
+topic: labs/load-curve/
+reviewed: false
+questions:
+  - id: lc-half-busy
+    q: In the lab's model, how long does a request take when a server is 50% busy, compared with an idle server?
+    choices:
+      - About the same as when idle
+      - About ten times as long
+      - About twice as long
+      - About half as long
+    answer: 2
+    why: Time in the system is the idle service time divided by (1 - utilisation). At 50% that is 1 / 0.5 = 2 times.
+    difficulty: 1
+  - id: lc-ninety
+    q: Why is running servers at 90% busy a bad trade?
+    choices:
+      - Requests take about ten times their idle time, and get worse fast
+      - Servers wear out much faster when they run that close to full load
+      - It uses more electricity per request than running at 50% busy
+      - Throughput falls as utilisation rises, so less work gets done
+    answer: 0
+    why: At 90% busy the model gives 1 / 0.1 = 10 times the idle time, and the curve is steepest near full load. The usual target is around 70% or below.
+    difficulty: 1
+  - id: lc-add-servers
+    q: What does adding servers do in the lab, if traffic stays the same?
+    choices:
+      - It makes each request faster to compute on every server
+      - It raises throughput above demand, so requests finish early
+      - Nothing changes, unless the service time per request changes
+      - It lowers each server's utilisation, so time spent queueing shrinks
+    answer: 3
+    why: Each server gets a smaller share of the traffic. No request gets cheaper, but there is less queueing, which is what horizontal scaling buys.
+    difficulty: 1
+  - id: lc-shared-queue
+    q: Eight servers at 75% busy. Why does one shared queue beat a separate queue per server?
+    choices:
+      - A shared queue runs on faster hardware than per-server queues do
+      - With one queue, no request waits on a busy server while one is idle
+      - A shared queue drops requests when it is busy, so fewer of them wait
+      - It does not; with the same servers the two are always identical
+    answer: 1
+    why: In the model a request takes about 24 ms with one shared queue against 80 ms with separate queues. Any free server takes the next request.
+    difficulty: 2
+  - id: lc-over-capacity
+    q: What happens when incoming traffic exceeds total capacity?
+    choices:
+      - Latency rises to a new level that is higher but steady over time
+      - Throughput keeps rising with the traffic, only with longer waits
+      - Requests arrive faster than they are served, so the queue never stops growing
+      - The servers speed up to absorb the extra traffic for a while
+    answer: 2
+    why: Throughput is capped at capacity; beyond it the backlog grows forever, so response time is unbounded until traffic falls or capacity is added.
+    difficulty: 1

@@ -1,0 +1,63 @@
+# Questions drawn from the Designing indexes page and its real outputs.
+topic: databases/index-design/
+reviewed: false
+questions:
+  - id: composite-column-order
+    q: A query filters with `country = ?` and sorts by `created_at`. Which index serves it best?
+    choices:
+      - (created_at, country)
+      - (country, created_at)
+      - Two separate indexes, one per column
+      - (country) alone
+    answer: 1
+    why: Equality columns first, then the sort columns. All rows for one country sit together in (country, created_at), already ordered by created_at, so there is no sort and nothing to discard.
+    link: "#column-order-in-a-composite-index"
+    difficulty: 2
+
+  - id: skip-scan-pg18
+    q: In PostgreSQL 18, a query filters only on the second column of an index on (country, status). What can happen?
+    choices:
+      - The index can never be used, because its leading column is missing
+      - The planner can skip scan, searching once per distinct country
+      - PostgreSQL quietly builds a separate index on status for the query
+      - The query fails with an error asking for an index on status
+    answer: 1
+    why: PostgreSQL 18 added B-tree skip scan. When the leading column has few distinct values, the planner jumps to each one and searches inside it; the plan shows Index Searches greater than 1.
+    link: "#column-order-in-a-composite-index"
+    difficulty: 2
+
+  - id: index-only-heap-fetches
+    q: An index-only scan shows "Heap Fetches 0". What made that possible?
+    choices:
+      - It covers every column needed, and VACUUM marked the pages all-visible
+      - The table is empty, so there were no heap pages to fetch at all
+      - The query used LIMIT, which stops the scan before any heap fetch
+      - Index-only scans never read the table, so the count is always zero
+    answer: 0
+    why: An index-only scan answers from the index, but must still check the table for pages not yet marked all-visible. On a vacuumed table that count stays at or near zero.
+    link: "#covering-indexes-and-index-only-scans"
+    difficulty: 2
+
+  - id: partial-index-when
+    q: When is a partial index a good choice?
+    choices:
+      - When queries always want a small, fixed subset, such as pending orders
+      - When the table is small enough that a full index would be wasted
+      - When most rows match the condition, so the index stays nearly complete
+      - When you need a unique constraint that applies across all the rows
+    answer: 0
+    why: A partial index holds only the rows matching its condition, so it is a fraction of the size of a full index. In the sample data the pending-orders index was 104 kB against 2.2 MB for all orders.
+    link: "#partial-indexes"
+    difficulty: 1
+
+  - id: low-selectivity-seq
+    q: With an index on status, why does `where status = 'delivered'` (70% of orders) still use a sequential scan?
+    choices:
+      - The index is corrupt and needs a REINDEX before it can be used again
+      - Most rows match, so reading the table in order beats jumping around
+      - Sequential scans are always faster than index scans, on any table
+      - Text columns cannot be indexed, so the index on status is ignored
+    answer: 1
+    why: Following an index means scattered reads; reading every page in order costs a fixed, low price. The rare value (refunded, 1%) used the index, the common one did not.
+    link: "#when-an-index-is-not-used-or-hurts"
+    difficulty: 1

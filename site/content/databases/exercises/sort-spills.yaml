@@ -1,0 +1,30 @@
+id: sort-spills
+title: A ranking that spills to disk
+difficulty: 2
+reviewed: false
+page: databases/reading-plans/
+scenario: >-
+  A report ranks products by how many different orders included them. The plan shows temporary files being written:
+  part of the work did not fit in memory.
+task: Let the work run in memory, for this report only, without changing the query.
+query: |
+  select product_id, count(distinct order_id) as orders
+  from order_items
+  group by product_id
+  order by orders desc, product_id
+  limit 10
+ordered: true
+allowChanges: true
+checks:
+  - max_temp_blocks: 0
+hints:
+  - "Explain analyze it and look for Sort Method: external merge and temp written."
+  - "count(distinct …) sorts its input, and each sort may use up to work_mem (4 MB by default) before spilling to disk."
+  - "set local work_mem = '64MB';"
+solution:
+  changes: set local work_mem = '64MB';
+why: >-
+  Sorts and hash tables may each use up to work_mem before they spill to temporary files, which is far slower than
+  memory. Raising it for one transaction with SET LOCAL, or for one session, lets this report sort in memory without
+  giving every connection on the server more memory: work_mem applies per sort or hash, per query, so a high
+  server-wide value can exhaust memory under load.

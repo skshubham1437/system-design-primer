@@ -1,0 +1,54 @@
+# Questions about the replication lab. reviewed: true only after a second person checks.
+topic: labs/replication/
+reviewed: false
+questions:
+  - id: rep-async-loss
+    q: With asynchronous replication, the primary crashes right after acknowledging two writes. What can happen?
+    choices:
+      - Nothing is lost, because replicas always hold every acknowledged write
+      - Writes the client was told succeeded are lost, as no replica has them
+      - The client is told afterwards that the two writes failed after all
+      - The replicas refuse to be promoted until the primary comes back
+    answer: 1
+    why: Async replication acknowledges first and copies later, buying speed by risking acknowledged data.
+    difficulty: 1
+  - id: rep-stale-read
+    q: In async mode, a client writes and immediately reads from a replica. What does it see?
+    choices:
+      - Always the new value, because the write returned only after copying
+      - An error, because the replica knows its copy of the row is outdated
+      - Possibly the old value - a stale read - until the replica catches up
+      - Nothing, because replicas cannot be read while a write is in flight
+    answer: 2
+    why: The gap until a replica catches up is the replication lag. Reads from replicas are eventually consistent.
+    difficulty: 1
+  - id: rep-semi
+    q: What does semi-synchronous replication wait for before acknowledging a write?
+    choices:
+      - Every replica to have it
+      - One replica to have it
+      - Nothing; it acknowledges at once
+      - The client to confirm
+    answer: 1
+    why: Waiting for one replica means a crash of the primary loses nothing acknowledged, without waiting for a far-away replica on every write.
+    difficulty: 2
+  - id: rep-sync-cost
+    q: What is the cost of fully synchronous replication?
+    choices:
+      - Acknowledged writes can be lost if the primary crashes at a bad time
+      - Reads from the replicas become stale until they catch up again
+      - Replicas can no longer serve reads while they are kept in sync
+      - Every write waits for the slowest replica, and stalls if one is down
+    answer: 3
+    why: Synchronous replication trades write latency (and availability when replicas fail) for durability.
+    difficulty: 1
+  - id: rep-ryw
+    q: How does "read your own writes" stop a user missing what they just saved?
+    choices:
+      - Their reads go to the primary until the replicas have caught up
+      - Every replica switches to synchronous mode for that user's data
+      - All reads wait a fixed amount of time, long enough for any lag
+      - The write is sent to every replica again just before each read
+    answer: 0
+    why: Routing that user's reads to the primary for a while, or waiting for a replica to reach the write's position, gives them consistency where it matters without slowing everyone.
+    difficulty: 2

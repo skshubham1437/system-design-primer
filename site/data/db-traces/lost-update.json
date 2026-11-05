@@ -1,0 +1,245 @@
+{
+ "id": "lost-update",
+ "title": "A lost update, and the fix",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-16",
+ "scenario": "ebe2b84afedb6054",
+ "sessions": [
+  "A",
+  "B"
+ ],
+ "setup": "create table accounts (id int primary key, owner text not null, balance int not null);\ninsert into accounts values (1, 'Asha', 100);",
+ "events": [
+  {
+   "at": 122,
+   "step": 0,
+   "session": "A",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 252,
+   "step": 1,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "A reads 100 and plans to add 50.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 100
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 386,
+   "step": 2,
+   "session": "B",
+   "kind": "statement",
+   "sql": "begin",
+   "note": "",
+   "status": "ok",
+   "command": "BEGIN",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 523,
+   "step": 3,
+   "session": "B",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "B also reads 100 and plans to add 30.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 100
+    }
+   ],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 653,
+   "step": 4,
+   "session": "A",
+   "kind": "statement",
+   "sql": "update accounts set balance = 150 where id = 1",
+   "note": "A writes the total it computed in the application.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "A",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 762",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 805,
+   "step": 5,
+   "session": "A",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 939,
+   "step": 6,
+   "session": "B",
+   "kind": "statement",
+   "sql": "update accounts set balance = 130 where id = 1",
+   "note": "B writes the total it computed from its stale read.",
+   "status": "ok",
+   "command": "UPDATE",
+   "rowCount": 1,
+   "rows": [],
+   "locks": [
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "AccessShareLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "relation",
+     "mode": "RowExclusiveLock",
+     "granted": true,
+     "on": "accounts",
+     "blockedBy": []
+    },
+    {
+     "session": "B",
+     "type": "transactionid",
+     "mode": "ExclusiveLock",
+     "granted": true,
+     "on": "transaction 763",
+     "blockedBy": []
+    }
+   ]
+  },
+  {
+   "at": 1086,
+   "step": 7,
+   "session": "B",
+   "kind": "statement",
+   "sql": "commit",
+   "note": "",
+   "status": "ok",
+   "command": "COMMIT",
+   "rowCount": null,
+   "rows": [],
+   "locks": []
+  },
+  {
+   "at": 1222,
+   "step": 8,
+   "session": "A",
+   "kind": "statement",
+   "sql": "select balance from accounts where id = 1",
+   "note": "130. A's deposit of 50 is gone, and no error was raised. The fix: update balance = balance + 30 in the database, or read with SELECT … FOR UPDATE so the second reader waits.",
+   "status": "ok",
+   "command": "SELECT",
+   "rowCount": 1,
+   "rows": [
+    {
+     "balance": 130
+    }
+   ],
+   "locks": []
+  }
+ ]
+}

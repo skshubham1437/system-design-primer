@@ -1,0 +1,54 @@
+# Questions about the CDN lab. reviewed: true only after a second person checks.
+topic: labs/cdn/
+reviewed: false
+questions:
+  - id: cdn-first-pull
+    q: With a pull CDN, why is the first request in a region slower than having no CDN at all?
+    choices:
+      - The CDN encrypts the file again before it hands it to the user
+      - Edge servers are always farther from users than the origin is
+      - The edge must fetch the file from the origin before it can answer
+      - Pull CDNs hold the first request until the file reaches every edge
+    answer: 2
+    why: The first request pays the trip to the edge plus the trip from the edge to the origin. Later requests are served from the edge.
+    difficulty: 1
+  - id: cdn-push-when
+    q: When does a push CDN suit better than a pull CDN?
+    choices:
+      - Little traffic or rarely changing content, so you upload it once
+      - Very busy sites whose content changes many times a minute
+      - When you cannot or do not want to upload files to the CDN yourself
+      - Only for large video files, which edges cannot fetch on demand
+    answer: 0
+    why: Push places content on the edges up front, so you take on uploading it; pull only keeps recently requested content.
+    difficulty: 1
+  - id: cdn-hit-ratio
+    q: What does the hit ratio measure?
+    choices:
+      - The share of users in each region who are close to an edge
+      - How often the files on the origin change in a given hour
+      - The share of requests that failed and had to be retried
+      - The share of requests an edge serves without asking the origin
+    answer: 3
+    why: 'It is the number that justifies a CDN: every hit is a request your servers never see, served from nearby.'
+    difficulty: 1
+  - id: cdn-short-ttl
+    q: What does a very short TTL on a pull CDN cost?
+    choices:
+      - Content stays stale for longer, because edges refresh less often
+      - Copies expire before they are reused, so more requests reach the origin
+      - The edges run out of disk, because every expired copy is kept
+      - Users must sign in again, because their session cookies expire too
+    answer: 1
+    why: A short TTL keeps content fresh but lowers the hit ratio; a long one does the opposite.
+    difficulty: 2
+  - id: cdn-versioned
+    q: What is the usual alternative to purging edges when a file changes?
+    choices:
+      - Setting every file's TTL to zero, so edges always check the origin
+      - Turning the CDN off during each deploy and back on afterwards
+      - Versioned URLs, with a content hash in the name and a long TTL
+      - Asking users to clear their browser cache after every release
+    answer: 2
+    why: A new version gets a new name, so nothing has to be purged and an old cached copy can never be served for the new name.
+    difficulty: 2

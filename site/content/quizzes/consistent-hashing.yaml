@@ -1,0 +1,54 @@
+# Questions about the consistent hashing lab. reviewed: true only after a second person checks.
+topic: labs/consistent-hashing/
+reviewed: false
+questions:
+  - id: ch-mod-n
+    q: Why is hash(key) mod N a poor way to place keys on servers that come and go?
+    choices:
+      - It cannot spread keys evenly, even when the hash function is good
+      - It is too slow to compute on every request at a large cache's scale
+      - Changing N moves almost every key, so a cache misses nearly everywhere
+      - It needs a central lookup table that every client must download and keep current
+    answer: 2
+    why: Almost every key's remainder changes when N changes. Consistent hashing moves only about 1/N of the keys.
+    difficulty: 1
+  - id: ch-vnodes
+    q: What do virtual nodes fix?
+    choices:
+      - They make each lookup faster, because the ring has fewer points to search
+      - With one point per server, arcs vary and one server can own far more
+      - They let one physical server answer under several host names
+      - They store extra copies of every key, so a lost server loses nothing
+    answer: 1
+    why: Many points per server average out the arc lengths, so the bars level out.
+    difficulty: 1
+  - id: ch-remove
+    q: A server is removed. Where do its keys go?
+    choices:
+      - All of them go to one server chosen at random from the rest
+      - They are lost until the removed server is added back onto the hash ring
+      - To the next point clockwise, which spreads them over many servers
+      - Every key on the ring is rehashed with mod N over the new count
+    answer: 2
+    why: Each arc is taken over by the next point clockwise. With virtual nodes those points belong to many different servers.
+    difficulty: 2
+  - id: ch-copies
+    q: With three copies of each key, how are the copies placed?
+    choices:
+      - On the next distinct servers clockwise, skipping repeats of a server
+      - On three servers chosen at random, so the copies spread out evenly
+      - All three on the owning server, on separate disks for safety
+      - On the three servers that currently hold the least amount of data
+    answer: 0
+    why: Walking on until three different servers are found guarantees two copies never share a machine.
+    difficulty: 2
+  - id: ch-hot-key
+    q: What can consistent hashing NOT fix?
+    choices:
+      - Arcs of uneven length, which leave some servers with more keys
+      - Most keys moving whenever a single server joins or leaves
+      - A single very popular key, which still lands on one server
+      - Finding which server owns a key without a central directory
+    answer: 2
+    why: Spreading keys evenly says nothing about how often each is requested. Hot keys need caching or splitting.
+    difficulty: 1

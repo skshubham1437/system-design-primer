@@ -1,0 +1,81 @@
+# Questions about the rate limiting lab. reviewed: true only after a second person checks.
+topic: labs/rate-limiting/
+reviewed: false
+questions:
+  - id: rl-fixed-boundary
+    q: A fixed window allows 10 requests per second. How many can get through within a fraction of a second?
+    choices:
+      - 10, because the count can never pass the limit in any second
+      - 11, because the limit is checked before each request is counted
+      - 20, as a burst just before a boundary and one just after both fit
+      - Any number, because a fixed window ignores timing within a second
+    answer: 2
+    why: The count resets at every boundary. Ten requests at the end of one window and ten at the start of the next are each within their own window's limit, so twenty pass in a moment.
+    link: "#try-this"
+    difficulty: 1
+  - id: rl-token-burst
+    q: A token bucket holds 20 tokens and refills at 10 a second. An idle client sends 20 requests at once. What happens?
+    choices:
+      - All 20 are served, and later requests are held to 10 a second
+      - 10 are served and 10 refused, because the rate is 10 a second
+      - All 20 wait in a queue and are served one every 100 ms
+      - None are served until the bucket has refilled to its full size
+    answer: 0
+    why: An idle client's bucket is full, so a burst up to its size goes through at once. After that, requests are limited by the refill rate.
+    link: "#the-five-algorithms"
+    difficulty: 2
+  - id: rl-leaky-cost
+    q: What does a leaky bucket, used as a queue, give up in exchange for its perfectly steady output?
+    choices:
+      - Memory, because it keeps the time of every request it allowed
+      - Latency, because requests wait their turn in the queue
+      - Accuracy, because it only estimates the rate from two counters
+      - Strictness, because it lets idle clients send a burst at once
+    answer: 1
+    why: Requests are served at a fixed pace, so a burst is spread out by making requests wait. The other choices describe the sliding log, the sliding counter and the token bucket.
+    link: "#the-five-algorithms"
+    difficulty: 1
+  - id: rl-many-servers
+    q: Ten servers behind a load balancer each keep their own counter of 100 requests a minute per API key. What goes wrong?
+    choices:
+      - A client spread over all ten servers can make 1,000 requests a minute
+      - Every server refuses everything, as no counter sees the whole minute
+      - The counters drift apart until the limit falls to 10 a minute
+      - Nothing, as long as the load balancer sends requests round robin
+    answer: 0
+    why: Each server enforces the limit on its own share of the traffic. Round robin spreads a client over every server, so the real limit is ten times the intended one.
+    link: "#rate-limiting-across-many-servers"
+    difficulty: 2
+  - id: rl-atomic
+    q: Why must the check and the increment on a shared counter be one atomic operation?
+    choices:
+      - Redis refuses to increment a counter that another server has read
+      - Without it, the counter's expiry time is reset on every request
+      - Two servers can both read 99, both allow, and both write 100
+      - Atomic operations avoid the network round trip to the store
+    answer: 2
+    why: A separate read and write lets two requests see the same value and both pass. An atomic increment, or a small script run inside the store, makes the check and the update one step.
+    link: "#rate-limiting-across-many-servers"
+    difficulty: 2
+  - id: rl-client-429
+    q: A client receives a 429 Too Many Requests response. What should it do?
+    choices:
+      - Retry at once, so that it gets back in before other clients do
+      - Wait as long as Retry-After says, then back off with jitter
+      - Open more connections, so that each stays under the limit
+      - Switch to another API key and repeat the same request at once
+    answer: 1
+    why: Immediate retries make an overload worse. Waiting, then waiting longer after each failure with some randomness added, spreads the retries out.
+    link: "#what-clients-should-do"
+    difficulty: 1
+  - id: rl-per-ip
+    q: Why can a limit per IP address hurt users who did nothing wrong?
+    choices:
+      - IP addresses change on every request, so no count ever builds up
+      - Many users behind one NAT or office network share an address
+      - IPv6 addresses are too long to be used as keys in a counter store
+      - Browsers hide the client's IP address from the servers it calls
+    answer: 1
+    why: Everyone behind the same network address counts as one client, so one heavy user can use up the limit for all of them. Limit by API key or user id where you can.
+    link: "#where-the-limit-lives"
+    difficulty: 1

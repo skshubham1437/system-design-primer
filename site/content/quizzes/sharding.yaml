@@ -1,0 +1,54 @@
+# Questions about the sharding lab. reviewed: true only after a second person checks.
+topic: labs/sharding/
+reviewed: false
+questions:
+  - id: sh-range-lopsided
+    q: Why did sharding users by surname leave one shard almost empty with six shards?
+    choices:
+      - The hash function spread the surnames poorly across shards
+      - Six is not a power of two, so the alphabet cannot split evenly
+      - Surnames are not spread evenly across the alphabet
+      - Range sharding always fills the last shard before any other
+    answer: 2
+    why: Range sharding is only as even as the data. With six slices of the alphabet, the last shard held only a handful of users.
+    difficulty: 1
+  - id: sh-hash-hot
+    q: Hash sharding evens out the number of users per shard. What can still make one shard hot?
+    choices:
+      - Having too many shards for the number of users
+      - A few very busy users landing on that shard
+      - Range queries that have to visit every shard
+      - The lookup table that routes users to shards
+    answer: 1
+    why: Even counts are not even traffic. Power users with many times the traffic can overload whichever shard they land on.
+    difficulty: 1
+  - id: sh-scatter
+    q: Which query must ask every shard, whatever the strategy?
+    choices:
+      - Looking up one user by id, when the user id is the shard key
+      - Finding users by surname prefix when sharded by surname range
+      - Counting how many users are stored on one particular shard
+      - Finding every user in one city, when sharded by user
+    answer: 3
+    why: Only conditions on the shard key can be routed. Anything else is scatter-gather across all shards.
+    difficulty: 2
+  - id: sh-directory-drift
+    q: A lookup table placed users by load. Why does it become unbalanced later?
+    choices:
+      - Popularity moves to other users, but the table reflects old traffic
+      - Lookup tables slowly lose entries as more users are added
+      - The hash of each user id drifts a little over time
+      - New shards get added automatically and start out empty
+    answer: 0
+    why: Placement by load is only as good as the load it was based on. Keeping it balanced means moving users as traffic shifts.
+    difficulty: 2
+  - id: sh-celebrity
+    q: One user suddenly gets 400 times the usual traffic. Which strategy keeps the shards balanced?
+    choices:
+      - Range sharding, which moves the user to a quieter range
+      - Hash sharding, which spreads that user's requests evenly
+      - None; one key cannot be split by any placement
+      - A lookup table, which gives that user a shard of their own
+    answer: 2
+    why: Hot keys need separate treatment, such as caching, read replicas for that data, or splitting the key itself.
+    difficulty: 2

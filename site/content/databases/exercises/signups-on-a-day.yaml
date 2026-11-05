@@ -1,0 +1,29 @@
+id: signups-on-a-day
+title: Sign-ups on one day
+difficulty: 2
+reviewed: false
+page: databases/index-design/
+scenario: >-
+  A report counts the users who signed up on a given day. Someone added an index on created_at, but the report is
+  still slow: it reads the whole index and throws almost everything away.
+task: Make the count read only the entries for that day.
+query: |
+  select count(*) from users where created_at::date = '2023-06-15'
+allowChanges: true
+checks:
+  - max_rows_removed: 0
+  - max_buffers: 10
+hints:
+  - "Explain it with an index on created_at. The condition shows up as a Filter, not an Index Cond: the index is read from end to end."
+  - "created_at::date turns the column into something else before comparing it. Compare the bare column with a range instead."
+  - "Create the index, then ask for created_at >= '2023-06-15' and created_at < '2023-06-16'."
+solution:
+  changes: create index users_created_at_idx on users (created_at);
+  query: |
+    select count(*) from users where created_at >= '2023-06-15' and created_at < '2023-06-16'
+why: >-
+  Wrapping a column in a cast or function hides it from the index: the index is sorted by created_at, not by
+  created_at::date, so the database must test every entry. Rewriting the condition as a half-open range on the bare
+  column turns it into one contiguous slice of the index. You cannot simply index created_at::date here, because
+  converting a timestamp with time zone to a date depends on the session's time zone, and an index needs an
+  expression that always gives the same answer.

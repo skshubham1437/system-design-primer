@@ -1,0 +1,85 @@
+# Descriptions of the diagrams that come from the upstream README and solutions, written from the images.
+# The build uses them as alt text in place of the generic "Diagram: <page title>". Keys are image files under
+# public/img/. A flashcard that shows a byte-identical copy of one of these images gets the same description.
+# Describe what the diagram shows and the point it makes, in one or two sentences; do not start with "Image of".
+
+# Study guide and fundamentals
+local/OfVllex.png: Study plan. Short, medium and long timelines aim for breadth, breadth with some depth, and breadth with more depth across the system design topics, then work through some, many or most of the system design, object-oriented and additional interview questions. Review material on the side covers how to approach a question, real-world architectures and company engineering blogs.
+local/bgLMI2u.png: Two nodes, N1 and N2, shown three ways. Consistency means both hold the same value x; availability means each answers requests; partition tolerance means they keep working when the link between them breaks.
+
+# Network and edge
+local/IOyLj4i.jpg: A DNS lookup for www.google.com. The device asks its ISP's DNS server, which does not know the domain and asks a root DNS server, gets back the address 173.194.115.96, caches it for later requests and returns it, and the device then connects to that address directly.
+local/h9TAuGI.jpg: A world map with one origin server in the middle sending content out to servers on every continent, each of which serves the phones, tablets and computers near it.
+local/h81n9iK.png: A client sends a request to a dispatcher in front of a pool of workers, each with its own storage. The dispatcher picks a worker (randomly, round robin, least busy, by sticky session or by request parameters), waits for its response and forwards it to the client.
+local/n41Azff.png: Requests from the internet reach a proxy for example.com, which forwards them to a web server on the internal network and passes the responses back.
+local/yB5SYwm.png: A request goes to a load balancer, then to one of three web servers, each of which can call any of three platform servers, which read from and write to two databases. The web and application layers scale separately.
+
+# Application
+local/54GYsSx.png: A web server handles a request, writes directly to the database, and also puts work on a message queue; a queue consumer takes the work off the queue later and writes its results to the database.
+local/5KeocQs.jpg: The seven layers of the OSI model with what each does and examples. From top to bottom - application (user programs, SMTP), presentation (encryption and data formats such as JPEG and ASCII), session (logical ports, RPC, NFS), transport (TCP, UDP), network (packets, routers, IP, ICMP), data link (frames, switches, bridges) and physical (cables and hubs).
+local/JdAsdvG.jpg: TCP is connection oriented. A message travels between two computers, and when the receiver finds the data corrupted it asks the sender to resend it.
+local/yzDrJtA.jpg: UDP is connectionless. A message travels between two computers, and when data is missing the receiver does not ask for it again.
+local/iF4Mkb5.png: A remote procedure call. In the client process, the client program calls a client stub, whose communication module sends a request to the server process; there a communication module and dispatcher hand it to the server stub and the service procedure, and the reply travels back the same way.
+
+# Database
+local/Xkm5CXz.png: Four web instances each read from two read replicas and write to one write master, and also read from and write to a shared cache.
+local/C9ioGtn.png: Master-slave replication. One client reads from and writes to the master, which replicates to two slaves; two other clients only read, each from one of the slaves.
+local/krAHLGg.png: Master-master replication. Two clients each read from and write to their own master, and the two masters replicate to each other.
+local/U3qV33e.png: Federation. Forums, users and products each have their own database, each with a master, a slave and a read replica.
+local/wU8x5Id.png: Sharding. The application sends a request for user Adam through a load balancer, which routes it to one of four user databases, each holding a range of names - A to C, D to F, G to I and X to Y.
+local/n16iOGk.png: A wide column store. In a super column family called companies, row key 1 holds an address column family (city San Francisco, state California, street Kearny St.) and a website column family (subdomain www, domain grio.com, protocol http); each name and value pair is one column.
+local/fNcl65g.png: A graph database. Nodes for Alice, Bob and a chess group are joined by labelled edges with their own properties - Alice and Bob each know the other, and both are members of the chess group, each with a "since" date.
+local/wXGqG5f.png: Two data models side by side. A relational table has fixed columns and a rigidly defined record structure; a document store holds a collection of JSON documents with nested data whose format can differ from record to record.
+
+# Cache
+local/Q6z24La.png: A client asks a dispatcher, which first looks in the cache. On a hit it returns the result to the client; otherwise it forwards the request to a worker in the worker pool and stores the result in the cache.
+local/ONjORqk.png: Cache-aside. The client talks to the cache and to storage separately - the application reads from the cache and, on a miss, loads from storage itself.
+local/0vBc0hN.png: Write-through. The user writes to the cache (1), the cache stores the data in the database (2), and only then returns to the user (3).
+local/rgSrvjG.png: Write-behind. The user writes to the cache (1), the cache adds an event to a queue (2) and returns to the user at once (3); an event processor later takes events from the queue and writes them to the database (4).
+local/kxtjqgE.png: Refresh-ahead. The client reads from the cache, which reloads entries from storage in the background before they expire.
+
+# Practice and reference
+local/zdCAkB3.png: Two phone screenshots of the Anki flashcard app, one showing a card on UDP from the System Design deck and one a high level design card from the System Design Exercises deck, with Again, Hard, Good and Easy buttons.
+local/b4YtAEN.png: Two phone screenshots of the Anki flashcard app with cards from a coding deck, one explaining extract_min on a heap step by step and one showing a linked list class in Python.
+remote/afa2bde0fc.png: The latency numbers drawn as squares, from a 0.5 ns L1 cache reference to a 150 ms packet round trip from California to the Netherlands, so the gaps of several orders of magnitude between memory, network, SSD and disk can be seen.
+local/TcUo2fw.png: Twitter's real-time delivery architecture. A tweet goes to the write API, which feeds the ingester and Earlybird search index, the fanout service and Redis timeline cache, HTTP and mobile push, and Hadoop batch compute; the blender and timeline service read from them to build what users see.
+
+# Solutions: design Pastebin
+remote/ed923eb995.png: High level design for Pastebin. A client calls a web server, which uses a write API and a read API; both use a SQL database and an object store, and a separate analytics service reads from both.
+remote/3f7f5c5b2f.png: Pastebin scaled. The client resolves DNS and gets static content from a CDN; requests go through load balancers to several web servers, then to write and read APIs. Reads go through a memory cache and SQL read replicas, writes go to a SQL write master-slave pair, pastes live in an object store, and analytics writes to its own SQL database.
+
+# Solutions: design Twitter
+remote/add34d2398.png: High level design for Twitter. A web server routes to a read API, a write API and a search API. The write API's fan out service updates the user graph, search and notification services, the memory cache and the object store; the read API's timeline service reads the memory cache and the tweet and user info services; data lives in MySQL.
+remote/f9e50562da.png: Twitter scaled. The same services as the high level design, each running as several copies behind DNS, a CDN and load balancers, with a memory cache, an object store, a SQL write master-slave pair for writes and SQL read replicas for reads.
+
+# Solutions: design a web crawler
+remote/144d220bf2.png: High level design for a web crawler. The crawler service saves pages to a NoSQL store and sends work through two queues to a reverse index service and a document service; separately, users search through a web server and query API that reads those two services.
+remote/d1196e5db0.png: The web crawler scaled. The same crawl and search paths with several copies of every service and queue, DNS and load balancers in front of the web servers, and a memory cache in front of the query API.
+
+# Solutions: design Mint.com
+remote/38f77ee66f.png: High level design for Mint. A web server calls an accounts API, which stores data in SQL and puts work on a queue; a transaction extraction service reads the queue, writes to SQL and an object store, and calls category, budget and notification services.
+remote/91a2bdfbd5.png: Mint scaled. Several copies of each service behind DNS, a CDN and load balancers; a read API added with a memory cache, writes to a SQL write master-slave pair, reads from SQL read replicas, and an object store.
+
+# Solutions: design the data structures for a social network
+remote/b3af234c82.png: High level design for a social graph. A web server calls a search API, which asks a user graph service; that service uses a lookup service to find which person server holds each user.
+remote/e7ba94eee4.png: The social graph scaled. DNS and load balancers in front of several web servers, a query API with a memory cache, and several copies of the user graph, lookup and person services.
+
+# Solutions: design a key-value cache for a search engine
+remote/7ee17c3a3c.png: High level design for a query cache. A web server calls a query API, which checks a memory cache and otherwise asks a reverse index service and a document service.
+remote/ba9a12b32e.png: The query cache scaled. DNS and load balancers in front of several web servers, and several copies of the query API, the reverse index and document services, and the memory cache.
+
+# Solutions: design Amazon's sales rank by category
+remote/b98d239d5a.png: High level design for sales rank. A web server calls a sales API and a read API, both backed by SQL and an object store; a separate sales rank service reads the object store and writes rankings to SQL.
+remote/8ef8fbe517.png: Sales rank scaled. Several copies of each service behind DNS, a CDN and load balancers, a memory cache for the read API, a SQL write master-slave pair, SQL read replicas, and an object store that the sales rank service reads.
+
+# Solutions: design a system that scales to millions of users on AWS
+remote/11c7e11c2c.png: The starting point. A client looks up DNS and talks to a single web server.
+remote/304308d949.png: Users+. The web server now keeps data in a separate SQL database and files in an object store.
+remote/e6976b8d3a.png: Users++. A CDN serves static content from the object store, a load balancer spreads traffic over several web servers, separate write and read APIs sit behind them, and SQL is a write master-slave pair.
+remote/d538ff6711.png: Users+++. Multiple load balancers and more servers, a memory cache in front of the read path, and SQL read replicas alongside the write master-slave pair.
+remote/46e228be0a.png: Users++++. The web servers, the write API and the read API each sit in an autoscaling group, so the number of servers follows the load.
+remote/d44f798f1f.png: Users+++++. Slow writes go through an asynchronous write API and a queue to worker services, some data moves to NoSQL, and the SQL data is split further by sharding (customers A to M and N to Z) and federation (customers and products in separate databases).
+
+# Flashcard copies that are not byte-identical to a page image
+remote/ba27ee662f.jpg: The seven layers of the OSI model with what each does and examples. From top to bottom - application (user programs, SMTP), presentation (encryption and data formats such as JPEG and ASCII), session (logical ports, RPC, NFS), transport (TCP, UDP), network (packets, routers, IP, ICMP), data link (frames, switches, bridges) and physical (cables and hubs).
+remote/e9c07f4083.png: A proxy between two computers. Alice asks the proxy to ask Bob for the current time; the proxy asks Bob, Bob answers 7pm, and the proxy tells Alice that Bob says it is 7pm.

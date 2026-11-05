@@ -216,3 +216,33 @@ if (/Mac|iPhone|iPad/.test(navigator.platform)) { const k = $('#search-kbd'); if
 
 /* ------------------------------------------------------------ interactive widgets */
 if (document.querySelector('[data-widget]')) import('./widgets.ts');
+
+/* ------------------------------------------------------------ flashcards due badge */
+const badge = $('[data-due-badge]');
+if (badge) {
+  import('../lib/progress').then(async ({ getProgress }) => {
+    const { isDue } = await import('../lib/srs');
+    const progress = getProgress();
+    const dueKeys = () => Object.entries(progress.get().cards).filter(([, c]) => c.seen > 0 && isDue(c, Date.now())).map(([key]) => key);
+    // Only fetched once something is due. If it cannot be fetched, counting every due card is the better failure.
+    let deck: Promise<Set<string> | null> | undefined;
+    const loadDeck = () => fetch(base + 'flashcard-keys.json').then((r) => r.json()).then((keys: string[]) => new Set(keys)).catch(() => null);
+    const update = async () => {
+      if (!deck && dueKeys().length) deck = loadDeck();
+      const known = await deck;
+      const keys = dueKeys();
+      const due = known ? keys.filter((key) => known.has(key)).length : keys.length;
+      badge.textContent = String(due);
+      badge.hidden = due === 0;
+      badge.setAttribute('aria-label', `${due} flashcards due`);
+    };
+    update();
+    progress.subscribe(update);
+  });
+}
+
+/* ------------------------------------------------------------ progress marks and reading */
+if ($('#sidebar')) import('./features/progress-ui').then((m) => m.init());
+
+/* ------------------------------------------------------------ warn when progress is not being saved */
+if ($('#sidebar, [data-widget]')) import('./features/backup').then((m) => m.watchSaves());

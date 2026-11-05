@@ -1,0 +1,34 @@
+{
+ "id": "stale-statistics-at-scale",
+ "scenario": "9019fe829fe3e7d1",
+ "seed": "fa054216c6fe497a",
+ "engine": "PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1)",
+ "recorded": "2026-10-21",
+ "sizes": {
+  "users": 2000000,
+  "orders": 10000000
+ },
+ "title": "Three million pending orders the planner has not heard of",
+ "steps": [
+  {
+   "kind": "setup",
+   "sql": "insert into orders\nselect g, 1 + g % 2000000, 'pending', timestamptz '2025-01-01' + (g - 10000000) * interval '10 seconds', 10\nfrom generate_series(10000001, 13000000) g;"
+  },
+  {
+   "kind": "explain-analyze",
+   "label": "Straight after the import",
+   "sql": "select o.id, u.email\nfrom orders o\njoin users u on u.id = o.user_id\nwhere o.status = 'pending' and o.created_at >= '2025-01-01';",
+   "text": "Gather  (cost=1000.43..183677.64 rows=49 width=27) (actual time=275.598..2501.253 rows=3000000.00 loops=1)\n  Workers Planned: 2\n  Workers Launched: 2\n  Buffers: shared hit=12094393 read=8573\n  ->  Nested Loop  (cost=0.43..182672.74 rows=20 width=27) (actual time=253.273..2326.624 rows=1000000.00 loops=3)\n        Buffers: shared hit=12094393 read=8573\n        ->  Parallel Seq Scan on orders o  (cost=0.00..182503.84 rows=20 width=8) (actual time=253.179..415.773 rows=1000000.00 loops=3)\n              Filter: ((created_at >= '2025-01-01 00:00:00+00'::timestamp with time zone) AND (status = 'pending'::text))\n              Rows Removed by Filter: 3333333\n              Buffers: shared hit=94391 read=8573\n        ->  Index Scan using users_pkey on users u  (cost=0.43..8.45 rows=1 width=27) (actual time=0.002..0.002 rows=1.00 loops=3000000)\n              Index Cond: (id = o.user_id)\n              Index Searches: 3000000\n              Buffers: shared hit=12000002\nPlanning:\n  Buffers: shared hit=8\nPlanning Time: 0.228 ms\nJIT:\n  Functions: 24\n  Options: Inlining false, Optimization false, Expressions true, Deforming true\n  Timing: Generation 1.720 ms (Deform 0.516 ms), Inlining 0.000 ms, Optimization 1.840 ms, Emission 21.064 ms, Total 24.623 ms\nExecution Time: 2629.065 ms"
+  },
+  {
+   "kind": "setup",
+   "sql": "analyze orders;"
+  },
+  {
+   "kind": "explain-analyze",
+   "label": "After ANALYZE",
+   "sql": "select o.id, u.email\nfrom orders o\njoin users u on u.id = o.user_id\nwhere o.status = 'pending' and o.created_at >= '2025-01-01';",
+   "text": "Gather  (cost=48089.00..318632.51 rows=772767 width=27) (actual time=983.005..1577.288 rows=3000000.00 loops=1)\n  Workers Planned: 2\n  Workers Launched: 2\n  Buffers: shared hit=119017 read=6589, temp read=21708 written=22004\n  ->  Parallel Hash Join  (cost=47089.00..240355.81 rows=321986 width=27) (actual time=957.495..1351.609 rows=1000000.00 loops=3)\n        Hash Cond: (o.user_id = u.id)\n        Buffers: shared hit=119017 read=6589, temp read=21708 written=22004\n        ->  Parallel Seq Scan on orders o  (cost=0.00..184208.60 rows=321986 width=8) (actual time=226.444..395.512 rows=1000000.00 loops=3)\n              Filter: ((created_at >= '2025-01-01 00:00:00+00'::timestamp with time zone) AND (status = 'pending'::text))\n              Rows Removed by Filter: 3333333\n              Buffers: shared hit=96375 read=6589\n        ->  Parallel Hash  (cost=30975.33..30975.33 rows=833333 width=27) (actual time=292.782..292.784 rows=666666.67 loops=3)\n              Buckets: 131072  Batches: 32  Memory Usage: 4992kB\n              Buffers: shared hit=22642, temp written=11532\n              ->  Parallel Seq Scan on users u  (cost=0.00..30975.33 rows=833333 width=27) (actual time=7.180..81.096 rows=666666.67 loops=3)\n                    Buffers: shared hit=22642\nPlanning:\n  Buffers: shared hit=8\nPlanning Time: 0.211 ms\nJIT:\n  Functions: 36\n  Options: Inlining false, Optimization false, Expressions true, Deforming true\n  Timing: Generation 2.007 ms (Deform 0.632 ms), Inlining 0.000 ms, Optimization 1.056 ms, Emission 20.804 ms, Total 23.868 ms\nExecution Time: 1693.259 ms"
+  }
+ ]
+}
