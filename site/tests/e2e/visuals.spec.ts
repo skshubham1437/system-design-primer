@@ -214,6 +214,113 @@ test.describe('lab additions', () => {
   });
 });
 
+test.describe('idempotency and retries', () => {
+  test('a lost reply charges twice without a key and once with one', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' }); // choosing a cell shows the whole run at once
+    await page.goto('labs/idempotency/');
+    const w = page.locator('.v-idem');
+    const cell = (f: string, p: string) => w.locator(`[data-f="${f}"][data-p="${p}"]`);
+    await expect(cell('reply-lost', 'retry')).toContainText('2 charges');
+    await expect(cell('request-lost', 'retry')).toContainText('1 charge');
+    await expect(cell('reply-lost', 'no-retry')).toContainText('client does not know');
+    await cell('reply-lost', 'retry-key').click();
+    await expect(cell('reply-lost', 'retry-key')).toHaveAttribute('aria-pressed', 'true');
+    await expect(w.locator('#i-steps')).toContainText('return the saved response');
+    await expect(w.locator('#i-verdict')).toContainText('One charge');
+  });
+
+  test('getting the key wrong changes the last column', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('labs/idempotency/');
+    const w = page.locator('.v-idem');
+    const cell = w.locator('[data-f="crash-after-commit"][data-p="retry-key"]');
+    await expect(cell).toContainText('1 charge');
+    await w.getByRole('button', { name: 'Saved separately' }).click();
+    await expect(cell).toContainText('2 charges');
+    await cell.click();
+    await expect(w.locator('#i-verdict')).toContainText('Save the key in the same transaction');
+  });
+
+  test('the player reveals a run one step at a time', async ({ page }) => {
+    await page.goto('labs/idempotency/');
+    const w = page.locator('.v-idem');
+    const steps = w.locator('#i-steps li');
+    await w.locator('.player [data-pl="reset"]').click();
+    await expect(steps).toHaveCount(1);
+    await w.locator('.player [data-pl="step"]').click();
+    await expect(steps).toHaveCount(2);
+  });
+
+  test('full jitter gets everyone through where plain backoff does not', async ({ page }) => {
+    await page.goto('labs/idempotency/');
+    const w = page.locator('.v-storm');
+    await expect(w.locator('[data-row="exponential"] td').nth(1)).toHaveText('400');
+    await expect(w.locator('[data-row="full-jitter"] td').nth(1)).toHaveText('1,000');
+    await expect(w.locator('[data-row="full-jitter"] td').nth(2)).toHaveText('0');
+    await expect(w.locator('[data-row="immediate"] td').nth(1)).toHaveText('0');
+    await w.locator('.player [data-pl="toggle"]').click(); // pause, then play to the end one step at a time
+    for (let i = 0; i < 100; i++) await w.locator('.player [data-pl="step"]').click();
+    await expect(w.locator('#s-verdict')).toContainText('600 clients gave up');
+    await w.getByRole('button', { name: /Full jitter/ }).click();
+    await expect(w.locator('#s-verdict')).toContainText('1,000 of 1,000 got through');
+  });
+});
+
+test.describe('unique IDs', () => {
+  test('the table compares the schemes under each failure', async ({ page }) => {
+    await page.goto('labs/unique-ids/');
+    const w = page.locator('.v-uid');
+    const col = (row: string, n: number) => w.locator(`[data-row="${row}"] td`).nth(n);
+    await expect(col('auto-increment', 4)).toHaveText('never');
+    await expect(col('snowflake', 4)).toHaveText('under 1 ms');
+    await expect(col('snowflake', 6)).toHaveText('0');
+    await w.getByRole('button', { name: /Database down/ }).click();
+    await expect(col('auto-increment', 3)).toHaveText('800');
+    await expect(col('ticket-servers', 3)).toHaveText('0');
+    await w.getByRole('button', { name: /Stale failover/ }).click();
+    await expect(col('auto-increment', 2)).toHaveText('100');
+    await expect(col('snowflake', 2)).toHaveText('0');
+    await w.getByRole('button', { name: /Shared machine id/ }).click();
+    await expect(col('snowflake', 2)).toHaveText('750');
+  });
+
+  test('turning off the clock guard swaps waiting for duplicates', async ({ page }) => {
+    await page.goto('labs/unique-ids/');
+    const w = page.locator('.v-uid');
+    const col = (n: number) => w.locator('[data-row="snowflake"] td').nth(n);
+    await expect(w.locator('#u-guard-wrap')).toBeHidden();
+    await w.getByRole('button', { name: /Clock jumps back/ }).click();
+    await w.getByRole('button', { name: /Snowflake/ }).click();
+    await expect(col(2)).toHaveText('0');
+    await expect(col(5)).toHaveText('50 ms');
+    await w.locator('#u-guard').uncheck();
+    await expect(col(2)).toHaveText('50');
+    await expect(col(5)).toHaveText('none');
+    await expect(w.locator('#u-verdict')).toContainText('50 duplicate IDs');
+    await expect(w.locator('#u-ids small').first()).toContainText('machine');
+  });
+
+  test('really drawing random IDs agrees with the formula', async ({ page }) => {
+    await page.goto('labs/unique-ids/');
+    const w = page.locator('.v-coll');
+    await w.getByRole('button', { name: /16 bits/ }).click();
+    await expect(w.locator('#c-stats')).toContainText('almost 100%');
+    await w.locator('#c-go').click();
+    await expect(w.locator('#c-verdict')).toContainText('10 of the 10 draws contained a repeat');
+  });
+});
+
+test.describe('new pages are marked as drafts', () => {
+  for (const path of ['labs/idempotency/', 'labs/unique-ids/', 'learn/observability/']) {
+    test(`${path} says it has not been reviewed`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.locator('.draft-note')).toContainText('has not yet been reviewed');
+      await expect(page.locator('.sources, h2#sources-and-further-reading').first()).toBeVisible();
+      await expect(page.locator('.quiz-mount')).toBeVisible();
+    });
+  }
+});
+
 test.describe('rate limiting', () => {
   test('a fixed window lets twice the limit through at a boundary; a sliding log does not', async ({ page }) => {
     await page.goto('labs/rate-limiting/');

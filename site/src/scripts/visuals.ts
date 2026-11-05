@@ -14,6 +14,8 @@ import { architectureAt, newAt } from '../lib/scaling-story';
 import { createTtl, lookupTtl, changeRecord, setTtl, passTime, type TtlState } from '../lib/dns-ttl';
 import { createQuorum, quorumWrite, quorumRead, quorumSync, toggleReplica, overlaps, tolerates, type QuorumState } from '../lib/quorum';
 import { ALGORITHMS, limitRequests, summarize, traffic, type Algorithm, type Decision, type LimitParams, type Pattern } from '../lib/rate-limit';
+import { BACKOFFS, FAULTS, MISTAKES, POLICIES, grade, retryStorm, runPayment, type Backoff, type Fault, type Grade, type Mistake, type Outcome, type Policy, type StormParams, type StormResult, type Who } from '../lib/retries';
+import { BITS, SCENARIOS, SCHEMES, SETTINGS, collisionChance, collisionTrials, expectedDuplicates, formatId, generate, idsForChance, orderPoints, readSnowflake, summarizeIds, type Issued, type Scenario, type Scheme } from '../lib/unique-id';
 
 const TONES = ['#0c7a73', '#4f5bd5', '#c4690a', '#cc3a5d', '#8a4fd0', '#0b84b8', '#9a7b0a', '#5f8a2a'];
 
@@ -801,6 +803,374 @@ function rateLimit(host: HTMLElement) {
   draw();
 }
 
+/* ------------------------------------------------------------ idempotent retries */
+
+const IDEM_FAULTS: Record<Fault, string> = {
+  none: 'Nothing fails',
+  'request-lost': 'Request lost on the way',
+  'crash-before-commit': 'Server crashes before the commit',
+  'crash-after-commit': 'Server crashes after the commit',
+  'reply-lost': 'Reply lost on the way back',
+  'slow-reply': 'Reply slower than the timeout',
+};
+const IDEM_POLICIES: Record<Policy, string> = { 'no-retry': 'No retry', retry: 'Retry, no key', 'retry-key': 'Retry with a key' };
+const IDEM_MISTAKES: Record<Mistake, { b: string; s: string }> = {
+  none: { b: 'Done right', s: 'saved with the charge' },
+  'new-key': { b: 'New key each try', s: 'a client bug' },
+  'not-atomic': { b: 'Saved separately', s: 'after the charge' },
+  expired: { b: 'Key expired', s: 'the retry came too late' },
+};
+const IDEM_WHO: Record<Who, string> = { client: 'Client', network: 'Network', server: 'Server', db: 'Database' };
+const IDEM_CLIENT: Record<Grade, string> = { right: 'client told it worked', unknown: 'client does not know', lost: 'client does not know', double: 'client told it worked' };
+const charges = (n: number) => `${n} charge${n === 1 ? '' : 's'}`;
+
+function idemVerdict(o: Outcome): string {
+  const g = grade(o);
+  if (o.fault === 'none') return 'Nothing failed, so one attempt was enough. Every policy looks the same until something goes wrong.';
+  if (o.policy === 'no-retry') {
+    return o.charges
+      ? 'The card was charged, but the client only saw a timeout. If the customer is told it failed, they will probably pay again.'
+      : 'Nothing was charged, and the client only saw a timeout. It looks exactly like the case where the card was charged.';
+  }
+  if (g === 'double') {
+    if (o.mistake === 'new-key') return 'Two charges. A new key makes each attempt look like a new payment, which is the same as having no key. Make the key once, before the first attempt.';
+    if (o.mistake === 'not-atomic') return 'Two charges. The charge had happened but the key had not been saved, so the retry looked new. Save the key in the same transaction as the charge.';
+    if (o.mistake === 'expired') return 'Two charges. The server had already deleted the key, so the late retry looked new. Keep keys for longer than any client can go on retrying.';
+    return 'Two charges. The first attempt worked and only the reply went missing, so to the server the retry is a new payment.';
+  }
+  if (o.policy === 'retry') return 'One charge, but only by luck. The first attempt had no effect, so repeating it was safe. The client could not have known that: the same retry charges twice if the failure comes a moment later.';
+  if (o.fault === 'slow-reply') return 'One charge. The retry arrived while the first attempt was still running and was told to wait, then it received the saved response.';
+  if (o.fault === 'request-lost' || o.fault === 'crash-before-commit') return 'One charge. The first attempt left nothing behind, not even its key, so the retry did the work.';
+  return 'One charge. The retry found the key and received the saved response, so the client learned the result without paying twice.';
+}
+
+function idempotency(host: HTMLElement) {
+  let fault: Fault = 'reply-lost';
+  let policy: Policy = 'retry';
+  let mistake: Mistake = 'none';
+  let outcome = runPayment(fault, policy, mistake);
+  let shown = outcome.steps.length;
+  const root = shell(host, 'v-idem', 'Idempotent retries', { eyebrow: 'Simulation', title: 'One payment, one failure', desc: 'A client charges a card and something goes wrong on the first attempt. Each cell plays one combination of what fails and what the client does. To the client, every failure below looks the same: no reply before the timeout.' }, `
+    <p class="vis-h">What fails, and what the client does</p>
+    <div class="lb-table-wrap" tabindex="0" role="region" aria-label="Every failure against every retry policy (scrolls sideways on small screens)"><table class="lb-table v-idem-table"><thead><tr><th scope="col">What fails</th>${POLICIES.map((p) => `<th scope="col">${IDEM_POLICIES[p]}</th>`).join('')}</tr></thead><tbody id="i-matrix"></tbody></table></div>
+    <p class="vis-h">How the key is handled, in the last column</p>
+    <div class="vis-controls"><div class="seg small" role="group" aria-label="How the key is handled">${MISTAKES.map((m) => `<button type="button" data-m="${m}"><b>${IDEM_MISTAKES[m].b}</b><small>${IDEM_MISTAKES[m].s}</small></button>`).join('')}</div></div>
+    <p class="vis-h" id="i-title"></p>
+    <div class="vis-actions" id="i-actions"></div>
+    <ol class="v-idem-steps" id="i-steps" aria-label="What happened, in order"></ol>
+    <dl class="vis-stats" id="i-stats"></dl>
+    <p class="vis-status" id="i-verdict" role="status" aria-live="polite"></p>`);
+
+  const draw = () => {
+    $('#i-matrix', root)!.innerHTML = FAULTS.map((f) => `<tr><th scope="row">${IDEM_FAULTS[f]}</th>${POLICIES.map((p) => {
+      const o = runPayment(f, p, mistake);
+      const g = grade(o);
+      return `<td><button type="button" class="v-idem-cell g-${g}" data-f="${f}" data-p="${p}" aria-pressed="${f === fault && p === policy}"><b>${charges(o.charges)}</b><small>${IDEM_CLIENT[g]}</small></button></td>`;
+    }).join('')}</tr>`).join('');
+    $$('[data-m]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === mistake)));
+    $('#i-title', root)!.textContent = `${IDEM_FAULTS[fault]}: ${IDEM_POLICIES[policy].toLowerCase()}`;
+    const visible = outcome.steps.slice(0, shown);
+    $('#i-steps', root)!.innerHTML = visible.map((s) => `<li class="${s.tone ? `tone-${s.tone}` : ''}"><span class="who who-${s.who}">${IDEM_WHO[s.who]}</span><span>${esc(s.text)}</span></li>`).join('');
+    const done = shown >= outcome.steps.length;
+    $('#i-stats', root)!.innerHTML = [
+      ['Charges so far', String(visible.at(-1)?.charges ?? 0), (visible.at(-1)?.charges ?? 0) > 1 ? 'bad' : ''],
+      ['Attempts', String(visible.filter((s) => s.text.startsWith('Attempt ')).length), ''],
+      ['Client believes', done ? (outcome.client === 'paid' ? 'paid' : 'does not know') : 'waiting', done && outcome.client !== 'paid' ? 'bad' : ''],
+    ].map(([k, v, c]) => `<div class="${c}"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    $('#i-verdict', root)!.textContent = done ? idemVerdict(outcome) : '';
+  };
+
+  const pl = player(root, {
+    ms: 900,
+    step: () => { if (shown >= outcome.steps.length) shown = 0; shown++; draw(); return shown < outcome.steps.length; },
+    reset: () => { shown = 1; draw(); },
+    describe: () => outcome.steps[shown - 1]?.text ?? '',
+  });
+  $('#i-actions', root)!.prepend(pl.el);
+
+  const choose = () => {
+    outcome = runPayment(fault, policy, mistake);
+    pl.pause();
+    if (reducedMotion()) shown = outcome.steps.length;
+    else { shown = 1; pl.play(); }
+    draw();
+  };
+  root.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const cell = t.closest<HTMLElement>('[data-f]');
+    const m = t.closest<HTMLElement>('[data-m]');
+    if (cell) { fault = cell.dataset.f as Fault; policy = cell.dataset.p as Policy; choose(); }
+    else if (m) { mistake = m.dataset.m as Mistake; if (policy !== 'retry-key') policy = 'retry-key'; choose(); }
+  });
+  draw();
+}
+
+const STORM_POLICIES: Record<Backoff, { b: string; s: string }> = {
+  'no-retry': { b: 'No retry', s: 'fail and stop' },
+  immediate: { b: 'Immediate', s: 'one second apart' },
+  exponential: { b: 'Exponential', s: '1, 2, 4, 8 … seconds' },
+  'full-jitter': { b: 'Full jitter', s: 'random, up to the same' },
+};
+
+function retryStormWidget(host: HTMLElement) {
+  const DURATION = 100;
+  const p: StormParams = { clients: 1000, capacity: 100, outage: 10, maxAttempts: 8, baseTicks: 1, capTicks: 32 };
+  let policy: Backoff = 'exponential';
+  let now = 0;
+  let r: StormResult = retryStorm(policy, p);
+  const root = shell(host, 'v-storm', 'Retry storm', { eyebrow: 'Simulation', title: '1,000 clients, one outage', desc: 'Every client sends a request at the same moment, while the server is down. When the server comes back it can answer a fixed number per second. See what each retry policy does with that capacity.' }, `
+    <div class="vis-controls"><div class="seg small" role="group" aria-label="Retry policy">${BACKOFFS.map((b) => `<button type="button" data-b="${b}"><b>${STORM_POLICIES[b].b}</b><small>${STORM_POLICIES[b].s}</small></button>`).join('')}</div></div>
+    <div class="vis-controls vis-grid">
+      <label class="lab-range"><span>Outage <b id="s-out">10</b> seconds</span><input type="range" id="s-out-in" min="2" max="40" value="10" aria-label="Outage length in seconds" /></label>
+      <label class="lab-range"><span>Server answers <b id="s-cap">100</b> per second</span><input type="range" id="s-cap-in" min="20" max="300" step="10" value="100" aria-label="Server capacity per second" /></label>
+      <label class="lab-range"><span>Attempts per client <b id="s-att">8</b></span><input type="range" id="s-att-in" min="2" max="8" value="8" aria-label="Attempts per client" /></label>
+    </div>
+    <div class="vis-actions" id="s-actions"><span class="vis-label" id="s-clock"></span></div>
+    <div class="v-rate-wrap"><svg class="v-storm-svg" id="s-svg" viewBox="0 0 600 170" role="img"></svg></div>
+    <p class="v-rate-key"><span class="k-ok">Answered</span><span class="k-fail">Failed</span><span class="k-out">Server down</span><span class="k-cap">Capacity</span></p>
+    <dl class="vis-stats" id="s-stats"></dl>
+    <p class="vis-status" id="s-verdict" role="status" aria-live="polite"></p>
+    <p class="vis-h">All four on the same outage</p>
+    <div class="lb-table-wrap" tabindex="0" role="region" aria-label="All four retry policies on the same outage (scrolls sideways on small screens)"><table class="lb-table v-storm-table"><thead><tr><th scope="col">Policy</th><th scope="col">Got through</th><th scope="col">Gave up</th><th scope="col">Sent</th><th scope="col">Busiest second after</th><th scope="col">Last attempt</th></tr></thead><tbody id="s-table"></tbody></table></div>`);
+
+  const x = (t: number) => 24 + (t / DURATION) * 566;
+  const y = (n: number) => 140 - (n / p.clients) * 126;
+  const num = (n: number) => n.toLocaleString('en-US');
+
+  const draw = () => {
+    $$('[data-b]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.b === policy)));
+    $('#s-out', root)!.textContent = String(p.outage);
+    $('#s-cap', root)!.textContent = String(p.capacity);
+    $('#s-att', root)!.textContent = String(p.maxAttempts);
+    $('#s-clock', root)!.textContent = `${now} s of ${DURATION}`;
+
+    const w = Math.max(1.2, 566 / DURATION - 0.8);
+    let svg = `<rect class="st-out" x="${x(0)}" y="14" width="${x(p.outage) - x(0)}" height="126"/>`;
+    for (let t = 0; t <= DURATION; t += 20) svg += `<text class="st-tick" x="${x(t)}" y="156" text-anchor="middle">${t} s</text>`;
+    let sent = 0;
+    let answered = 0;
+    let busiest = 0;
+    for (let t = 0; t < Math.min(now, r.offered.length); t++) {
+      const offered = r.offered[t];
+      const ok = r.served[t];
+      sent += offered;
+      answered += ok;
+      if (t >= p.outage) busiest = Math.max(busiest, offered);
+      if (!offered) continue;
+      if (offered > ok) svg += `<rect class="st-fail" x="${x(t)}" y="${y(offered)}" width="${w}" height="${y(ok) - y(offered)}"/>`;
+      if (ok) svg += `<rect class="st-ok" x="${x(t)}" y="${y(ok)}" width="${w}" height="${140 - y(ok)}"/>`;
+    }
+    svg += `<line class="st-cap" x1="${x(0)}" x2="${x(DURATION)}" y1="${y(p.capacity)}" y2="${y(p.capacity)}"/>`;
+    svg += `<line class="st-base" x1="${x(0)}" x2="${x(DURATION)}" y1="140" y2="140"/>`;
+    if (now < DURATION) svg += `<line class="rl-now" x1="${x(now)}" x2="${x(now)}" y1="14" y2="140"/>`;
+    const svgEl = $('#s-svg', root)!;
+    svgEl.innerHTML = svg;
+    svgEl.setAttribute('aria-label', `${STORM_POLICIES[policy].b}: requests per second over ${DURATION} seconds. ${num(r.attempts)} sent in all, ${num(r.succeeded)} clients got through and ${num(r.gaveUp)} gave up.`);
+
+    const finished = now > r.finishedAt;
+    $('#s-stats', root)!.innerHTML = [
+      ['Got through', num(answered), ''],
+      ['Gave up', finished ? num(r.gaveUp) : '…', finished && r.gaveUp ? 'bad' : ''],
+      ['Requests sent', num(sent), ''],
+      ['Busiest second after', num(busiest), busiest > p.capacity ? 'bad' : ''],
+    ].map(([k, v, c]) => `<div class="${c}"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+    const verdicts: Record<Backoff, string> = {
+      'no-retry': `Without retries, the ${num(p.clients)} requests that met the outage are simply lost, even though the server is back ${p.outage} seconds later.`,
+      immediate: r.succeeded
+        ? `Retrying every second, clients sent ${num(r.attempts)} requests and ${num(r.succeeded)} got through. Attempts are spent at once, most of them against a server that cannot answer.`
+        : `All ${num(r.attempts)} requests were sent in ${r.finishedAt + 1} seconds, all during the outage. Every client ran out of attempts before the server came back.`,
+      exponential: `Waiting longer each time outlasts the outage, but every client waits exactly as long as every other. They return in waves of up to ${num(r.peakAfter)} a second against a server that answers ${num(p.capacity)}, with the server idle in between. ${num(r.gaveUp)} clients gave up.`,
+      'full-jitter': `The same ceilings, with each wait chosen at random below them. Retries spread out, so the busiest second after the outage was ${num(r.peakAfter)}, and ${num(r.succeeded)} of ${num(p.clients)} got through using ${num(r.attempts)} requests. The last attempt came at ${r.finishedAt} seconds.`,
+    };
+    $('#s-verdict', root)!.textContent = finished || now >= DURATION ? verdicts[policy] : `Playing: ${num(sent)} requests so far, ${num(answered)} answered.`;
+
+    $('#s-table', root)!.innerHTML = BACKOFFS.map((b) => {
+      const s = retryStorm(b, p);
+      return `<tr class="${b === policy ? 'on' : ''}" data-row="${b}"><td>${STORM_POLICIES[b].b}</td><td>${num(s.succeeded)}</td><td class="${s.gaveUp ? 'bad' : ''}">${num(s.gaveUp)}</td><td>${num(s.attempts)}</td><td class="${s.peakAfter > p.capacity ? 'bad' : ''}">${num(s.peakAfter)}</td><td>${s.finishedAt} s</td></tr>`;
+    }).join('');
+  };
+
+  const pl = player(root, {
+    ms: 80, autoplay: true,
+    step: () => { if (now >= DURATION) return false; now++; draw(); return now < DURATION; },
+    reset: () => { now = 0; draw(); },
+    describe: () => `${now} seconds: ${num(r.offered[now - 1] ?? 0)} requests arrived and ${num(r.served[now - 1] ?? 0)} were answered.`,
+  });
+  $('#s-actions', root)!.prepend(pl.el);
+
+  const compute = () => { r = retryStorm(policy, p); };
+  root.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-b], [data-row]');
+    if (!b) return;
+    policy = (b.dataset.b ?? b.dataset.row) as Backoff;
+    compute(); draw();
+  });
+  const slider = (id: string, set: (v: number) => void) => $(id, root)!.addEventListener('input', (e) => { set(Number((e.target as HTMLInputElement).value)); compute(); draw(); });
+  slider('#s-out-in', (v) => { p.outage = v; });
+  slider('#s-cap-in', (v) => { p.capacity = v; });
+  slider('#s-att-in', (v) => { p.maxAttempts = v; });
+  draw();
+}
+
+/* ------------------------------------------------------------ unique IDs */
+
+const UID_SCHEMES: Record<Scheme, { b: string; s: string }> = {
+  'auto-increment': { b: 'Auto-increment', s: 'one database counter' },
+  'ticket-servers': { b: 'Ticket servers', s: 'odds and evens' },
+  'uuid-v4': { b: 'UUIDv4', s: 'random' },
+  'uuid-v7': { b: 'UUIDv7', s: 'time, then random' },
+  snowflake: { b: 'Snowflake', s: 'time, machine, sequence' },
+};
+const UID_SCENARIOS: Record<Scenario, { b: string; s: string; note: string }> = {
+  normal: { b: 'Normal', s: 'nothing goes wrong', note: 'Nothing goes wrong here, so this shows each scheme\'s shape.' },
+  'clock-back': { b: 'Clock jumps back', s: `${SETTINGS.clockBackMs} ms on one server`, note: `At ${SETTINGS.clockBackAt} ms, one app server's clock is corrected ${SETTINGS.clockBackMs} ms backwards.` },
+  'clock-skew': { b: 'Clock runs ahead', s: `${SETTINGS.skewMs} ms on one server`, note: `One app server's clock is ${SETTINGS.skewMs} ms ahead of the others for the whole run.` },
+  'db-down': { b: 'Database down', s: `for ${SETTINGS.downTo - SETTINGS.downFrom} ms`, note: `The ID database (for ticket servers, the odd one) is down from ${SETTINGS.downFrom} to ${SETTINGS.downTo} ms.` },
+  'stale-failover': { b: 'Stale failover', s: `${SETTINGS.failoverBehind} IDs behind`, note: `At ${SETTINGS.failoverAt} ms the ID database (for ticket servers, the odd one) is replaced by a replica ${SETTINGS.failoverBehind} IDs behind.` },
+  'shared-worker': { b: 'Shared machine id', s: 'a configuration mistake', note: 'Two app servers have been given the same Snowflake machine id.' },
+  burst: { b: 'Burst', s: `${SETTINGS.burstSize.toLocaleString('en-US')} in one ms`, note: `One app server asks for ${SETTINGS.burstSize.toLocaleString('en-US')} IDs in one millisecond.` },
+};
+
+function idSchemes(host: HTMLElement) {
+  let scheme: Scheme = 'uuid-v4';
+  let scenario: Scenario = 'normal';
+  let clockGuard = true;
+  let issued: Issued[] = [];
+  const root = shell(host, 'v-uid', 'ID schemes', { eyebrow: 'Simulation', title: 'Four servers, one ID per millisecond each', desc: 'Each scheme makes real IDs for the same requests. The chart plots the order IDs were issued against where they sort: a straight line means sorted by time. Then break something.' }, `
+    <div class="vis-controls">
+      <div class="seg small" role="group" aria-label="ID scheme">${SCHEMES.map((s) => `<button type="button" data-s="${s}"><b>${UID_SCHEMES[s].b}</b><small>${UID_SCHEMES[s].s}</small></button>`).join('')}</div>
+      <div class="seg small" role="group" aria-label="What happens">${SCENARIOS.map((c) => `<button type="button" data-c="${c}"><b>${UID_SCENARIOS[c].b}</b><small>${UID_SCENARIOS[c].s}</small></button>`).join('')}</div>
+      <label class="lab-check" id="u-guard-wrap"><input type="checkbox" id="u-guard" checked /> Snowflake refuses to issue IDs until the clock catches up</label>
+    </div>
+    <div class="v-rate-wrap"><svg class="v-uid-svg" id="u-svg" viewBox="0 0 600 250" role="img"></svg></div>
+    <p class="v-rate-key"><span class="k-ok">An ID</span><span class="k-no">A duplicate</span><span class="k-fail">No ID: the database was down</span></p>
+    <dl class="vis-stats" id="u-stats"></dl>
+    <p class="vis-status" id="u-verdict" role="status" aria-live="polite"></p>
+    <p class="vis-h">The last few IDs issued</p>
+    <ul class="v-uid-ids" id="u-ids"></ul>
+    <p class="vis-h">All five on the same run</p>
+    <div class="lb-table-wrap" tabindex="0" role="region" aria-label="All five ID schemes on the same run (scrolls sideways on small screens)"><table class="lb-table v-uid-table"><thead><tr><th scope="col">Scheme</th><th scope="col">Bits</th><th scope="col">Duplicates</th><th scope="col">No ID</th><th scope="col">Out of order by</th><th scope="col">Longest wait</th><th scope="col">Database calls</th></tr></thead><tbody id="u-table"></tbody></table></div>`);
+
+  const num = (n: number) => n.toLocaleString('en-US');
+  const gap = (s: { outOfOrder: number; worstGapMs: number }) => (s.outOfOrder === 0 ? 'never' : s.worstGapMs === 0 ? 'under 1 ms' : `${num(s.worstGapMs)} ms`);
+  const wait = (ms: number) => (ms ? `${ms} ms` : 'none');
+  const opts = () => ({ clockGuard });
+
+  const draw = () => {
+    $$('[data-s]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === scheme)));
+    $$('[data-c]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.c === scenario)));
+    ($('#u-guard-wrap', root) as HTMLElement).hidden = scenario !== 'clock-back';
+    const s = summarizeIds(scheme, issued);
+
+    const px = (v: number) => 30 + v * 560;
+    const py = (v: number) => 214 - v * 200;
+    const pts = orderPoints(issued);
+    let svg = `<line class="st-base" x1="30" x2="590" y1="214" y2="214"/><line class="st-base" x1="30" x2="30" y1="14" y2="214"/>`;
+    svg += `<text class="st-tick" x="590" y="232" text-anchor="end">Order issued →</text><text class="st-tick" x="4" y="10">ID value ↑</text>`;
+    for (const q of pts) if (!q.failed && !q.dup) svg += `<circle class="u-pt" cx="${px(q.x).toFixed(1)}" cy="${py(q.y).toFixed(1)}" r="1.9"/>`;
+    for (const q of pts) if (q.dup) svg += `<path class="rl-no" d="M${(px(q.x) - 3).toFixed(1)} ${(py(q.y) - 3).toFixed(1)}l6 6m0 -6l-6 6"/>`;
+    for (const q of pts) if (q.failed) svg += `<rect class="st-fail" x="${(px(q.x) - 1).toFixed(1)}" y="220" width="2" height="8"/>`;
+    const svgEl = $('#u-svg', root)!;
+    svgEl.innerHTML = svg;
+    svgEl.setAttribute('aria-label', `${UID_SCHEMES[scheme].b}, ${UID_SCENARIOS[scenario].b.toLowerCase()}: ${num(s.issued)} IDs issued, ${num(s.duplicates)} duplicates, ${num(s.failed)} requests got no ID. IDs are out of order by ${gap(s)}.`);
+
+    $('#u-stats', root)!.innerHTML = [
+      ['Duplicates', num(s.duplicates), s.duplicates ? 'bad' : ''],
+      ['No ID', num(s.failed), s.failed ? 'bad' : ''],
+      ['Out of order by', gap(s), ''],
+      ['Longest wait', wait(s.maxWaitMs), ''],
+    ].map(([k, v, c]) => `<div class="${c}"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+    const said: string[] = [UID_SCENARIOS[scenario].note];
+    if (s.duplicates) said.push(`${UID_SCHEMES[scheme].b} issued ${num(s.duplicates)} duplicate IDs: with a unique index those inserts fail, and without one two records share an ID.`);
+    if (s.failed) said.push(`${num(s.failed)} requests got no ID, so nothing could be created while the database was down.`);
+    if (s.maxWaitMs) said.push(`Requests waited up to ${s.maxWaitMs} ms for an ID.`);
+    if (s.worstGapMs > 0) said.push(`An ID can sort before one issued ${num(s.worstGapMs)} ms earlier.`);
+    else if (s.outOfOrder > 0) said.push('IDs are sorted by time, down to the millisecond. Within one millisecond their order is arbitrary.');
+    if (!s.duplicates && !s.failed && !s.outOfOrder) said.push(`${UID_SCHEMES[scheme].b} stays perfectly in order, at the cost of ${num(s.dbCalls)} database calls.`);
+    $('#u-verdict', root)!.textContent = said.join(' ');
+
+    const last = issued.slice(-3);
+    $('#u-ids', root)!.innerHTML = last.map((r) => {
+      const parts = scheme === 'snowflake' && r.id !== null ? (() => { const f = readSnowflake(r.id); return `<small>time ${num(f.timeMs)}, machine ${f.worker}, sequence ${f.sequence}</small>`; })() : '';
+      return `<li><code>${esc(formatId(scheme, r.id))}</code>${parts}</li>`;
+    }).join('');
+
+    $('#u-table', root)!.innerHTML = SCHEMES.map((k) => {
+      const v = summarizeIds(k, generate(k, scenario, opts()));
+      return `<tr class="${k === scheme ? 'on' : ''}" data-row="${k}"><td>${UID_SCHEMES[k].b}</td><td>${BITS[k]}</td><td class="${v.duplicates ? 'bad' : ''}">${num(v.duplicates)}</td><td class="${v.failed ? 'bad' : ''}">${num(v.failed)}</td><td>${gap(v)}</td><td>${wait(v.maxWaitMs)}</td><td>${num(v.dbCalls)}</td></tr>`;
+    }).join('');
+  };
+
+  const compute = () => { issued = generate(scheme, scenario, opts()); };
+  root.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const a = t.closest<HTMLElement>('[data-s], [data-row]');
+    const c = t.closest<HTMLElement>('[data-c]');
+    if (a) scheme = (a.dataset.s ?? a.dataset.row) as Scheme;
+    else if (c) scenario = c.dataset.c as Scenario;
+    else return;
+    compute(); draw();
+  });
+  $('#u-guard', root)!.addEventListener('change', (e) => { clockGuard = (e.target as HTMLInputElement).checked; compute(); draw(); });
+  compute();
+  draw();
+}
+
+const ID_SPACES: { key: string; b: string; s: string; space: number }[] = [
+  { key: '16', b: '16 bits', s: '65,536 values', space: 2 ** 16 },
+  { key: '24', b: '24 bits', s: 'about 17 million', space: 2 ** 24 },
+  { key: '32', b: '32 bits', s: 'about 4.3 billion', space: 2 ** 32 },
+  { key: 'b62', b: '7 base 62 characters', s: 'about 3.5 trillion', space: 62 ** 7 },
+  { key: '48', b: '48 bits', s: 'about 281 trillion', space: 2 ** 48 },
+];
+
+function idCollisions(host: HTMLElement) {
+  const TRIALS = 10;
+  const COUNTS = [100, 300, 1000, 3000, 10_000, 30_000, 77_000, 100_000, 200_000];
+  let space = ID_SPACES[2];
+  let countAt = 6;
+  let result = '';
+  const root = shell(host, 'v-coll', 'Random ID collisions', { eyebrow: 'Simulation', title: 'How soon do random IDs collide?', desc: 'Pick how large the ID is and how many to make. The chance comes from the birthday formula; the draw really makes that many random IDs, ten times over, and looks for repeats.' }, `
+    <div class="vis-controls">
+      <div class="seg small" role="group" aria-label="Size of the ID">${ID_SPACES.map((v) => `<button type="button" data-z="${v.key}"><b>${v.b}</b><small>${v.s}</small></button>`).join('')}</div>
+      <label class="lab-range"><span>Make <b id="c-n"></b> IDs</span><input type="range" id="c-n-in" min="0" max="${COUNTS.length - 1}" value="6" aria-label="How many IDs to make" /></label>
+    </div>
+    <div class="vis-actions"><button type="button" class="btn primary" id="c-go">Draw them, ${TRIALS} times</button></div>
+    <dl class="vis-stats" id="c-stats"></dl>
+    <p class="vis-status" id="c-verdict" role="status" aria-live="polite"></p>`);
+  const num = (n: number) => Math.round(n).toLocaleString('en-US');
+  const pct = (p: number) => (p >= 0.9995 ? 'almost 100%' : p < 0.00005 ? 'under 0.01%' : `${(p * 100).toLocaleString('en-US', { maximumSignificantDigits: 3 })}%`);
+
+  const draw = () => {
+    const n = COUNTS[countAt];
+    $$('[data-z]', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.z === space.key)));
+    $('#c-n', root)!.textContent = num(n);
+    const half = idsForChance(space.space);
+    $('#c-stats', root)!.innerHTML = [
+      ['Chance of a repeat', pct(collisionChance(n, space.space))],
+      ['Repeating pairs expected', expectedDuplicates(n, space.space) < 0.01 ? 'under 0.01' : expectedDuplicates(n, space.space).toLocaleString('en-US', { maximumSignificantDigits: 3 })],
+      ['IDs for a 50% chance', num(half)],
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    $('#c-verdict', root)!.textContent = result || `There are ${num(space.space)} possible IDs, yet a repeat is as likely as not after only ${num(half)} of them: every new ID can match any earlier one, and the pairs add up.`;
+  };
+
+  root.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const z = t.closest<HTMLElement>('[data-z]');
+    if (z) { space = ID_SPACES.find((v) => v.key === z.dataset.z)!; result = ''; draw(); return; }
+    if (t.closest('#c-go')) {
+      const n = COUNTS[countAt];
+      const hits = collisionTrials(n, space.space, TRIALS);
+      result = `Drew ${num(n)} random IDs ${TRIALS} times: ${hits} of the ${TRIALS} draws contained a repeat. The formula expected ${pct(collisionChance(n, space.space))}.`;
+      draw();
+    }
+  });
+  $('#c-n-in', root)!.addEventListener('input', (e) => { countAt = Number((e.target as HTMLInputElement).value); result = ''; draw(); });
+  draw();
+}
+
 export const visualWidgets: Record<string, (host: HTMLElement) => void> = {
   replication,
   sharding,
@@ -813,4 +1183,8 @@ export const visualWidgets: Record<string, (host: HTMLElement) => void> = {
   'quorum-lab': quorumLab,
   'dns-ttl': dnsTtl,
   'rate-limit': rateLimit,
+  idempotency,
+  'retry-storm': retryStormWidget,
+  'id-schemes': idSchemes,
+  'id-collisions': idCollisions,
 };

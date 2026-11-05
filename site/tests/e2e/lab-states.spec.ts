@@ -35,6 +35,25 @@ const states: { name: string; path: string; act: (page: Page) => Promise<void> }
     for (let i = 0; i < 25; i++) await w.locator('.player [data-pl="step"]').click();
     await w.getByRole('button', { name: /Leaky bucket/ }).click();
   } },
+  { name: 'a payment charged twice', path: 'labs/idempotency/', act: async (p) => {
+    const w = p.locator('.v-idem');
+    await w.getByRole('button', { name: 'Saved separately' }).click();
+    await w.locator('[data-f="crash-after-commit"][data-p="retry-key"]').click();
+  } },
+  { name: 'retry storm after the outage', path: 'labs/idempotency/', act: async (p) => {
+    const w = p.locator('.v-storm');
+    for (let i = 0; i < 40; i++) await w.locator('.player [data-pl="step"]').click();
+  } },
+  { name: 'duplicate IDs and failed requests', path: 'labs/unique-ids/', act: async (p) => {
+    const w = p.locator('.v-uid');
+    await w.getByRole('button', { name: /Stale failover/ }).click();
+    await w.getByRole('button', { name: /Auto-increment/ }).click();
+  } },
+  { name: 'random ID collisions after a draw', path: 'labs/unique-ids/', act: async (p) => {
+    const w = p.locator('.v-coll');
+    await w.getByRole('button', { name: /24 bits/ }).click();
+    await w.locator('#c-go').click();
+  } },
   { name: 'cache eviction mid-replay', path: 'labs/cache-eviction/', act: async (p) => {
     for (let i = 0; i < 12; i++) await p.locator('#ce-next').click();
   } },

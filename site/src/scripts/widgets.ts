@@ -292,7 +292,7 @@ const FEATURE_LOADERS: Record<string, () => Promise<{ mount: (host: HTMLElement)
   'sql-playground': () => import('./features/sql-playground'),
   'sql-exercise': () => import('./features/sql-exercise'),
 };
-const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve', 'scale-story', 'quorum-lab', 'dns-ttl', 'rate-limit'];
+const VISUAL_TYPES = ['replication', 'sharding', 'message-queue', 'dns', 'cdn', 'tcp-udp', 'load-curve', 'scale-story', 'quorum-lab', 'dns-ttl', 'rate-limit', 'idempotency', 'retry-storm', 'id-schemes', 'id-collisions'];
 const LAB_TYPES = ['estimator', 'consistent-hash', 'cache-eviction', 'load-balancing', 'cap-lab'];
 const DB_VISUAL_TYPES = ['btree', 'scan-compare', 'composite-index', 'plan-tree', 'join-algos', 'tx-trace', 'partition-prune'];
 $$('[data-widget]').forEach((host) => {

@@ -25,7 +25,7 @@ import { loadTraces, emitTraces } from './lib/db-traces.mjs';
 import { loadScaleRuns, scaleHtml } from './lib/db-scale.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
-import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
+import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, TOPICS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
 import { createDbRunner, parseRunMeta, outputHtml } from './lib/db-runs.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -518,16 +518,22 @@ async function main() {
     ood.push(slug);
   }
 
-  // Original lab pages (site/content/labs/*.md); each mounts its widget with a raw <div data-widget>.
-  for (const lab of LABS) {
-    const file = path.join(SITE, 'content', 'labs', `${lab.slug}.md`);
-    if (!fs.existsSync(file)) { warn(`lab content missing: ${file}`, true); continue; }
+  // Original pages: labs (site/content/labs/*.md), each mounting its widget with a raw <div data-widget>,
+  // and Learn pages with no simulation (site/content/topics/*.md).
+  const originals = [
+    ...LABS.map((p) => ({ ...p, dir: 'labs', section: 'labs', group: 'labs' })),
+    ...TOPICS.map((p) => ({ ...p, dir: 'topics', section: 'learn' })),
+  ];
+  for (const pg of originals) {
+    const file = path.join(SITE, 'content', pg.dir, `${pg.slug}.md`);
+    if (!fs.existsSync(file)) { warn(`page content missing: ${file}`, true); continue; }
     const tr = parse(fs.readFileSync(file, 'utf8'));
     const slugger = new GithubSlugger();
     for (const n of tr.children) if (n.type === 'heading') n.data = { ...n.data, hProperties: { id: slugger.slug(mdToString(n)) } };
-    const ctx = { name: `labs/${lab.slug}/`, dir: '', title: lab.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
+    const pagePath = `${pg.section}/${pg.slug}/`;
+    const ctx = { name: pagePath, dir: '', title: pg.title, localIds: new Set(tr.children.filter((n) => n.type === 'heading').map(idOf)) };
     const r = await render(tr.children, ctx);
-    out.push({ kind: 'topic', section: 'labs', slug: lab.slug, group: 'labs', path: `labs/${lab.slug}/`, title: lab.title, blurb: lab.blurb, original: true, source: `site/content/labs/${lab.slug}.md`, ...r });
+    out.push({ kind: 'topic', section: pg.section, slug: pg.slug, group: pg.group, path: pagePath, title: pg.title, blurb: pg.blurb, original: true, draft: pg.draft === true, source: `site/content/${pg.dir}/${pg.slug}.md`, ...r });
   }
 
   // The Databases section (site/content/databases/*.md). Top-level ```sql blocks marked run / explain /

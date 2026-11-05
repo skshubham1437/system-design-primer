@@ -1,0 +1,103 @@
+# Questions about the unique ID generation lab. reviewed: true only after a second person checks.
+topic: labs/unique-ids/
+reviewed: false
+questions:
+  - id: uid-snowflake-layout
+    q: "What makes up a 64-bit Snowflake ID, reading from the high bits?"
+    choices:
+      - "A machine id, then a sequence number, then a timestamp"
+      - "A timestamp, then a machine id, then a sequence number"
+      - "A random value, then a timestamp, then a machine id"
+      - "A sequence number, then a timestamp, then a random value"
+    answer: 1
+    why: "Time comes first, which is why the IDs sort roughly by time. The layout is 41 bits of milliseconds, 10 of machine id and 12 of sequence."
+    link: "#snowflake-style-ids"
+    difficulty: 1
+  - id: uid-clock-back
+    q: "A Snowflake generator's clock moves back 50 ms. What goes wrong if it carries on issuing IDs?"
+    choices:
+      - "It reuses times it has already used, so it can issue duplicates"
+      - "Its IDs overflow the 41-bit time field and wrap around to zero"
+      - "Its machine id is no longer valid, so other machines reject the IDs"
+      - "It uses up the sequence field and has to stop for a full second"
+    answer: 0
+    why: "The same millisecond and sequence number come round again on the same machine. That is why Snowflake refuses to issue IDs until the time is past the last one it used."
+    link: "#try-this"
+    difficulty: 2
+  - id: uid-v4-index
+    q: "What is the usual drawback of UUIDv4 as a primary key in a B-tree index?"
+    choices:
+      - "Its random bits can repeat within a few thousand rows of each other"
+      - "It reveals the time and the machine that created the record"
+      - "New values land all over the index, so inserts have poor locality"
+      - "It needs a call to a coordination service to make each new value"
+    answer: 2
+    why: "Random values have no order, so each insert goes somewhere new in the index. RFC 9562 calls this poor database-index locality, and UUIDv7 fixes it by starting with a timestamp."
+    link: "#uuids"
+    difficulty: 1
+  - id: uid-v7
+    q: "What does UUIDv7 give up, compared with UUIDv4, in exchange for sorting by time?"
+    choices:
+      - "Uniqueness, because two machines can issue the same value in a millisecond"
+      - "Portability, because it can only be stored by newer database versions"
+      - "Independence, because it needs a central service to keep the clock"
+      - "Privacy, because the value shows when the record was made"
+    answer: 3
+    why: "The first 48 bits are a timestamp that anyone can read. The remaining 74 random bits still make a repeat very unlikely, and no central service is involved."
+    link: "#the-options"
+    difficulty: 2
+  - id: uid-ticket
+    q: "How do two Flickr-style ticket servers avoid issuing the same ID?"
+    choices:
+      - "They agree on each new ID with a two-phase commit between the servers"
+      - "One issues odd numbers and the other even numbers"
+      - "Each is given a block of numbers by a third coordinating server"
+      - "They replicate each new ID, and the slower server discards its copy"
+    answer: 1
+    why: "Both step by 2 from different starting points, so they never overlap and do not need to talk to each other. They do drift apart, so the IDs are only roughly ordered."
+    link: "#ticket-servers"
+    difficulty: 1
+  - id: uid-birthday
+    q: "A system picks random 32-bit IDs, about 4.3 billion possible values. Roughly when is a repeat as likely as not?"
+    choices:
+      - "After about 77,000 IDs"
+      - "After about 2 billion IDs"
+      - "After about 4.3 billion IDs"
+      - "After about 65,000 billion IDs"
+    answer: 0
+    why: "Every new ID can match any earlier one, so the pairs grow with the square of the count. A 50% chance arrives at about 1.18 times the square root of the space."
+    link: "#how-soon-random-ids-collide"
+    difficulty: 2
+  - id: uid-short-random
+    q: "A URL shortener uses 7 random base 62 characters. What must its design include?"
+    choices:
+      - "A central counter that reserves each value before it is used"
+      - "A clock that all the servers keep in step, to avoid repeats"
+      - "A uniqueness check on insert, and another try if a value is taken"
+      - "Nothing extra, since 3.5 trillion values is far more than it needs"
+    answer: 2
+    why: "At 360 million links, about 18,400 pairs would match even though the space looks huge. A primary key on the short link catches the repeat, and the code picks another value."
+    link: "#how-soon-random-ids-collide"
+    difficulty: 2
+  - id: uid-range-shards
+    q: "Why are time-sorted IDs a problem as the first key on a store split by key range?"
+    choices:
+      - "The range boundaries have to be recomputed each time the clock ticks"
+      - "Readers cannot find a row without knowing when it was created"
+      - "Clock skew between shards makes the same ID appear on two of them"
+      - "All new rows belong at the end of the range, so one shard takes the writes"
+    answer: 3
+    why: "Every new key is the highest so far, so one shard handles all the inserts. Hash the ID, put another column first, or use a random ID."
+    link: "#sorted-ids-and-shards"
+    difficulty: 2
+  - id: uid-gaps
+    q: "A PostgreSQL sequence produces 1, 2, 4. What is the likely reason?"
+    choices:
+      - "A transaction took 3 and then aborted, and the value is not given back"
+      - "The table was vacuumed, which removed the row and reused its number"
+      - "The sequence detected a conflict with a row inserted by another session"
+      - "The value 3 was skipped because it would have split an index page"
+    answer: 0
+    why: "Giving values back would make concurrent transactions wait, so sequences never do. Gaps are normal, and sequences cannot provide gapless numbering."
+    link: "#auto-increment-and-sequences"
+    difficulty: 1

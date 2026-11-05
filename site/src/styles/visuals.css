@@ -308,3 +308,55 @@
 .v-rate-table td.bad { color: var(--ink-practice, var(--hue-practice)); font-weight: 650; }
 .v-rate .lab-range[hidden] { display: none; }
 @media (max-width: 700px) { .v-rate-wrap { padding-inline: 16px; } .v-rate-key { margin-inline: 16px; } }
+
+/* idempotent retries */
+.v-idem .seg, .v-storm .seg, .v-uid .seg, .v-coll .seg { flex-wrap: wrap; }
+.v-idem-table { table-layout: fixed; min-width: 480px; }
+.v-idem-table th { padding: 8px 10px; white-space: normal; }
+.v-idem-table th[scope="row"] { width: 30%; font-size: 12.5px; font-weight: 550; letter-spacing: 0; text-transform: none; color: var(--ink-2); background: none; }
+.v-idem-table tbody tr, .v-idem-table tbody tr:hover { cursor: default; background: none; }
+.v-idem-table td { padding: 3px; white-space: normal; font-family: var(--font-ui); vertical-align: top; }
+.v-idem-table td:last-child { vertical-align: top; }
+.v-idem-cell { display: grid; gap: 1px; width: 100%; height: 100%; padding: 6px 9px; border: 1.5px solid transparent; border-radius: 9px; background: var(--surface-2); color: var(--ink); font-family: var(--font-ui); text-align: left; cursor: pointer; }
+.v-idem-cell b { font-size: 13.5px; font-weight: 650; }
+.v-idem-cell small { font-size: 11.5px; line-height: 1.25; color: var(--ink-2); }
+.v-idem-cell.g-right { background: var(--accent-soft); }
+.v-idem-cell.g-unknown, .v-idem-cell.g-lost { background: var(--warn-soft); }
+.v-idem-cell.g-double { background: color-mix(in srgb, var(--hue-practice) 18%, var(--surface)); }
+.v-idem-cell[aria-pressed="true"] { border-color: var(--ink); }
+.widget .v-idem-steps { list-style: none; margin: 8px 24px 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-height: 2em; font-size: 13.5px; }
+.widget .v-idem-steps li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0; padding: 7px 12px; border-radius: 9px; background: var(--surface-2); border-left: 3px solid transparent; }
+.widget .v-idem-steps li.tone-ok { border-left-color: var(--accent); }
+.widget .v-idem-steps li.tone-bad { border-left-color: var(--hue-practice); }
+.v-idem-steps .who { flex: 0 0 66px; font-size: 11.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+.v-idem-steps .who + span { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.v-idem .vis-stats { margin-top: 10px; }
+@media (max-width: 700px) { .widget .v-idem-steps { margin-inline: 16px; } }
+
+/* retry storm */
+.v-storm-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.st-out { fill: color-mix(in srgb, var(--ink-3) 16%, transparent); }
+.st-ok { fill: var(--accent); }
+.st-fail { fill: var(--hue-practice); }
+.st-cap { stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.st-base { stroke: var(--line); }
+.st-tick { font-size: 11px; fill: var(--ink-2); }
+.v-storm-svg .rl-now { stroke: var(--ink-2); stroke-width: 1; }
+.v-rate-key .k-fail::before { background: var(--hue-practice); }
+.v-rate-key .k-out::before { background: color-mix(in srgb, var(--ink-3) 25%, transparent); border: 1px solid var(--line); }
+.v-rate-key .k-cap::before { width: 14px; height: 0; border-top: 2px dashed var(--ink-2); border-radius: 0; vertical-align: 3px; }
+.v-storm-table td.bad, .v-uid-table td.bad { color: var(--ink-practice, var(--hue-practice)); font-weight: 650; }
+.v-storm-table tbody tr, .v-uid-table tbody tr { cursor: pointer; }
+
+/* unique IDs */
+.v-uid-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.u-pt { fill: var(--accent); }
+.v-uid-svg .rl-no { stroke: var(--hue-practice); stroke-width: 1.8; stroke-linecap: round; fill: none; }
+.v-uid .lab-check[hidden] { display: none; }
+.widget .v-uid-ids { list-style: none; margin: 0 24px; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.widget .v-uid-ids li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0; padding: 6px 12px; border-radius: 9px; background: var(--surface-2); }
+.v-uid-ids code { font-size: 12.5px; overflow-wrap: anywhere; background: none; padding: 0; }
+.v-uid-ids small { font-size: 12px; color: var(--ink-2); }
+.v-coll .vis-actions { padding-top: 8px; }
+.v-coll .vis-stats { margin-top: 10px; }
+@media (max-width: 700px) { .widget .v-uid-ids { margin-inline: 16px; } }

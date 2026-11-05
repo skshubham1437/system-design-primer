@@ -46,7 +46,7 @@ Findings about the second group are judgements from structure and length, not a 
 
 2. **The six object-oriented exercises have almost no prose** (43 to 127 words each). They show a problem statement and code but no walkthrough, so a learner sees the answer without the reasoning. This is the largest gap in the Practice section. *Needs a "how to think about it" walkthrough per exercise.*
 3. **The 40 "real-world architectures" and 40 "company architectures" entries are bare link tables.** They teach nothing on their own page. *Needs a handful of written summaries (planned, item 9).*
-4. **Interview topics that are not covered at all**: unique ID generation, idempotency and retries, observability (logs, metrics, traces, SLOs). *Planned, item 10.* (Rate limiting now has a lab, `labs/rate-limiting/`, and pagination a Databases page.)
+4. **Interview topics that were not covered**: all now have Draft pages awaiting review. Rate limiting, idempotency and retries, and unique ID generation are labs (`labs/rate-limiting/`, `labs/idempotency/`, `labs/unique-ids/`), observability is a Learn page (`learn/observability/`), and pagination is a Databases page.
 5. **No worked numbers on most topic pages.** The solutions do the arithmetic well; the topic pages rarely say what "a lot" means. The capacity estimator and the latency numbers help but are not linked from where the question arises. *Add a "rough numbers" line to Cache, Database and Load balancer.*
 6. **The Appendix "Powers of two" page is 11 words and a code block.** It now has a calculator but no explanation of why these numbers matter in an interview.
 

@@ -1,0 +1,103 @@
+# Questions about the observability page. reviewed: true only after a second person checks.
+topic: learn/observability/
+reviewed: false
+questions:
+  - id: obs-signals
+    q: "An alert fires because errors have risen. Which signal best shows where one failing request spent its time?"
+    choices:
+      - "A metric, because it counts every request the service handled"
+      - "A gauge, because it shows the current value of the service"
+      - "A trace, because it records the path of one request across services"
+      - "A log, because it holds the running error count for each of the services"
+    answer: 2
+    why: "Metrics say that something is wrong and how much, but nothing about a single request. A trace follows one request through each service, and logs then give the detail."
+    link: "#three-signals"
+    difficulty: 1
+  - id: obs-average
+    q: "A service averages 100 ms. Why might users still be unhappy?"
+    choices:
+      - "An average is only valid for services under a fixed level of load"
+      - "1% of requests could be taking 5 seconds without moving the average much"
+      - "Averages are measured on the server, so they never include any network time"
+      - "Latency cannot be averaged, because it is measured in separate buckets"
+    answer: 1
+    why: "A few very slow requests hide among many fast ones, and they are the requests users remember. Percentiles such as the 99th show them."
+    link: "#metrics"
+    difficulty: 1
+  - id: obs-fan-out
+    q: "Each server is slow on 1% of requests. A user request calls 100 of them in parallel. How often is it slow?"
+    choices:
+      - "1% of the time, since each server is slow that often"
+      - "10% of the time, since it depends on the square root"
+      - "63% of the time, since any slow server delays the response"
+      - "100% of the time, since at least one of the 100 is always slow at any moment"
+    answer: 2
+    why: "The response waits for the slowest server. The chance that all 100 are fast is 0.99 to the power of 100, about 37%, so 63% of requests are slow."
+    link: "#metrics"
+    difficulty: 2
+  - id: obs-merge-percentiles
+    q: "Five instances each report a 99th percentile. How do you get the service's 99th percentile?"
+    choices:
+      - "Average the five values, weighted by each instance's traffic"
+      - "Take the largest of the five, as the worst case for the service"
+      - "Add the five values, then divide by the number of requests served"
+      - "Sum the histogram buckets across instances, then compute it from the total"
+    answer: 3
+    why: "Percentiles cannot be averaged in any meaningful way. Histogram buckets can be added, and the percentile computed from the combined counts."
+    link: "#metrics"
+    difficulty: 2
+  - id: obs-cardinality
+    q: "Why should a metric not have a user ID label?"
+    choices:
+      - "Each user becomes a separate time series, and the count multiplies"
+      - "The label would make the metric's values visible to every user"
+      - "Metric labels can only hold numbers, and so they cannot store an ID string"
+      - "A counter loses accuracy once it has more than a few labels"
+    answer: 0
+    why: "Every unique combination of label values is a new time series. A million users can turn 500 series into 500 million. Put user IDs in logs and traces."
+    link: "#metrics"
+    difficulty: 1
+  - id: obs-head-tail
+    q: "What can tail sampling do that head sampling cannot?"
+    choices:
+      - "Propagate the trace ID between services without using a header"
+      - "Keep traces because they turned out to contain an error or be slow"
+      - "Record a trace with no cost, as the data is thrown away afterwards"
+      - "Decide before the first span is created, which keeps it very cheap"
+    answer: 1
+    why: "Head sampling decides at the start, before anyone knows how the request will end. Tail sampling decides after seeing most of the trace, at the price of stateful components."
+    link: "#traces"
+    difficulty: 2
+  - id: obs-slo-sla
+    q: "How do you tell an SLO from an SLA?"
+    choices:
+      - "An SLO measures latency and an SLA measures availability"
+      - "An SLO is set by engineers and an SLA is set by the users"
+      - "An SLO covers one service and an SLA covers all the services"
+      - "Ask what happens if it is missed: an SLA has explicit consequences"
+    answer: 3
+    why: "An SLA is a contract that includes consequences. If nothing explicit happens when the target is missed, it is an SLO."
+    link: "#slis-slos-and-slas"
+    difficulty: 1
+  - id: obs-budget
+    q: "How much complete downtime does a 99.9% SLO allow over 30 days?"
+    choices:
+      - "4.32 minutes"
+      - "43.2 minutes"
+      - "7.2 hours"
+      - "1 day"
+    answer: 1
+    why: "The budget is 0.1% of 30 days, and 30 days is 43,200 minutes, so it comes to 43.2 minutes."
+    link: "#error-budgets"
+    difficulty: 1
+  - id: obs-page
+    q: "Which of these should page someone at night?"
+    choices:
+      - "CPU on one server has passed 90%, though users are unaffected"
+      - "A disk is expected to fill up in about three weeks from now"
+      - "The error budget is burning at 14.4 times the sustainable rate"
+      - "A batch job took longer than usual, and then finished successfully"
+    answer: 2
+    why: "Page on symptoms that users feel and that need a person now. A burn rate of 14.4 spends 2% of a 30-day budget in an hour. The others can wait for working hours, or do not matter."
+    link: "#alerting"
+    difficulty: 2

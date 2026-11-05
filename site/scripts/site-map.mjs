@@ -115,13 +115,20 @@ export const LABS = [
   { slug: 'load-curve', title: 'The load curve', blurb: 'See why response time explodes near full utilisation, and how adding servers moves you back.' },
   { slug: 'replication', title: 'Replication', blurb: 'Write to a primary, read from replicas, then crash the primary and count what is lost.' },
   { slug: 'sharding', title: 'Sharding strategies', blurb: 'Split 600 users across shards by range, hash or lookup table and see which one tips over.' },
+  { slug: 'unique-ids', title: 'Unique ID generation', blurb: 'Make IDs with a counter, ticket servers, UUIDs and Snowflake, then break the clock, the database and the configuration.', draft: true },
   { slug: 'message-queue', title: 'Queues and back pressure', blurb: 'Make a producer faster than its consumers and watch the queue fill, drop, or push back.' },
   { slug: 'rate-limiting', title: 'Rate limiting', blurb: 'Send the same requests through a fixed window, a sliding log, a sliding counter, a token bucket and a leaky bucket.' },
+  { slug: 'idempotency', title: 'Idempotency and retries', blurb: 'Fail a payment at every point and see when a retry charges twice, then watch 1,000 clients retry after an outage.', draft: true },
   { slug: 'dns-resolution', title: 'DNS lookup', blurb: 'Walk a lookup from browser to authoritative server and see how caches skip the walk.' },
   { slug: 'cdn', title: 'CDN edge caching', blurb: 'Request a file from three continents with no CDN, a pull CDN and a push CDN.' },
   { slug: 'tcp-udp', title: 'TCP vs UDP', blurb: 'Send the same packets over a lossy link and compare what arrives, and when.' },
   { slug: 'quorum', title: 'Quorum reads and writes', blurb: 'Choose N, W and R and see when a read is guaranteed to see the latest write, and how many failures each survives.' },
   { slug: 'cap-theorem', title: 'CAP in practice', blurb: 'Partition a three-node store and watch it choose between consistency and availability.' },
+];
+
+// Original Learn pages with no simulation, in site/content/topics/<slug>.md. They sit at the end of their group.
+export const TOPICS = [
+  { slug: 'observability', group: 'application', title: 'Observability', blurb: 'Logs, metrics and traces, what to measure, and how SLOs and error budgets decide when to page someone.', draft: true },
 ];
 
 // Topic page -> labs worth trying from it.
@@ -130,14 +137,15 @@ export const RELATED_LABS = {
   'learn/cache/': ['labs/cache-eviction/'],
   'learn/dns/': ['labs/dns-resolution/'],
   'learn/cdn/': ['labs/cdn/'],
-  'learn/asynchronism/': ['labs/message-queue/', 'labs/rate-limiting/'],
-  'learn/communication/': ['labs/tcp-udp/'],
+  'learn/asynchronism/': ['labs/message-queue/', 'labs/rate-limiting/', 'labs/idempotency/'],
+  'learn/communication/': ['labs/tcp-udp/', 'labs/idempotency/'],
   'learn/security/': ['labs/rate-limiting/'],
   'learn/load-balancer/': ['labs/load-balancing/', 'labs/load-curve/', 'labs/rate-limiting/'],
   'learn/availability-vs-consistency/': ['labs/cap-theorem/'],
   'learn/consistency-patterns/': ['labs/cap-theorem/', 'labs/quorum/'],
   'learn/availability-patterns/': ['labs/cap-theorem/'],
-  'learn/database/': ['labs/replication/', 'labs/sharding/', 'labs/consistent-hashing/', 'labs/estimator/', 'databases/playground/'],
+  'learn/database/': ['labs/replication/', 'labs/sharding/', 'labs/consistent-hashing/', 'labs/unique-ids/', 'labs/estimator/', 'databases/playground/'],
+  'practice/system-design/pastebin/': ['labs/unique-ids/'],
   'learn/performance-vs-scalability/': ['labs/load-curve/', 'labs/estimator/'],
   'learn/latency-vs-throughput/': ['labs/load-curve/', 'labs/estimator/'],
   'interview/approach/': ['labs/estimator/'],
@@ -165,6 +173,9 @@ export const PREREQS = {
   'labs/quorum/': ['labs/replication/'],
   'labs/message-queue/': ['learn/asynchronism/'],
   'labs/rate-limiting/': ['learn/load-balancer/', 'labs/message-queue/'],
+  'labs/idempotency/': ['learn/communication/', 'labs/rate-limiting/'],
+  'labs/unique-ids/': ['learn/database/'],
+  'learn/observability/': ['learn/availability-patterns/', 'learn/latency-vs-throughput/'],
   'labs/cache-eviction/': ['learn/cache/'],
   'labs/consistent-hashing/': ['learn/database/'],
   'labs/load-balancing/': ['learn/load-balancer/'],

@@ -44,7 +44,7 @@ Each web server keeping its own counter does not work: with ten servers behind a
 
 - **Respect the 429.** The response can include a `Retry-After` header saying how long to wait. Many APIs also report the limit and what is left in response headers, and the IETF is standardising `RateLimit` header fields for this.
 - **Back off exponentially, with jitter.** Retrying immediately makes an overload worse. Wait longer after each failure (for example 1, 2, 4, 8 seconds) and add randomness so that thousands of clients do not all retry at the same moment.
-- **Only retry what is safe to repeat.** A retried payment must not charge twice. An idempotency key sent with the request lets the server recognise a retry of a request it already handled.
+- **Only retry what is safe to repeat.** A retried payment must not charge twice. An idempotency key sent with the request lets the server recognise a retry of a request it already handled. The [idempotency lab](site:labs/idempotency/) shows this, and what jitter does.
 
 Rate limiting and [back pressure](#back-pressure) are the same idea from two sides: refusing work you cannot do, so the work you accept stays fast. The [queue lab](site:labs/message-queue/) shows what happens without it.
 
