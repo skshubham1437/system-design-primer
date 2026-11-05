@@ -1,5 +1,6 @@
 // Rules for practice files (rubrics and follow-up questions for a solution).
 import { rules } from './rules.mjs';
+import { checkSignOff } from './signoff.mjs';
 
 /**
  * @param {{ practice?: {slug: string, file: string, data: any, error?: string}[], pages?: {path: string, kind: string, html: string}[] }} ctx
@@ -17,6 +18,7 @@ export function validatePractice({ practice = [], pages = [] }) {
     const page = pages.find((p) => p.path === d.solution);
     check(!!page && page.kind === 'solution', `${where}: "${d.solution}" is not a solution page on this site`);
     check(typeof d.reviewed === 'boolean', `${where}: "reviewed" must be true or false (true only after a second person signed off)`);
+    checkSignOff(d, where, check);
 
     // the step sections the page actually has (every H2 is wrapped as <section data-step="id">)
     const sections = page ? [...page.html.matchAll(/<section class="sol-step" data-step="([^"]+)"/g)].map((m) => m[1]) : [];

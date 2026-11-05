@@ -360,7 +360,7 @@ Written in `site/content/`, labelled as original, reviewed before merge. License
 
 **Performance budget.** Fail CI if the home page ships more than 150 KB of JavaScript or any single lab or feature more than 60 KB gzipped.
 
-**Content quality process.** Every authored item (question, rubric, definition, summary) goes through draft, self-check against its source, reviewer sign-off, merge. A checklist lives in `CONTRIBUTING`; each page shows "Report a problem" with a prefilled issue. See the implementation plan for the review checklist.
+**Content quality process.** Every authored item (question, rubric, definition, summary) goes through draft, self-check against its source, reviewer sign-off, merge. The checklist and sign-off rules live in `site/CONTENT_GUIDE.md`; each page shows "Report a problem" with a prefilled issue.
 
 **Upstream sync.** `git fetch upstream && git merge upstream/master`. Strict mode fails the build if upstream renames a section; the fix is a one-line change in `scripts/site-map.mjs`. Translation changes from upstream will conflict with the deletions; keep the deletions.
 

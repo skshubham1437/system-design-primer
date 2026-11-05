@@ -21,6 +21,7 @@ questions:
       - Reads that fail whenever any one of the three replicas is down
     answer: 2
     why: R + W = 2 is not more than 3, so a read can land on a replica the write never reached. It becomes consistent only as replicas catch up.
+    link: "#what-this-shows"
     difficulty: 1
   - id: q-failures
     q: N = 3, W = 2, R = 2. How many replicas can be down before writes are refused?
@@ -31,6 +32,7 @@ questions:
       - All three; writes wait until they return
     answer: 1
     why: A write needs W = 2 live replicas, so it survives N - W = 1 failure.
+    link: "#what-this-shows"
     difficulty: 2
   - id: q-repair
     q: How do stale replicas eventually catch up in Dynamo-style stores?
@@ -51,4 +53,5 @@ questions:
       - W = 2, R = 1
     answer: 0
     why: Writing to all three means any single replica has the latest value, so reads need ask only one. W = 2, R = 1 would give R + W = 3, which is not enough.
+    link: "#what-this-shows"
     difficulty: 3

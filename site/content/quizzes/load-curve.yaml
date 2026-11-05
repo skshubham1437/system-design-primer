@@ -11,6 +11,7 @@ questions:
       - About half as long
     answer: 2
     why: Time in the system is the idle service time divided by (1 - utilisation). At 50% that is 1 / 0.5 = 2 times.
+    link: "#about-the-model"
     difficulty: 1
   - id: lc-ninety
     q: Why is running servers at 90% busy a bad trade?
@@ -21,6 +22,7 @@ questions:
       - Throughput falls as utilisation rises, so less work gets done
     answer: 0
     why: At 90% busy the model gives 1 / 0.1 = 10 times the idle time, and the curve is steepest near full load. The usual target is around 70% or below.
+    link: "#about-the-model"
     difficulty: 1
   - id: lc-add-servers
     q: What does adding servers do in the lab, if traffic stays the same?
@@ -41,6 +43,7 @@ questions:
       - It does not; with the same servers the two are always identical
     answer: 1
     why: In the model a request takes about 24 ms with one shared queue against 80 ms with separate queues. Any free server takes the next request.
+    link: "#about-the-model"
     difficulty: 2
   - id: lc-over-capacity
     q: What happens when incoming traffic exceeds total capacity?

@@ -23,6 +23,7 @@ import { loadChoosers, emitChoosers } from './lib/choosers.mjs';
 import { loadDbExercises, emitDbExercises } from './lib/db-exercises.mjs';
 import { loadTraces, emitTraces } from './lib/db-traces.mjs';
 import { loadScaleRuns, scaleHtml } from './lib/db-scale.mjs';
+import { checkSignOff } from './validate/signoff.mjs';
 import { createLinkResolver, deckFileName, quoteHrefs } from './lib/links.mjs';
 import { readDeck, cleanCard, cardTitle } from './flashcards.mjs';
 import { REPO, GROUPS, PAGES, ABOUT_H2, ANCHOR_OVERRIDES, SKIPPED_H2, SOLUTIONS, OOD, WIDGETS, LABS, TOPICS, RELATED_LABS, PREREQS, DB_MODULES, DB_PAGES } from './site-map.mjs';
@@ -615,6 +616,7 @@ async function main() {
     let doc;
     try { doc = loadYaml(fs.readFileSync(path.join(ownCardsDir, file), 'utf8')); } catch (e) { warn(`content/flashcards/${file}: could not parse (${e.message.split('\n')[0]})`, true); continue; }
     if (typeof doc?.reviewed !== 'boolean' || !Array.isArray(doc.cards)) { warn(`content/flashcards/${file}: needs "reviewed: true|false" and a "cards" list`, true); continue; }
+    checkSignOff(doc, `content/flashcards/${file}`, (ok, msg) => { if (!ok) warn(msg, true); });
     for (const [i, c] of doc.cards.entries()) {
       const where = `content/flashcards/${file} card ${i + 1}`;
       if (typeof c?.front !== 'string' || typeof c?.back !== 'string' || c.front.length < 8 || c.back.length < 20) { warn(`${where}: needs a front and a back`, true); continue; }

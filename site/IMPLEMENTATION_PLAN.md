@@ -239,14 +239,7 @@ Applies to every question, rubric item, definition, summary and chooser scenario
 
 **Process.** Draft from a named source section, self-check against it, open a pull request containing content only, get a second person's review, merge. Reviewers never review their own writing.
 
-**Reviewer checklist.**
-- [ ] The answer is correct, and I verified it against the linked section or a primary source.
-- [ ] Exactly one choice is defensible; the wrong ones are plausible but clearly wrong for a stated reason.
-- [ ] The explanation says *why*, not just *what*, and the link lands on the right heading.
-- [ ] No trick wording; tests understanding rather than trivia.
-- [ ] Numbers and claims are cited; archived copies used when originals are gone.
-- [ ] Plain language; terms defined or in the glossary.
-- [ ] Nothing copied from copyrighted sources; original wording.
+**Reviewer checklist.** The checklist and the sign-off rules are in [CONTENT_GUIDE.md](CONTENT_GUIDE.md), the single copy. Reviewers record their sign-off in the file (author, reviewer, date) and never review their own writing.
 
 **Quality bar.** If a reviewer corrects more than one item in 20, stop writing new content and tighten the process (clearer source notes, smaller batches) before continuing.
 

@@ -2,6 +2,7 @@
 // stated solution passes) is proved by tests/unit/db-exercises.test.ts, which runs them on the real engine.
 import { rules } from './rules.mjs';
 import { checkProblem } from '../../src/lib/db/checks.ts';
+import { checkSignOff } from './signoff.mjs';
 
 /** @param {{ dbExercises?: {slug: string, file: string, data: any, error?: string}[], pages?: {path: string, html: string}[] }} ctx */
 export function validateDbExercises({ dbExercises = [], pages = [] }) {
@@ -24,6 +25,7 @@ export function validateDbExercises({ dbExercises = [], pages = [] }) {
     check(str(d.query, 10), `${where}: needs the original query`);
     check(!/;\s*\S/.test(String(d.query ?? '').trim().replace(/;\s*$/, '')), `${where}: the query must be a single statement`);
     check(typeof d.reviewed === 'boolean', `${where}: "reviewed" must be true or false`);
+    checkSignOff(d, where, check);
     check(d.ordered === undefined || typeof d.ordered === 'boolean', `${where}: "ordered" must be true or false`);
     check(d.allowChanges === undefined || typeof d.allowChanges === 'boolean', `${where}: "allowChanges" must be true or false`);
     check(Array.isArray(d.checks) && d.checks.length > 0, `${where}: needs at least one check`);

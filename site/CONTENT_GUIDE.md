@@ -7,20 +7,47 @@ How to write and review the original content on this site (quiz questions, rubri
 1. **Draft** from a named source: a section of this site or a cited primary source. Note the source in the pull request.
 2. **Self-check** every claim against that source.
 3. **Open a content-only pull request.** Do not mix content and code.
-4. **Review** by someone who did not write it, using the checklist below.
-5. **Merge.** Strict builds validate the file format; the reviewer validates the substance.
+4. **Review** by someone who did not write it, using the checklist below. Record the review in the file's sign-off fields (see [Sign-off](#sign-off)).
+5. **Merge.** Strict builds validate the file format and the sign-off fields; the reviewer validates the substance.
 
-If a reviewer corrects more than one item in twenty, stop writing new content and fix the process first (clearer source notes, smaller batches).
+If a reviewer corrects more than one item in twenty, stop writing new content and fix the process first (clearer source notes, smaller batches). Record every correction in the [corrections log](#corrections-log) so the rate can be measured.
 
 ## Reviewer checklist
 
-- [ ] The answer is correct, and I verified it against the linked section or a primary source.
+The reviewer goes through every item for every question, rubric item, definition and chooser scenario. The build cannot check most of these; the reviewer is the check.
+
+- [ ] The answer is correct, and I checked it against the linked section or a primary source.
 - [ ] Exactly one choice is defensible; the wrong ones are plausible but clearly wrong for a stated reason.
-- [ ] The explanation says *why*, not just *what*, and its link lands on the right heading.
+- [ ] The explanation says *why*, not just *what*. Its link goes to the section that covers the answer. The build only checks that the anchor exists, so the reviewer checks that it is the right section.
+- [ ] Every number in the explanation comes from the lab's model or a cited source, and the explanation links to it.
 - [ ] No trick wording. It tests understanding rather than trivia.
-- [ ] Numbers and claims are cited; archived copies are used when originals are gone.
-- [ ] Plain language; terms are defined or in the glossary.
+- [ ] Claims are cited; archived copies are used when originals are gone.
+- [ ] Plain language. Each term is defined on the page where it first appears.
 - [ ] Original wording; nothing copied from copyrighted sources.
+
+## Sign-off
+
+Each content file records who wrote it and who reviewed it:
+
+```yaml
+author: "Name of the person who wrote the content"
+reviewed: true
+reviewed_by: "Name of the reviewer"
+reviewed_on: "2026-11-06"
+```
+
+- The three fields are required once `reviewed` is `true`. The build refuses a file that is marked reviewed without them.
+- `reviewed_by` must not be the same person as `author`.
+- Set `reviewed: true` only after the reviewer has gone through the checklist. The reviewer, not the author, sets it.
+- Flashcard decks (`content/flashcards/*.yaml`) use the same fields at the top of the file.
+
+## Corrections log
+
+Record each correction a reviewer makes, so the one-in-twenty rule can be checked. One row per correction.
+
+| Date | File | Question or item | What was wrong | Found by |
+|---|---|---|---|---|
+| | | | | |
 
 ## Style
 

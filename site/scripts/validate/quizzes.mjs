@@ -1,5 +1,6 @@
 // Rules for quiz files. Every rule exists because a broken quiz teaches the wrong thing or fails silently.
 import { rules } from './rules.mjs';
+import { checkSignOff } from './signoff.mjs';
 
 export const QUESTIONS_MIN = 5;
 export const QUESTIONS_MAX = 10;
@@ -25,6 +26,7 @@ export function validateQuizzes({ quizzes = [], pages = [] }) {
     const page = pages.find((p) => p.path === d.topic);
     check(!!page, `${where}: topic "${d.topic}" is not a page on this site`);
     check(typeof d.reviewed === 'boolean', `${where}: "reviewed" must be true or false (true only after a second person signed off)`);
+    checkSignOff(d, where, check);
     check(quiz.slug === (d.topic ?? '').split('/').filter(Boolean).pop(), `${where}: file name should match the topic slug`);
 
     const headingIds = new Set(page ? [...page.html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]) : []);

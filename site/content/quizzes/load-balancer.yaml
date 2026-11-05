@@ -83,4 +83,5 @@ questions:
       - It stores encrypted session data on its own disk for the servers
     answer: 0
     why: Doing the expensive encryption work once, at the balancer, spares the backend servers and removes the need to install an X.509 certificate on each one.
+    link: "#extra-ssl-termination-at-the-balancer"
     difficulty: 2

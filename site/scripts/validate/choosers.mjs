@@ -1,5 +1,6 @@
 // Rules for decision aids. A chooser that dead-ends, loops, or recommends something it never explains is worse than none.
 import { rules } from './rules.mjs';
+import { checkSignOff } from './signoff.mjs';
 
 /**
  * @param {{ choosers?: {slug: string, file: string, data: any, error?: string}[], pages?: {path: string, html: string}[] }} ctx
@@ -21,6 +22,7 @@ export function validateChoosers({ choosers = [], pages = [] }) {
     ids.add(d.id);
     check(typeof d.title === 'string' && d.title.trim().length >= 5, `${where}: needs a title`);
     check(typeof d.reviewed === 'boolean', `${where}: "reviewed" must be true or false`);
+    checkSignOff(d, where, check);
 
     const page = pages.find((p) => p.path === d.topic);
     check(!!page, `${where}: topic "${d.topic}" is not a page on this site`);

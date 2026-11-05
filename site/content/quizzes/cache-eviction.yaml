@@ -11,6 +11,7 @@ questions:
       - It misses every time, because it evicts the key needed next
     answer: 3
     why: The least recently used key is exactly the one the loop asks for next. LRU, FIFO and LFU all hit 0% on the loop pattern; random eviction does far better.
+    link: "#what-to-notice"
     difficulty: 2
   - id: ce-scan
     q: Why does LFU beat LRU on "hot keys plus scans"?
@@ -31,6 +32,7 @@ questions:
       - It counts every request ever made and evicts whichever key is least requested
     answer: 2
     why: One pass over cold keys only churns the small probation area. The price is that a newly popular key must prove itself twice, so 2Q did slightly worse on plain hot keys.
+    link: "#a-fix-for-scans-and-its-price"
     difficulty: 3
   - id: ce-optimal
     q: Why is the "optimal" policy shown if no real cache can use it?

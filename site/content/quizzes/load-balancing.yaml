@@ -11,6 +11,7 @@ questions:
       - IP hash (sticky)
     answer: 0
     why: Least connections notices a server stuck behind a slow request and sends work elsewhere. Its p95 stayed in a narrow band while round robin's varied a lot from run to run.
+    link: "#the-algorithms"
     difficulty: 1
   - id: lb-one-run
     q: Why does the lab report the median of 20 runs instead of one run?
@@ -21,6 +22,7 @@ questions:
       - One run can make the same algorithm look good or bad by luck
     answer: 3
     why: Round robin's p95 ranged from about 19 to 48 over the runs. A single run, like a single benchmark, can mislead.
+    link: "#what-to-notice"
     difficulty: 1
   - id: lb-ip-hash
     q: What is the main weakness of IP hash?

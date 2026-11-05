@@ -11,6 +11,7 @@ questions:
       - It needs a central lookup table that every client must download and keep current
     answer: 2
     why: Almost every key's remainder changes when N changes. Consistent hashing moves only about 1/N of the keys.
+    link: "#how-it-works"
     difficulty: 1
   - id: ch-vnodes
     q: What do virtual nodes fix?
