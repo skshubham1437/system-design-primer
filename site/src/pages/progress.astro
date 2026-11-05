@@ -7,6 +7,8 @@ import { features, groups, pagesInGroup, solutions, quizzes, choosers, dbExercis
 const core = groups.filter((g) => ['start', 'fundamentals', 'network', 'application', 'data', 'databases'].includes(g.id));
 const data = {
   cardsTotal: cards.length,
+  cardKeys: cards.map((c) => c.key),
+  dataPanel: features.dataPanel,
   groups: core.map((g) => ({ id: g.id, label: g.label, pages: pagesInGroup(g.id).map((p) => ({ path: p.path, title: p.title })) })),
   solutions: solutions.map((p) => ({ path: p.path, title: p.short ?? p.title })),
   choosers: choosers.map((c) => ({ id: c.id, title: c.title, topic: c.topic, scenarios: c.scenarios })),

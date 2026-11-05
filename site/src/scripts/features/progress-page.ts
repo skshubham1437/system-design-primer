@@ -2,9 +2,13 @@
 import { getProgress } from '../../lib/progress';
 import { lastAttempts, nextUp, isRead, WEAK_BELOW } from '../../lib/next-up';
 import { isDue, summarize } from '../../lib/srs';
+import { mountBackupReminder } from './backup';
+import { mount as mountDataPanel } from './data-panel';
 
 interface Data {
   cardsTotal: number;
+  cardKeys: string[];
+  dataPanel: boolean;
   groups: { id: string; label: string; pages: { path: string; title: string }[] }[];
   solutions: { path: string; title: string }[];
   quizzes: { slug: string; topic: string; title: string; ids: string[]; count: number }[];
@@ -33,14 +37,21 @@ export function mount(host: HTMLElement) {
   const progress = getProgress();
   const root = document.createElement('div');
   root.className = 'prog';
-  host.replaceChildren(root);
+  // Outside `root`, which is rebuilt on every change: an open file picker or a half-confirmed reset must survive that.
+  const reminder = document.createElement('div');
+  const panel = document.createElement('div');
+  panel.className = 'prog-data';
+  host.replaceChildren(reminder, root, panel);
+  mountBackupReminder(reminder, progress);
+  if (data.dataPanel) mountDataPanel(panel);
+  const deck = new Set(data.cardKeys);
 
   const render = () => {
     const doc = progress.get();
     const now = Date.now();
     const trail = data.groups.flatMap((g) => g.pages);
-    const next = nextUp({ doc, now, trail, solutions: data.solutions, quizTopics: data.quizzes.map((q) => ({ slug: q.slug, topic: q.topic, title: q.title, ids: q.ids })) });
-    const cards = summarize(Object.values(doc.cards).filter((c) => c.seen > 0), data.cardsTotal, now);
+    const next = nextUp({ doc, now, trail, solutions: data.solutions, quizTopics: data.quizzes.map((q) => ({ slug: q.slug, topic: q.topic, title: q.title, ids: q.ids })), cardKeys: data.cardKeys });
+    const cards = summarize(Object.entries(doc.cards).filter(([key, c]) => deck.has(key) && c.seen > 0).map(([, c]) => c), data.cardsTotal, now);
     const last = lastAttempts(doc);
     const planTicks = Object.values(doc.plan.done).reduce((n, a) => n + a.length, 0);
     const solStates: ("done" | "attempted" | "none")[] = data.solutions.map((s) => doc.solutions[s.path]?.status ?? 'none');
@@ -101,7 +112,7 @@ export function mount(host: HTMLElement) {
       <h2 class="prog-h">Study plan</h2>
       <p>${planTicks ? `${planTicks} item${planTicks === 1 ? '' : 's'} ticked${doc.plan.last ? ` on the ${doc.plan.last} plan` : ''}.` : 'No plan items ticked yet.'} <a href="${url('interview/study-guide/')}">Open the planner</a></p>
 
-      <p class="ch-note">All of this is stored only in your browser. <a href="${url('about/')}">Export, import or reset it</a> from the About page.</p>`;
+      <p class="ch-note">All of this is stored only in your browser, and browsers can clear it.</p>`;
   };
   progress.subscribe(render);
   render();

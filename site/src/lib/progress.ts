@@ -3,8 +3,14 @@
 //
 // Guarantees:
 //  - corrupt or unreadable data never throws and never silently destroys a good copy
-//  - if storage is unavailable (private mode, blocked, full) the app keeps working in memory
-//  - importing validates first and keeps the previous document as a backup
+//  - if storage is unavailable (private mode, blocked, full) the app keeps working in memory and says so,
+//    and a failed write is tried again on the next change
+//  - a change waiting to be written survives another tab saving first: it is replayed on top of their copy
+//  - sections this build does not recognise are kept, so an older tab cannot delete a newer section
+//  - importing validates first, keeps the previous document as a backup, and reports a write that failed
+//
+// Browsers can still delete all of it (Safari after 7 days of use without a visit), so the only real
+// protection is an exported file: see needsBackupReminder and scripts/features/backup.ts.
 
 import { newItem, type SrsItem } from './srs';
 
@@ -32,6 +38,8 @@ export interface ProgressDoc {
   settings: { newCardsPerDay: number };
   /** New flashcards introduced on `day` (local midnight), to enforce the daily limit. */
   daily: { day: number; newCards: number };
+  /** When progress was last exported, and when anything worth backing up last changed. */
+  backup: { exportedAt?: number; changedAt?: number };
 }
 
 export type Section = Exclude<keyof ProgressDoc, 'version'>;
@@ -49,7 +57,10 @@ export const emptyDoc = (): ProgressDoc => ({
   exercises: {},
   settings: { newCardsPerDay: 10 },
   daily: { day: 0, newCards: 0 },
+  backup: {},
 });
+
+const KNOWN_SECTIONS = new Set(Object.keys(emptyDoc()));
 
 /* ------------------------------------------------------------ validation */
 
@@ -91,7 +102,48 @@ export function normalize(raw: unknown): ProgressDoc {
   if (Array.isArray(raw.sessions)) d.sessions = raw.sessions.filter((s): s is Session => isObj(s) && typeof s.id === 'string');
   if (isObj(raw.settings) && isNum(raw.settings.newCardsPerDay)) d.settings.newCardsPerDay = Math.min(100, Math.max(0, Math.round(raw.settings.newCardsPerDay)));
   if (isObj(raw.daily) && isNum(raw.daily.day) && isNum(raw.daily.newCards)) d.daily = { day: raw.daily.day, newCards: Math.max(0, Math.round(raw.daily.newCards)) };
+  if (isObj(raw.backup)) {
+    if (isNum(raw.backup.exportedAt)) d.backup.exportedAt = raw.backup.exportedAt;
+    if (isNum(raw.backup.changedAt)) d.backup.changedAt = raw.backup.changedAt;
+  }
+  // A section added by a newer build passes through untouched, so a tab running older code cannot delete it.
+  for (const [k, v] of Object.entries(raw)) {
+    if (!KNOWN_SECTIONS.has(k) && k !== '__proto__') (d as unknown as Record<string, unknown>)[k] = v;
+  }
   return d;
+}
+
+/* ------------------------------------------------------------ what would be lost */
+
+export interface ProgressCounts { cards: number; pages: number; quizzes: number; planner: number; solutions: number; exercises: number; choosers: number; paths: number; sessions: number }
+
+export function countProgress(d: ProgressDoc): ProgressCounts {
+  return {
+    cards: Object.values(d.cards).filter((c) => c.seen > 0).length,
+    pages: Object.keys(d.read).length,
+    quizzes: d.quiz.attempts.length,
+    planner: Object.values(d.plan.done).reduce((n, a) => n + a.length, 0),
+    solutions: Object.keys(d.solutions).length,
+    exercises: Object.keys(d.exercises).length,
+    choosers: Object.keys(d.choosers).length,
+    paths: Object.keys(d.paths).length,
+    sessions: d.sessions.length,
+  };
+}
+
+export const totalProgress = (c: ProgressCounts): number => Object.values(c).reduce((n, x) => n + x, 0);
+
+/** Below this many saved items there is not enough to lose to be worth interrupting anyone: about one session. */
+export const REMIND_MIN_ITEMS = 10;
+/** Safari's limit, and a sensible gap between reminders for anyone else. */
+export const REMIND_AFTER_DAYS = 7;
+
+/** There is a meaningful amount of progress, and no recent file holds the latest of it. */
+export function needsBackupReminder(d: ProgressDoc, now: number): boolean {
+  if (totalProgress(countProgress(d)) < REMIND_MIN_ITEMS) return false;
+  const { exportedAt, changedAt } = d.backup;
+  if (exportedAt === undefined) return true;
+  return (changedAt ?? 0) > exportedAt && now - exportedAt >= REMIND_AFTER_DAYS * 86_400_000;
 }
 
 /* ------------------------------------------------------------ legacy migration */
@@ -125,7 +177,10 @@ export function migrateLegacy(storage: StorageLike, now: number): ProgressDoc | 
 /* ------------------------------------------------------------ the store */
 
 export type Listener = (doc: ProgressDoc) => void;
-export type ImportResult = { ok: true } | { ok: false; error: string };
+export type ImportResult = { ok: true; noBackup?: true } | { ok: false; error: string };
+export type ImportPreview = { ok: true; current: ProgressCounts; incoming: ProgressCounts } | { ok: false; error: string };
+/** Why changes are not reaching storage. Only `write-failed` is expected to clear by itself on the next change. */
+export type SaveProblem = 'no-storage' | 'newer-version' | 'unreadable' | 'write-failed';
 
 export interface StoreOptions {
   storage: StorageLike | null;
@@ -135,106 +190,222 @@ export interface StoreOptions {
   now?: () => number;
 }
 
+type Change = (draft: ProgressDoc) => void;
+
+function parseExport(text: string): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); } catch { return { ok: false, error: 'That is not valid JSON.' }; }
+  if (!isObj(parsed) || !isNum(parsed.version)) return { ok: false, error: 'That file does not look like exported progress.' };
+  if (parsed.version > VERSION) return { ok: false, error: 'That file was exported by a newer version of the site.' };
+  return { ok: true, value: parsed };
+}
+
+/** Everything a learner would mind losing. Not settings, and not the backup dates themselves. */
+const learningText = (d: ProgressDoc) => JSON.stringify({ ...d, version: 0, settings: 0, backup: 0 });
+
+function apply(base: ProgressDoc, change: Change): ProgressDoc {
+  const draft = structuredClone(base);
+  change(draft);
+  draft.version = VERSION;
+  return normalize(draft);
+}
+
 export function createStore({ storage, key = STORE_KEY, debounceMs = 0, now = Date.now }: StoreOptions) {
+  const backupKey = `${key}:backup`;
   const listeners = new Set<Listener>();
-  let persistent = storage !== null;
+  const saveListeners = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** This tab must not write: the stored document is from a newer build, or could not be read or set aside. */
+  let blocked: 'newer-version' | 'unreadable' | null = null;
+  let writeFailed = false;
+  /** Changes not yet in storage, oldest first. Kept as functions so they can be replayed on someone else's copy. */
+  let pending: Change[] = [];
+  /** The stored text as this tab last saw it. Anything else there means another tab has written since. */
+  let seen: string | null = null;
+  /** Something changed in memory that has not reached storage. */
+  let unsaved = false;
+  let reported = false;
   let doc: ProgressDoc = emptyDoc();
-  doc = load();
+  pull();
 
-  function readRaw(): string | null {
-    try { return storage ? storage.getItem(key) : null; } catch { persistent = false; return null; }
+  /** The stored text, null if there is none, undefined if storage would not say. */
+  function readRaw(): string | null | undefined {
+    try { return storage ? storage.getItem(key) : null; } catch { return undefined; }
   }
 
-  function load(): ProgressDoc {
+  function parseStored(raw: string): ProgressDoc {
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { parsed = undefined; }
+    if (!isObj(parsed)) {
+      // Unreadable, or valid JSON that is no document. Keep the text so it can be recovered by hand, then start
+      // clean. If it cannot be kept, do not write over the only copy.
+      try { storage?.setItem(`${key}:corrupt`, raw); } catch { blocked = 'unreadable'; }
+      return emptyDoc();
+    }
+    if (isNum(parsed.version) && parsed.version > VERSION) blocked = 'newer-version'; // do not touch it; work in memory
+    return normalize(parsed);
+  }
+
+  /** Take what is stored as the new base and replay our unwritten changes on top. */
+  function pull() {
     const raw = readRaw();
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (isObj(parsed) && isNum(parsed.version) && parsed.version > VERSION) {
-          // Written by a newer version of the site. Do not touch it; work in memory.
-          persistent = false;
-          return normalize(parsed);
-        }
-        return normalize(parsed);
-      } catch {
-        // Keep the unreadable text so it can be recovered by hand, then start clean.
-        try { storage?.setItem(`${key}:corrupt`, raw); } catch { /* nothing more we can do */ }
-        return emptyDoc();
-      }
+    // Keep what we hold. A write now could destroy a document we cannot see.
+    if (raw === undefined) { blocked = 'unreadable'; return; }
+    blocked = null;
+    seen = raw;
+    const migrated = raw === null && storage ? migrateLegacy(storage, now()) : null;
+    const base = raw === null ? migrated ?? emptyDoc() : parseStored(raw);
+    doc = pending.reduce((d, c) => { try { return apply(d, c); } catch { return d; } }, base);
+    if (migrated) {
+      unsaved = true;
+      if (push()) { try { storage!.removeItem(LEGACY_PLAN); storage!.removeItem(LEGACY_CARDS); } catch { /* ignore */ } }
     }
-    if (storage) {
-      const migrated = migrateLegacy(storage, now());
-      if (migrated) {
-        doc = migrated;
-        if (write()) { try { storage.removeItem(LEGACY_PLAN); storage.removeItem(LEGACY_CARDS); } catch { /* ignore */ } }
-        return migrated;
-      }
-    }
-    return emptyDoc();
   }
 
-  function write(): boolean {
-    if (!storage || !persistent) return false;
-    try { storage.setItem(key, JSON.stringify(doc)); return true; }
-    catch { persistent = false; return false; } // quota or blocked: carry on in memory
+  /** Write `doc` as it stands. On failure everything stays pending, so the next attempt carries it. */
+  function push(): boolean {
+    if (!storage || blocked) { report(); return false; }
+    const text = JSON.stringify(doc);
+    try { storage.setItem(key, text); }
+    catch { writeFailed = true; report(); return false; } // quota or blocked: carry on in memory
+    seen = text;
+    pending = [];
+    writeFailed = false;
+    unsaved = false;
+    report();
+    return true;
+  }
+
+  /** Save pending changes without overwriting anything another tab wrote since we last looked. */
+  function save(): boolean {
+    if (storage && (readRaw() !== seen || blocked)) { pull(); notify(); }
+    return push();
   }
 
   function schedule() {
-    if (debounceMs <= 0) { write(); return; }
+    if (debounceMs <= 0) { save(); return; }
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { timer = undefined; write(); }, debounceMs);
+    timer = setTimeout(() => { timer = undefined; save(); }, debounceMs);
+  }
+
+  function saveProblem(): SaveProblem | null {
+    if (!storage) return 'no-storage';
+    return blocked ?? (writeFailed ? 'write-failed' : null);
+  }
+
+  function hasUnsavedChanges(): boolean { return unsaved && saveProblem() !== null; }
+
+  function report() {
+    const state = hasUnsavedChanges();
+    if (state === reported) return;
+    reported = state;
+    for (const l of [...saveListeners]) { try { l(); } catch { /* a bad listener must not break others */ } }
   }
 
   function notify() { for (const l of [...listeners]) { try { l(doc); } catch { /* a bad listener must not break others */ } } }
 
-  /** Change a copy of the document. The return value of `fn` is ignored. */
-  function update(fn: (draft: ProgressDoc) => void) {
-    const draft = structuredClone(doc);
-    fn(draft);
-    draft.version = VERSION;
-    doc = normalize(draft);
+  function change(c: Change) {
+    doc = apply(doc, c);
+    if (storage) pending.push(c);
+    unsaved = true;
     schedule();
+    report();
     notify();
+  }
+
+  /**
+   * Change a copy of the document. The return value of `fn` is ignored.
+   * `fn` runs again if another tab saves before this change is written, possibly much later if writes are failing,
+   * so it must have no side effects and must capture values that could change (see the study planner).
+   */
+  function update(fn: (draft: ProgressDoc) => void) {
+    change((d) => {
+      const before = learningText(d);
+      fn(d);
+      if (learningText(d) !== before) d.backup.changedAt = now();
+    });
+  }
+
+  function flush() {
+    if (timer) { clearTimeout(timer); timer = undefined; }
+    if (pending.length) save();
+  }
+
+  /** Swap the whole document, keeping the current one if the new one cannot be written. */
+  function replace(next: ProgressDoc): boolean {
+    const before = { doc, pending, unsaved };
+    doc = next;
+    pending = [];
+    if (push()) { notify(); return true; }
+    ({ doc, pending, unsaved } = before);
+    report();
+    return false;
   }
 
   return {
     get: (): ProgressDoc => doc,
     update,
     subscribe(l: Listener) { listeners.add(l); return () => listeners.delete(l); },
-    /** Write any pending change now (call on page hide). */
-    flush() { if (timer) { clearTimeout(timer); timer = undefined; write(); } },
-    /** Re-read from storage, e.g. after another tab changed it. */
-    reload() { doc = load(); notify(); },
+    /** Hear when changes stop reaching storage, and when they start again. */
+    onSaveStatus(l: () => void) { saveListeners.add(l); return () => saveListeners.delete(l); },
+    /** Write any pending change now, retrying one that failed (call on page hide). */
+    flush,
+    /** Re-read from storage, e.g. after another tab changed it. Changes waiting to be written are kept. */
+    reload() { pull(); report(); notify(); },
     exportJson: (): string => JSON.stringify(doc, null, 2),
+    /** Record that the learner is taking a copy now. Call before exportJson so the file carries the date. */
+    markExported() { const at = now(); change((d) => { d.backup.exportedAt = at; }); flush(); },
+    /** What an import of this text would replace. Changes nothing. */
+    previewImport(text: string): ImportPreview {
+      const parsed = parseExport(text);
+      if (!parsed.ok) return parsed;
+      return { ok: true, current: countProgress(doc), incoming: countProgress(normalize(parsed.value)) };
+    },
     importJson(text: string): ImportResult {
-      let parsed: unknown;
-      try { parsed = JSON.parse(text); } catch { return { ok: false, error: 'That is not valid JSON.' }; }
-      if (!isObj(parsed) || !isNum(parsed.version)) return { ok: false, error: 'That file does not look like exported progress.' };
-      if (parsed.version > VERSION) return { ok: false, error: 'That file was exported by a newer version of the site.' };
-      const prev = readRaw();
-      if (prev) { try { storage?.setItem(`${key}:backup`, prev); } catch { /* best effort */ } }
-      doc = normalize(parsed);
-      write();
-      notify();
-      return { ok: true };
+      const parsed = parseExport(text);
+      if (!parsed.ok) return parsed;
+      const notSaved: ImportResult = { ok: false, error: 'This browser would not save the import, so your progress has not changed.' };
+      flush();
+      if (readRaw() !== seen) { pull(); notify(); }
+      if (!storage || blocked) return notSaved;
+      // The copy kept for undo is what this tab holds, which includes anything a failed write left behind.
+      const hadData = seen !== null || pending.length > 0;
+      let oldBackup: string | null = null;
+      try { oldBackup = storage.getItem(backupKey); } catch { /* treated as none */ }
+      let noBackup = false;
+      if (hadData) {
+        try { storage.setItem(backupKey, JSON.stringify(doc)); }
+        catch { noBackup = true; try { storage.removeItem(backupKey); } catch { /* best effort */ } } // an older copy must not pass as this one
+      }
+      if (!replace(normalize(parsed.value))) {
+        if (hadData) {
+          try { if (oldBackup === null) storage.removeItem(backupKey); else storage.setItem(backupKey, oldBackup); } catch { /* best effort */ }
+        }
+        return notSaved;
+      }
+      return noBackup ? { ok: true, noBackup: true } : { ok: true };
     },
     reset(section?: Section) {
-      if (section) update((d) => { (d as unknown as Record<string, unknown>)[section] = emptyDoc()[section]; });
-      else { doc = emptyDoc(); write(); notify(); }
+      if (section) { update((d) => { (d as unknown as Record<string, unknown>)[section] = emptyDoc()[section]; }); return; }
+      change((d) => {
+        const all = d as unknown as Record<string, unknown>;
+        for (const k of Object.keys(all)) delete all[k];
+        Object.assign(all, emptyDoc());
+      });
+      flush();
     },
     /** False when changes are only being kept in memory. */
-    isPersistent: () => persistent,
+    isPersistent: () => saveProblem() === null,
+    saveProblem,
+    /** True when something has changed that is not in storage and is not simply waiting for the save delay. */
+    hasUnsavedChanges,
     /** True when a copy saved before the last import exists. */
-    hasBackup: (): boolean => { try { return !!storage?.getItem(`${key}:backup`); } catch { return false; } },
-    /** Restore the copy saved before the last import. */
+    hasBackup: (): boolean => { try { return !!storage?.getItem(backupKey); } catch { return false; } },
+    /** Restore the copy saved before the last import. False if there is none or it could not be written. */
     restoreBackup(): boolean {
       try {
-        const b = storage?.getItem(`${key}:backup`);
-        if (!b) return false;
-        doc = normalize(JSON.parse(b));
-        write(); notify();
-        return true;
+        const b = storage?.getItem(backupKey);
+        return b ? replace(normalize(JSON.parse(b))) : false;
       } catch { return false; }
     },
   };
@@ -246,23 +417,39 @@ export type ProgressStore = ReturnType<typeof createStore>;
 
 let shared: ProgressStore | undefined;
 
+/** Reading is what decides this. A full localStorage rejects writes but still holds the learner's progress. */
 function safeLocalStorage(): StorageLike | null {
   try {
     const s = window.localStorage;
-    const probe = `${STORE_KEY}:probe`;
-    s.setItem(probe, '1'); s.removeItem(probe);
+    s.getItem(STORE_KEY);
     return s;
   } catch { return null; }
+}
+
+/**
+ * Ask the browser not to evict this site's data. Best effort: WebKit decides on its own heuristics, and Firefox may
+ * show a prompt, so ask once per browser rather than once per page.
+ */
+export function requestDurableStorage(storage: StorageLike | null, manager: { persist?: () => Promise<boolean> } | undefined) {
+  if (!storage || !manager?.persist) return;
+  const asked = `${STORE_KEY}:persist-asked`;
+  try {
+    if (storage.getItem(asked)) return;
+    storage.setItem(asked, '1');
+  } catch { return; }
+  try { manager.persist().catch(() => {}); } catch { /* best effort */ }
 }
 
 /** The store for this page. Cross-tab changes are picked up; pending writes flush when the page hides. */
 export function getProgress(): ProgressStore {
   if (shared) return shared;
-  shared = createStore({ storage: typeof window === 'undefined' ? null : safeLocalStorage(), debounceMs: 150 });
+  const storage = typeof window === 'undefined' ? null : safeLocalStorage();
+  shared = createStore({ storage, debounceMs: 150 });
   if (typeof window !== 'undefined') {
     window.addEventListener('storage', (e) => { if (e.key === STORE_KEY || e.key === null) shared!.reload(); });
     window.addEventListener('pagehide', () => shared!.flush());
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') shared!.flush(); });
+    const stop = shared.subscribe(() => { stop(); requestDurableStorage(storage, navigator.storage); });
   }
   return shared;
 }

@@ -123,6 +123,17 @@ describe('nextUp', () => {
     expect(n).toMatchObject({ kind: 'cards', detail: '1 card due' });
   });
 
+  it('counts only due flashcards still in the deck, when the deck is known', () => {
+    const edit = (d: ProgressDoc) => {
+      d.cards.X = { box: 1, due: NOW - 1, seen: 2, lapses: 0 };
+      d.cards.Removed = { box: 1, due: NOW - 1, seen: 2, lapses: 0 };
+    };
+    expect(nextUp({ ...make(edit), cardKeys: ['X', 'Y'] })).toMatchObject({ kind: 'cards', detail: '1 card due' });
+    const onlyRemoved = make((d) => { d.cards.Removed = { box: 1, due: NOW - 1, seen: 2, lapses: 0 }; });
+    expect(nextUp({ ...onlyRemoved, cardKeys: ['X'] }).kind).not.toBe('cards'); // cannot nag forever
+    expect(nextUp(make(edit))).toMatchObject({ kind: 'cards', detail: '2 cards due' });
+  });
+
   it('then due quiz questions, ignoring questions that no longer exist', () => {
     const stale = nextUp(make((d) => { d.quiz.items.gone = { box: 0, due: NOW - 1, seen: 1, lapses: 1 }; }));
     expect(stale.kind).toBe('read');

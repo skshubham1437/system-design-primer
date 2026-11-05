@@ -3,6 +3,7 @@
 
 import { getProgress } from '../../lib/progress';
 import { grade, isDue, newItem, previewDays, startOfDay, summarize, type Grade, type SrsItem } from '../../lib/srs';
+import { mountBackupReminder } from './backup';
 
 /** `key` is how progress is stored: a stable id for the site's own cards, the front for the upstream deck. */
 interface Card { key: string; front: string; back: string; draft?: boolean }
@@ -30,7 +31,9 @@ export function mount(host: HTMLElement) {
   const root = document.createElement('section');
   root.className = 'widget flash';
   root.setAttribute('aria-label', 'Flashcards');
-  host.replaceChildren(root);
+  const reminder = document.createElement('div');
+  host.replaceChildren(root, reminder);
+  mountBackupReminder(reminder, progress);
 
   const byTitle = (t: string) => cards.find((c) => c.key === t)!;
   const items = () => Object.entries(progress.get().cards).filter(([t]) => titles.has(t));
@@ -88,7 +91,7 @@ export function mount(host: HTMLElement) {
 
   function foot(s: ReturnType<typeof stats>): string {
     const known = s.mastered;
-    return `<div class="plan-foot"><div class="meter" role="progressbar" aria-label="Cards mastered" aria-valuemin="0" aria-valuemax="${cards.length}" aria-valuenow="${known}"><i style="width:${(known / cards.length) * 100}%"></i></div><span>${known} of ${cards.length} mastered</span>${progress.isPersistent() ? '' : '<span class="fc-warn">Not saved: this browser is blocking storage.</span>'}</div>`;
+    return `<div class="plan-foot"><div class="meter" role="progressbar" aria-label="Cards mastered" aria-valuemin="0" aria-valuemax="${cards.length}" aria-valuenow="${known}"><i style="width:${(known / cards.length) * 100}%"></i></div><span>${known} of ${cards.length} mastered</span></div>`;
   }
 
   function renderStudy() {

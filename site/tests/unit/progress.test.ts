@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createStore, emptyDoc, migrateLegacy, normalize, STORE_KEY, type ProgressDoc, type StorageLike } from '../../src/lib/progress';
+import { countProgress, createStore, emptyDoc, migrateLegacy, needsBackupReminder, normalize, requestDurableStorage, STORE_KEY, totalProgress, type ProgressDoc, type StorageLike } from '../../src/lib/progress';
 
 function memoryStorage(initial: Record<string, string> = {}): StorageLike & { data: Map<string, string> } {
   const data = new Map(Object.entries(initial));
@@ -165,13 +165,14 @@ describe('import and export', () => {
       exercises: { ex: { attempts: 2, hints: 1, solved: 7, revealed: true } },
       settings: { newCardsPerDay: 20 },
       daily: { day: 86_400_000, newCards: 4 },
+      backup: { exportedAt: 5, changedAt: 6 },
     };
     const empty = emptyDoc();
     for (const k of Object.keys(empty) as (keyof ProgressDoc)[]) {
       if (k !== 'version') expect(full[k], `fill section "${k}" in this test`).not.toEqual(empty[k]);
     }
     const storage = memoryStorage();
-    const a = createStore({ storage });
+    const a = createStore({ storage, now: () => 6 });
     a.update((d) => { Object.assign(d, structuredClone(full)); });
     expect(a.get()).toEqual(full);
     expect(createStore({ storage }).get()).toEqual(full);
@@ -241,6 +242,457 @@ describe('migration from the old keys', () => {
     const storage = memoryStorage({ [STORE_KEY]: JSON.stringify(emptyDoc()), ...legacy });
     const store = createStore({ storage });
     expect(store.get().plan.last).toBeUndefined();
+  });
+});
+
+/** Storage whose writes to the main key can be switched off, like a full or locked localStorage. */
+function flakyStorage(initial: Record<string, string> = {}) {
+  const s = memoryStorage(initial);
+  const real = s.setItem;
+  const control = { failing: false, failAll: false };
+  s.setItem = (k, v) => {
+    if (control.failAll || (control.failing && k === STORE_KEY)) throw new Error('QuotaExceededError');
+    real(k, v);
+  };
+  return Object.assign(s, { control });
+}
+const stored = (s: { data: Map<string, string> }) => JSON.parse(s.data.get(STORE_KEY)!);
+const CARD = { box: 1, due: 5, seen: 1, lapses: 0 };
+
+describe('failed saves', () => {
+  it('tries again on the next change, and that write carries the earlier change too', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    storage.control.failing = true;
+    store.update((d) => { d.plan.last = 'short'; });
+    expect(store.isPersistent()).toBe(false);
+    expect(store.saveProblem()).toBe('write-failed');
+
+    storage.control.failing = false;
+    store.update((d) => { d.read['x/'] = { at: 1, pct: 50 }; });
+    expect(store.isPersistent()).toBe(true);
+    expect(store.saveProblem()).toBeNull();
+    expect(stored(storage).plan.last).toBe('short');
+    expect(stored(storage).read['x/'].pct).toBe(50);
+  });
+
+  it('tries again when the page is hidden, without waiting for another change', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    storage.control.failing = true;
+    store.update((d) => { d.plan.last = 'short'; });
+    storage.control.failing = false;
+    store.flush();
+    expect(stored(storage).plan.last).toBe('short');
+    expect(store.hasUnsavedChanges()).toBe(false);
+  });
+
+  it('tells listeners when changes stop being saved and when they start again, once each', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    const seen: boolean[] = [];
+    store.onSaveStatus(() => seen.push(store.hasUnsavedChanges()));
+
+    store.update((d) => { d.plan.last = 'short'; }); // saved: nothing to report
+    expect(seen).toEqual([]);
+    storage.control.failing = true;
+    store.update((d) => { d.plan.last = 'long'; });
+    store.update((d) => { d.plan.last = 'medium'; });
+    expect(seen).toEqual([true]);
+    storage.control.failing = false;
+    store.update((d) => { d.plan.last = 'short'; });
+    expect(seen).toEqual([true, false]);
+  });
+
+  it('does not report unsaved changes while a debounced write is simply waiting', () => {
+    vi.useFakeTimers();
+    const store = createStore({ storage: memoryStorage(), debounceMs: 150 });
+    store.update((d) => { d.plan.last = 'short'; });
+    expect(store.hasUnsavedChanges()).toBe(false);
+    vi.runAllTimers();
+    expect(store.hasUnsavedChanges()).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('reports unsaved changes with no storage at all, but only once something has changed', () => {
+    const store = createStore({ storage: null });
+    expect(store.saveProblem()).toBe('no-storage');
+    expect(store.hasUnsavedChanges()).toBe(false);
+    store.update((d) => { d.plan.last = 'short'; });
+    expect(store.hasUnsavedChanges()).toBe(true);
+  });
+
+  it('stays read-only for a document from a newer version, change after change', () => {
+    const newer = JSON.stringify({ ...emptyDoc(), version: 99, plan: { last: 'long', done: {} } });
+    const storage = memoryStorage({ [STORE_KEY]: newer });
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'short'; });
+    store.update((d) => { d.plan.last = 'medium'; });
+    store.flush();
+    expect(store.saveProblem()).toBe('newer-version');
+    expect(storage.data.get(STORE_KEY)).toBe(newer);
+  });
+
+  it('never writes over a document it could not read, and merges once it can', () => {
+    const good = JSON.stringify({ ...emptyDoc(), plan: { last: 'long', done: {} } });
+    const storage = memoryStorage({ [STORE_KEY]: good });
+    const realGet = storage.getItem;
+    storage.getItem = () => { throw new Error('SecurityError'); };
+    const store = createStore({ storage });
+    store.update((d) => { d.read['x/'] = { at: 1, pct: 50 }; });
+    expect(store.saveProblem()).toBe('unreadable');
+    expect(storage.data.get(STORE_KEY)).toBe(good);
+
+    storage.getItem = realGet;
+    store.update((d) => { d.read['y/'] = { at: 1, pct: 60 }; });
+    expect(store.isPersistent()).toBe(true);
+    expect(stored(storage).plan.last).toBe('long');
+    expect(Object.keys(stored(storage).read).sort()).toEqual(['x/', 'y/']);
+  });
+
+  it('keeps what it holds when a reload cannot read storage', () => {
+    const storage = memoryStorage();
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'long'; });
+    storage.getItem = () => { throw new Error('SecurityError'); };
+    store.reload();
+    expect(store.get().plan.last).toBe('long');
+  });
+});
+
+describe('importing when saving fails', () => {
+  const file = JSON.stringify({ ...emptyDoc(), plan: { last: 'short', done: {} } });
+
+  it('reports failure and changes nothing, including the existing backup', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'long'; });
+    store.importJson(JSON.stringify({ ...emptyDoc(), plan: { last: 'medium', done: {} } }));
+    const backupBefore = storage.data.get(`${STORE_KEY}:backup`);
+
+    storage.control.failing = true;
+    const res = store.importJson(file);
+    expect(res.ok).toBe(false);
+    expect(store.get().plan.last).toBe('medium');
+    expect(storage.data.get(`${STORE_KEY}:backup`)).toBe(backupBefore);
+  });
+
+  it('removes the backup it just made when there was none before', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'long'; });
+    storage.control.failing = true;
+    expect(store.importJson(file).ok).toBe(false);
+    expect(store.hasBackup()).toBe(false);
+  });
+
+  it('reports failure with no storage, and in a read-only tab', () => {
+    expect(createStore({ storage: null }).importJson(file).ok).toBe(false);
+    const newer = JSON.stringify({ ...emptyDoc(), version: 99 });
+    const storage = memoryStorage({ [STORE_KEY]: newer });
+    expect(createStore({ storage }).importJson(file).ok).toBe(false);
+    expect(storage.data.get(STORE_KEY)).toBe(newer);
+  });
+
+  it('says so when the import worked but no backup could be kept', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'long'; });
+    const real = storage.setItem;
+    storage.setItem = (k, v) => { if (k.endsWith(':backup')) throw new Error('QuotaExceededError'); real(k, v); };
+    expect(store.importJson(file)).toEqual({ ok: true, noBackup: true });
+    expect(store.get().plan.last).toBe('short');
+  });
+
+  it('the backup includes a change that was still waiting to be written', () => {
+    vi.useFakeTimers();
+    const storage = memoryStorage();
+    const store = createStore({ storage, debounceMs: 150 });
+    store.update((d) => { d.plan.last = 'long'; });
+    vi.runAllTimers();
+    store.update((d) => { d.plan.last = 'medium'; });
+    store.importJson(file);
+    expect(store.restoreBackup()).toBe(true);
+    expect(store.get().plan.last).toBe('medium');
+    vi.useRealTimers();
+  });
+
+  it('restoring a backup reports failure when it cannot be written', () => {
+    const storage = flakyStorage();
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'long'; });
+    store.importJson(file);
+    storage.control.failing = true;
+    expect(store.restoreBackup()).toBe(false);
+    expect(store.get().plan.last).toBe('short');
+  });
+});
+
+describe('previewing an import', () => {
+  it('counts what is here and what is in the file', () => {
+    const store = createStore({ storage: memoryStorage() });
+    store.update((d) => { d.cards.A = CARD; d.read['x/'] = { at: 1, pct: 100 }; });
+    const file = JSON.stringify({ ...emptyDoc(), cards: { A: CARD, B: CARD, C: CARD }, plan: { done: { short: [0, 1] } } });
+    const p = store.previewImport(file);
+    if (!p.ok) throw new Error(p.error);
+    expect(p.current).toMatchObject({ cards: 1, pages: 1, planner: 0 });
+    expect(p.incoming).toMatchObject({ cards: 3, pages: 0, planner: 2 });
+    expect(store.get().cards.B).toBeUndefined(); // a preview changes nothing
+  });
+
+  it('rejects the same files an import rejects', () => {
+    const store = createStore({ storage: memoryStorage() });
+    expect(store.previewImport('nope').ok).toBe(false);
+    expect(store.previewImport('{"hello":1}').ok).toBe(false);
+    expect(store.previewImport(JSON.stringify({ version: 99 })).ok).toBe(false);
+  });
+});
+
+describe('sections this code does not know about', () => {
+  const withFuture = () => JSON.stringify({ ...emptyDoc(), future: { streak: 12 }, plan: { last: 'long', done: {} } });
+
+  it('normalize keeps them', () => {
+    expect(normalize({ version: 1, future: { streak: 12 }, also: [1, 2] })).toMatchObject({ future: { streak: 12 }, also: [1, 2] });
+  });
+
+  it('survive an update, a reload, an export and an import', () => {
+    const storage = memoryStorage({ [STORE_KEY]: withFuture() });
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'short'; });
+    expect(stored(storage).future).toEqual({ streak: 12 });
+    store.reload();
+    expect(JSON.parse(store.exportJson()).future).toEqual({ streak: 12 });
+
+    const other = memoryStorage();
+    expect(createStore({ storage: other }).importJson(store.exportJson()).ok).toBe(true);
+    expect(stored(other).future).toEqual({ streak: 12 });
+    expect(stored(other).plan.last).toBe('short');
+  });
+
+  it('survive a section reset, and go only with Reset everything', () => {
+    const storage = memoryStorage({ [STORE_KEY]: withFuture() });
+    const store = createStore({ storage });
+    store.reset('plan');
+    expect(stored(storage).future).toEqual({ streak: 12 });
+    store.reset();
+    expect(stored(storage).future).toBeUndefined();
+  });
+
+  it('cannot change the prototype of the document', () => {
+    const d = normalize(JSON.parse('{"version":1,"__proto__":{"polluted":true}}')) as unknown as Record<string, unknown>;
+    expect(d.polluted).toBeUndefined();
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+describe('a change pending when another tab saves', () => {
+  it('a storage event inside the save delay keeps both changes', () => {
+    vi.useFakeTimers();
+    const storage = memoryStorage();
+    const mine = createStore({ storage, debounceMs: 150 });
+    const other = createStore({ storage });
+
+    mine.update((d) => { d.cards.Mine = CARD; });     // waiting to be written
+    other.update((d) => { d.cards.Theirs = CARD; });  // the other tab gets there first
+    mine.reload();                                     // what the storage event does
+
+    expect(Object.keys(mine.get().cards).sort()).toEqual(['Mine', 'Theirs']); // on screen straight away
+    expect(Object.keys(stored(storage).cards)).toEqual(['Theirs']);           // and not yet written
+    vi.advanceTimersByTime(150);
+    expect(Object.keys(stored(storage).cards).sort()).toEqual(['Mine', 'Theirs']);
+    vi.useRealTimers();
+  });
+
+  it('keeps both even if the storage event has not arrived when the write happens', () => {
+    vi.useFakeTimers();
+    const storage = memoryStorage();
+    const mine = createStore({ storage, debounceMs: 150 });
+    const other = createStore({ storage });
+    mine.update((d) => { d.cards.Mine = CARD; });
+    other.update((d) => { d.cards.Theirs = CARD; });
+    vi.advanceTimersByTime(150);
+    expect(Object.keys(stored(storage).cards).sort()).toEqual(['Mine', 'Theirs']);
+    expect(Object.keys(mine.get().cards).sort()).toEqual(['Mine', 'Theirs']);
+    vi.useRealTimers();
+  });
+
+  it('a stale tab with no storage event at all does not overwrite the other tab', () => {
+    const storage = memoryStorage();
+    const stale = createStore({ storage });
+    const other = createStore({ storage });
+    other.update((d) => { d.plan.last = 'long'; });
+    stale.update((d) => { d.read['x/'] = { at: 1, pct: 50 }; }); // writes at once, never reloaded
+    expect(stored(storage).plan.last).toBe('long');
+    expect(stored(storage).read['x/'].pct).toBe(50);
+  });
+
+  it('counters add up rather than one tab winning', () => {
+    vi.useFakeTimers();
+    const storage = memoryStorage();
+    const mine = createStore({ storage, debounceMs: 150 });
+    const other = createStore({ storage });
+    mine.update((d) => { d.daily = { day: 1, newCards: d.daily.newCards + 1 }; });
+    other.update((d) => { d.daily = { day: 1, newCards: d.daily.newCards + 1 }; });
+    mine.reload();
+    vi.advanceTimersByTime(150);
+    expect(stored(storage).daily.newCards).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it('a change that was written is not applied a second time by a later reload', () => {
+    const storage = memoryStorage();
+    const store = createStore({ storage });
+    store.update((d) => { d.daily = { day: 1, newCards: d.daily.newCards + 1 }; });
+    store.reload();
+    expect(store.get().daily.newCards).toBe(1);
+  });
+
+  it('a pending Reset everything still clears what the other tab saved', () => {
+    const storage = flakyStorage();
+    const mine = createStore({ storage });
+    storage.control.failing = true;
+    mine.reset(); // cannot be written yet
+    storage.control.failing = false;
+    storage.data.set(STORE_KEY, JSON.stringify({ ...emptyDoc(), plan: { last: 'long', done: {} } }));
+    mine.flush();
+    expect(stored(storage).plan.last).toBeUndefined();
+  });
+
+  it('a change that throws when replayed does not take the others with it', () => {
+    vi.useFakeTimers();
+    const storage = memoryStorage();
+    const mine = createStore({ storage, debounceMs: 150 });
+    const other = createStore({ storage });
+    mine.update((d) => { if (Object.keys(d.cards).length) throw new Error('boom'); d.plan.last = 'long'; });
+    mine.update((d) => { d.read['x/'] = { at: 1, pct: 50 }; });
+    other.update((d) => { d.cards.Theirs = CARD; });
+    expect(() => mine.reload()).not.toThrow();
+    expect(mine.get().read['x/'].pct).toBe(50);
+    vi.useRealTimers();
+  });
+});
+
+describe('a stored value that is not an object', () => {
+  it.each(['[1,2,3]', '5', 'null', '"text"', 'true'])('keeps %s under the recovery key', (raw) => {
+    const storage = memoryStorage({ [STORE_KEY]: raw });
+    const store = createStore({ storage });
+    expect(store.get()).toEqual(emptyDoc());
+    expect(storage.data.get(`${STORE_KEY}:corrupt`)).toBe(raw);
+    store.update((d) => { d.plan.last = 'long'; });
+    expect(storage.data.get(`${STORE_KEY}:corrupt`)).toBe(raw); // still there after the next save
+    expect(stored(storage).plan.last).toBe('long');
+  });
+
+  it('will not overwrite the only copy if the recovery key cannot be written', () => {
+    const storage = memoryStorage({ [STORE_KEY]: '{not json' });
+    const real = storage.setItem;
+    let recoveryFull = true;
+    storage.setItem = (k, v) => { if (recoveryFull && k.endsWith(':corrupt')) throw new Error('QuotaExceededError'); real(k, v); };
+    const store = createStore({ storage });
+    store.update((d) => { d.plan.last = 'long'; });
+    expect(storage.data.get(STORE_KEY)).toBe('{not json');
+
+    recoveryFull = false;
+    store.update((d) => { d.plan.last = 'short'; });
+    expect(storage.data.get(`${STORE_KEY}:corrupt`)).toBe('{not json');
+    expect(stored(storage).plan.last).toBe('short');
+  });
+});
+
+describe('the backup reminder', () => {
+  const DAY = 86_400_000;
+  const withItems = (n: number, backup: ProgressDoc['backup'] = {}): ProgressDoc => {
+    const d = emptyDoc();
+    for (let i = 0; i < n; i++) d.cards[`c${i}`] = CARD;
+    d.backup = backup;
+    return d;
+  };
+
+  it('counts what would be lost, across sections', () => {
+    const d = withItems(2);
+    d.cards.unseen = { box: 0, due: 1, seen: 0, lapses: 0 };
+    d.read['x/'] = { at: 1, pct: 40 };
+    d.plan.done.short = [0, 1, 2];
+    d.quiz.attempts.push({ id: 'q', score: 1, of: 2, at: 3 });
+    d.solutions['s/'] = { status: 'attempted' };
+    d.exercises.e = { attempts: 1, hints: 0 };
+    d.choosers.c = { guided: 1, attempts: [] };
+    d.paths['scaling-story'] = { stage: 2 };
+    const c = countProgress(d);
+    expect(c).toMatchObject({ cards: 2, pages: 1, planner: 3, quizzes: 1, solutions: 1, exercises: 1, choosers: 1, paths: 1 });
+    expect(totalProgress(c)).toBe(11);
+  });
+
+  it('stays quiet until there is something meaningful to lose', () => {
+    expect(needsBackupReminder(withItems(9), NOW)).toBe(false);
+    expect(needsBackupReminder(withItems(10), NOW)).toBe(true);
+  });
+
+  it('stays quiet after an export until there are new changes and a week has passed', () => {
+    const exportedAt = NOW - 30 * DAY;
+    expect(needsBackupReminder(withItems(20, { exportedAt, changedAt: exportedAt - 1 }), NOW)).toBe(false); // nothing new
+    expect(needsBackupReminder(withItems(20, { exportedAt, changedAt: exportedAt + 1 }), NOW)).toBe(true);
+    const recent = NOW - 6 * DAY;
+    expect(needsBackupReminder(withItems(20, { exportedAt: recent, changedAt: NOW }), NOW)).toBe(false);
+    expect(needsBackupReminder(withItems(20, { exportedAt: NOW - 7 * DAY, changedAt: NOW }), NOW)).toBe(true);
+  });
+
+  it('marking an export is saved in the document and in the exported file', () => {
+    const storage = memoryStorage();
+    const store = createStore({ storage, now: () => NOW });
+    store.update((d) => { d.cards.A = CARD; });
+    store.markExported();
+    expect(stored(storage).backup.exportedAt).toBe(NOW);
+    expect(JSON.parse(store.exportJson()).backup.exportedAt).toBe(NOW);
+  });
+
+  it('a change to what you have learned is stamped, a settings change is not', () => {
+    let t = NOW;
+    const store = createStore({ storage: memoryStorage(), now: () => t });
+    store.update((d) => { d.settings.newCardsPerDay = 20; });
+    expect(store.get().backup.changedAt).toBeUndefined();
+    t += 1;
+    store.update((d) => { d.cards.A = CARD; });
+    expect(store.get().backup.changedAt).toBe(t);
+    t += 1;
+    store.markExported();
+    expect(store.get().backup.changedAt).toBe(t - 1);
+  });
+
+  it('an import keeps the export date in the file, so an old file does not pass as a fresh backup', () => {
+    const store = createStore({ storage: memoryStorage(), now: () => NOW });
+    store.importJson(JSON.stringify({ ...withItems(12), backup: { exportedAt: NOW - 30 * DAY, changedAt: NOW - 31 * DAY } }));
+    expect(store.get().backup.exportedAt).toBe(NOW - 30 * DAY);
+    expect(needsBackupReminder(store.get(), NOW)).toBe(false);
+    store.update((d) => { d.cards.New = CARD; });
+    expect(needsBackupReminder(store.get(), NOW)).toBe(true);
+  });
+});
+
+describe('asking the browser to keep the data', () => {
+  it('asks once per browser, and a refusal or an error is not a problem', async () => {
+    const storage = memoryStorage();
+    const persist = vi.fn(async () => false);
+    requestDurableStorage(storage, { persist });
+    requestDurableStorage(storage, { persist });
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(() => requestDurableStorage(memoryStorage(), { persist: () => Promise.reject(new Error('no')) })).not.toThrow();
+    expect(() => requestDurableStorage(memoryStorage(), { persist: () => { throw new Error('no'); } })).not.toThrow();
+  });
+
+  it('does nothing where the API or storage is missing', () => {
+    expect(() => requestDurableStorage(memoryStorage(), undefined)).not.toThrow();
+    const persist = vi.fn(async () => true);
+    requestDurableStorage(null, { persist });
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('waits to ask until it can remember having asked', () => {
+    const storage = flakyStorage();
+    storage.control.failAll = true;
+    const persist = vi.fn(async () => true);
+    requestDurableStorage(storage, { persist });
+    expect(persist).not.toHaveBeenCalled();
   });
 });
 

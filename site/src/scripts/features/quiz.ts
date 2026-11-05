@@ -102,12 +102,14 @@ function runner(root: HTMLElement, make: (seed: string, only?: string[]) => Run,
   function finish() {
     const score = scoreRun(shown, picked);
     const now = Date.now();
+    const asked = shown; // a saved change can be replayed later, after a new run has started
+    const quizId = run.id;
     progress.update((d) => {
-      for (const q of shown) {
+      for (const q of asked) {
         const was = d.quiz.items[q.id] ?? newItem(now);
         d.quiz.items[q.id] = grade(was, score.missed.includes(q.id) ? 'again' : 'good', now);
       }
-      d.quiz.attempts = [...d.quiz.attempts, { id: run.id, score: score.correct, of: score.of, at: now }].slice(-200);
+      d.quiz.attempts = [...d.quiz.attempts, { id: quizId, score: score.correct, of: score.of, at: now }].slice(-200);
     });
     clearRun();
     const pct = Math.round((score.correct / score.of) * 100);

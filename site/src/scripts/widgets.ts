@@ -75,15 +75,16 @@ function studyPlanner(host: HTMLElement) {
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const seg = t.closest<HTMLElement>('[data-t]');
-    if (seg) { current = seg.dataset.t!; progress.update((d) => { d.plan.last = current; }); history.replaceState(null, '', `#${current}`); render(); return; }
-    if (t.closest('[data-reset]')) { progress.update((d) => { d.plan.done[current] = []; }); render(); return; }
+    if (seg) { current = seg.dataset.t!; const last = current; progress.update((d) => { d.plan.last = last; }); history.replaceState(null, '', `#${current}`); render(); return; }
+    const planId = current; // a saved change can be replayed later, after `current` has moved on
+    if (t.closest('[data-reset]')) { progress.update((d) => { d.plan.done[planId] = []; }); render(); return; }
     const li = t.closest<HTMLElement>('li[data-i]');
     if (!li || t.closest('a')) return;
     const i = Number(li.dataset.i);
     progress.update((d) => {
-      const set = new Set(d.plan.done[current] ?? []);
+      const set = new Set(d.plan.done[planId] ?? []);
       set.has(i) ? set.delete(i) : set.add(i);
-      d.plan.done[current] = [...set];
+      d.plan.done[planId] = [...set];
     });
     render();
     $<HTMLInputElement>(`li[data-i="${i}"] input`, root)?.focus();

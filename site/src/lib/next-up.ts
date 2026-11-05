@@ -10,6 +10,8 @@ export interface NextUpInput {
   solutions: { path: string; title: string }[];
   /** One entry per quiz: its topic page, a title, and its question ids. */
   quizTopics: { slug: string; topic: string; title: string; ids: string[] }[];
+  /** The cards in the current deck. Without it, every due card in the document counts. */
+  cardKeys?: string[];
 }
 
 export type NextUp =
@@ -31,8 +33,10 @@ export function lastAttempts(doc: ProgressDoc): Map<string, { score: number; of:
   return out;
 }
 
-export function nextUp({ doc, now, trail, solutions, quizTopics }: NextUpInput): NextUp {
-  const dueCards = Object.values(doc.cards).filter((c) => c.seen > 0 && isDue(c, now)).length;
+export function nextUp({ doc, now, trail, solutions, quizTopics, cardKeys }: NextUpInput): NextUp {
+  // only count cards that still exist, so a removed card cannot nag forever
+  const deck = cardKeys && new Set(cardKeys);
+  const dueCards = Object.entries(doc.cards).filter(([key, c]) => (!deck || deck.has(key)) && c.seen > 0 && isDue(c, now)).length;
   if (dueCards > 0) return { kind: 'cards', path: 'practice/flashcards/', title: 'Review your flashcards', detail: `${dueCards} card${dueCards === 1 ? '' : 's'} due` };
 
   // only count questions that still exist, so a removed question cannot nag forever
